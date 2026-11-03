@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// Models and keys: AI providers, their keys (stored encrypted, shown masked),
+// models and prices, and the monthly spending limit.
 import { computed, onMounted, ref } from 'vue';
 import { EFFORTS, PROVIDER_TYPE_LABELS, type Provider, type WorkspaceSettings } from '@gh/shared';
 import { api, ago, money } from '../api';

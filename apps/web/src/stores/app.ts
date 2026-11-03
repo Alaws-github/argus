@@ -1,3 +1,5 @@
+// Shared app state: who is signed in, the chosen engagement, the board's cards,
+// permissions, theme and desktop notifications.
 import { defineStore } from 'pinia';
 import { can, type Card, type Engagement, type Permission, type Stage, type User } from '@gh/shared';
 import { api, socket } from '../api';

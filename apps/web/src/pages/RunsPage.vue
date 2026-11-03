@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// Every agent run in the engagement.
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { STAGE_LABELS, type Run } from '@gh/shared';
 import { api, ago, duration, money, socket } from '../api';

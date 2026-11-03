@@ -203,3 +203,7 @@ await expectErr(admin('GET', `/engagements/${hcu.id}/board`), 404, 'deleted enga
 const trail = await admin('GET', '/audit?action=engagement.deleted'); ok(trail.total === 1 && trail.rows[0].detail.removed.cards === 2, 'audit keeps who deleted it and what went');
 
 const v = await admin('GET', '/audit/verify'); ok(v.ok, `audit chain verifies (${JSON.stringify(v)})`);
+
+console.log('\nThis test created these accounts, all with the password correct-horse-9:');
+console.log('  andrew@example.com (admin), riley@example.com (reviewer), pat@example.com (preparer), val@example.com (viewer), lee@example.com (lead)');
+console.log('Run npm run db:reset (with the app stopped) to clear them and start again.');

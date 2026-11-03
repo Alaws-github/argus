@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// The "+ Add use case" form: the profile of a new AI use case, which lands in
+// Intake for someone else to triage.
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useApp } from '../stores/app';

@@ -1,4 +1,7 @@
 import './env.js';
+// Server entry point: opens the database, upgrades it, adds the demo data,
+// starts the web API, live updates (Socket.IO) and the agent engine, and in
+// production serves the built web app too.
 import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';

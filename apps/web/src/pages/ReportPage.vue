@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// Readiness assessment (seven areas scored 1-5 with reasons) and the printable
+// report, Markdown download and sign-off.
 import { computed, onMounted, ref } from 'vue';
 import { ISSUE_STATUS_LABELS, MATURITY, STAGE_LABELS, TIER_LABELS } from '@gh/shared';
 import { api, day, downloadText, when } from '../api';

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// Your account: display name, password, and where you are signed in.
 import { onMounted, ref } from 'vue';
 import { ROLE_HINTS, ROLE_LABELS } from '@gh/shared';
 import { api, ago, when } from '../api';

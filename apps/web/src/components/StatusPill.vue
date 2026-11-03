@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// The coloured status chip on a use case card (Needs triage, Running, Needs
+// your approval, Failed...).
 import { computed } from 'vue';
 import { STATUS_LABELS, type Card } from '@gh/shared';
 

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// The board: one column per stage, use cases as cards, filters and search.
+// Clicking a card opens the side panel (CardDrawer).
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { STAGES, STAGE_HINTS, STAGE_LABELS, TIER_LABELS, type Card, type Stage } from '@gh/shared';

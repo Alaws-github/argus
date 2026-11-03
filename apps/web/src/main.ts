@@ -1,3 +1,4 @@
+// Web app entry point: fonts, styles, and the list of pages and their URLs.
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import { createRouter, createWebHistory } from 'vue-router';

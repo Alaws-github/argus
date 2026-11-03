@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// One evaluation suite: its cases, its runs, each answer and whether it passed,
+// and raising issues from the failures.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { CHECK_LABELS, CHECKS, SEVERITIES, type EvalCase, type EvalResult, type EvalSuite } from '@gh/shared';

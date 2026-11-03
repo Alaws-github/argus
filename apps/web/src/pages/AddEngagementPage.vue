@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// Add an engagement (a new client or project) in five steps: Client, Scope,
+// Gates, Models, Review. Modelled on GoldenEye's Add project.
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {

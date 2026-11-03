@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// Evaluations and red teaming: the suites that test AI systems themselves, with
+// their last result against a pass threshold.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { EvalSuite, InventoryItem, Provider } from '@gh/shared';

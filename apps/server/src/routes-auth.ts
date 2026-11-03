@@ -1,3 +1,6 @@
+// Sign-in, sessions, your account and the People and roles page. Passwords are
+// hashed; names are unique (current and former) because approvals are recorded
+// by name.
 import type { Request, Response, NextFunction, Router } from 'express';
 import { z } from 'zod';
 import { Role } from '@gh/shared';

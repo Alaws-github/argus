@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// One agent run: model, cost, tokens and its step-by-step log.
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { STAGE_LABELS, type Card, type Run, type RunEvent } from '@gh/shared';

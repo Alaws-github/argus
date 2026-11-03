@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// The audit log: every action with who, what, when and from which address;
+// filters, paging, CSV and a button that verifies the hash chain.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { api, csv, downloadText, socket, when } from '../api';
 import { useApp } from '../stores/app';

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// Engagement settings, three tabs: General (details, pause, archive or delete),
+// Workflow & gates, and Agents (model, limits, instructions, kill switch).
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {

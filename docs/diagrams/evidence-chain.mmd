@@ -1,0 +1,8 @@
+flowchart LR
+  O["Obligation<br/><i>e.g. EU AI Act Art. 14<br/>Human oversight</i>"] --> L["Library control<br/><i>OVS-01 Human review<br/>of AI decisions</i>"]
+  L --> C["Control in place<br/><i>C-4 for the loan model,<br/>owned by Head of Credit</i>"]
+  C --> T["Test<br/><i>T-9 sample of 25 declines,<br/>prepared and reviewed</i>"]
+  T --> E["Evidence<br/><i>E-12 export, fingerprinted<br/>with SHA-256</i>"]
+  T -- "if it fails" --> I["Issue<br/><i>I-3 owner, due date,<br/>retest before closing</i>"]
+  E --> R["Readiness report<br/><i>signed off by a lead</i>"]
+  I --> R

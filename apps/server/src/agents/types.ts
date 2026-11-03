@@ -1,3 +1,5 @@
+// Shared shapes for agents: what the engine hands an agent for one run
+// (the context) and what the agent hands back (its output and token usage).
 import type { Card, Effort } from '@gh/shared';
 import type { ProviderRow } from '../providers.js';
 

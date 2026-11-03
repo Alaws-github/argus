@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// First run: create the first admin. After that: sign in.
 import { ref } from 'vue';
 import { api } from '../api';
 import { useApp } from '../stores/app';

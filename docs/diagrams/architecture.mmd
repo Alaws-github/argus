@@ -1,0 +1,6 @@
+flowchart TB
+  U["People<br/>in a web browser"] --> W["Web app<br/>(pages, forms, board)"]
+  W <--> S["Harness server<br/>(rules, permissions, gate engine)"]
+  S <--> D[("Database<br/>use cases, risks, controls,<br/>tests, issues, audit log")]
+  S <--> V[("Evidence vault<br/>files named by fingerprint")]
+  S <--> M["AI model providers<br/>(Anthropic, OpenAI-compatible,<br/>Ollama, or built-in offline rules)"]

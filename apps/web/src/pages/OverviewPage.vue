@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// Overview: the engagement at a glance (coverage, high risks, what needs you,
+// spend, recent runs).
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { STAGES, STAGE_LABELS, TIER_LABELS, type RiskTier, type Run } from '@gh/shared';
 import { useApp } from '../stores/app';

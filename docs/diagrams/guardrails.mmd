@@ -1,0 +1,17 @@
+sequenceDiagram
+  participant Ag as AI agent
+  participant Sv as Harness (server)
+  participant Pr as Preparer
+  participant Rv as Reviewer
+  participant Au as Audit log
+  Ag->>Sv: Draft (e.g. a suggested test result)
+  Sv->>Sv: Check shape, keys, evidence cited, figures
+  alt draft breaks a rule
+    Sv-->>Au: Run failed, draft rejected
+  else draft passes the checks
+    Sv->>Pr: Shown as a draft, never as a result
+    Pr->>Sv: Concludes the test (recorded as preparer)
+    Sv->>Rv: Waiting for review
+    Rv->>Sv: Reviews (must be a different person)
+  end
+  Sv->>Au: Every step, with who and when, hash-chained

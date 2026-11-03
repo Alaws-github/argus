@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// The risk register: inherent and residual scores, heat map, risk appetite and
+// acceptance, owners and treatment.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { riskRating, type Risk } from '@gh/shared';
 import { useApp } from '../stores/app';

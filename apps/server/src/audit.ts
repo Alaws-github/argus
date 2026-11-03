@@ -1,3 +1,6 @@
+// The audit log. Every change writes one entry in the same transaction as the
+// change itself, and each entry carries the hash of the one before it, so an
+// edited or deleted entry breaks the chain and Verify reports where.
 import { createHash } from 'node:crypto';
 import type { Queryable } from './db.js';
 import { emit } from './realtime.js';

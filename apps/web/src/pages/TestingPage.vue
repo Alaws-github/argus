@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// Testing: control tests (procedure, sample, expected and actual result,
+// preparer and reviewer, agent drafts) and the evidence vault.
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { TEST_STATUS_LABELS, type ControlTest, type EngagementControl, type Evidence } from '@gh/shared';

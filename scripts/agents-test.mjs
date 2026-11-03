@@ -126,5 +126,8 @@ await riley('POST', `/cards/${id1}/actions`, { action: 'retry' });
 d = await waitFor('AI-1', (x) => x.stage === 'report' && x.status === 'needs_approval', 'good report');
 ok(d.card.drafts.report.model === 'mock-good', 'live report draft accepted');
 const v2 = await admin('GET', '/audit/verify'); ok(v2.ok, v2.message);
+console.log('\nThis test created these accounts, all with the password correct-horse-9:');
+console.log('  andrew@example.com (admin), riley@example.com (reviewer), pat@example.com (preparer)');
+console.log('Run npm run db:reset (with the app stopped) to clear them and start again.');
 console.log(fails ? `${fails} FAILED` : 'ALL PASSED');
 process.exit(fails ? 1 : 0);

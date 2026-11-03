@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// Issues, handled like defects: severity, owner, due date, management response,
+// and a lifecycle that needs a passed retest before closing.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { ISSUE_STATUS_LABELS, SEVERITIES, type Issue, type IssueStatus } from '@gh/shared';
 import { api, csv, day, downloadText, socket } from '../api';

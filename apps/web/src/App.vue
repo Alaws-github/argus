@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// The app shell: sign-in gate, top bar (engagement switcher, navigation,
+// account menu with theme and notifications), archived banner and the page.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useApp } from './stores/app';

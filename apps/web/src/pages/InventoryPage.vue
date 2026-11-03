@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// The AI inventory: systems, models, agents, datasets and vendor AI, each with
+// an owner; agents get an eight-point readiness checklist.
 import { computed, onMounted, ref } from 'vue';
 import { INVENTORY_KINDS, type InventoryItem, type InventoryKind } from '@gh/shared';
 import { api, csv, day, downloadText } from '../api';

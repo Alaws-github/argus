@@ -1,0 +1,11 @@
+flowchart TB
+  A["1 Intake<br/><i>Person decides if it goes forward</i>"] --> B["2 Classify risk<br/><i>Agent drafts tier and risks<br/>Person approves</i>"]
+  B --> C["3 Design controls<br/><i>Agent proposes controls<br/>Person approves</i>"]
+  C --> D["4 Collect evidence<br/><i>Agent drafts request list<br/>Team uploads evidence</i>"]
+  D --> E["5 Test controls<br/><i>Agent drafts results<br/>Preparer concludes, reviewer checks</i>"]
+  E --> F["6 Remediate<br/><i>Owners fix what failed</i>"]
+  F --> G["7 Validate<br/><i>Agent lists challenges<br/>Person signs off</i>"]
+  G --> H["8 Board report<br/><i>Agent drafts summary<br/>Person approves</i>"]
+  H --> I["Closed"]
+  classDef person fill:#eef0fd,stroke:#4c5fd5,color:#15181d
+  class A,B,C,D,E,F,G,H person

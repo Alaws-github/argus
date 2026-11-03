@@ -1,5 +1,7 @@
 # Governance Harness
 
+> **New here, or not technical?** Start with the plain-language docs in [docs/](docs/README.md): what it is, how it works, a tour with screenshots, and step-by-step runbooks. This README is the developer reference. Context for Claude is in [CLAUDE.md](CLAUDE.md).
+
 An AI governance, risk and assurance workbench. AI use cases move across a board from Intake to Board report. Agents draft the work at each stage; a named person approves at each gate; every action lands in a hash-chained audit trail.
 
 v0.5 builds the four remaining agents (Evidence Collector, Control Tester, Review assistant, Report Writer) as drafting agents with guardrails; see **Drafting agents** below.
@@ -55,10 +57,10 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 
 | Command | What it does |
 | --- | --- |
-| `npm run db:reset` | Drops everything and reseeds Client Zero (keeps `data/secret.key`) |
+| `npm run db:reset` | **Stop the app first.** Deletes every account and record and reseeds Client Zero; the next visit asks you to create the first admin. Also recovers a damaged embedded database. Keeps `data/secret.key` |
 | `npm run build` then `npm start` | Builds the web app and serves it from the API on port 4300 |
 | `npm run typecheck` | Type-checks server and web |
-| `npm run smoke` | API smoke test (66 checks) against a running server on a **fresh** database |
+| `npm run smoke` | API smoke test (66 checks) against a running server on a **fresh** database. It creates test accounts (password `correct-horse-9`), so reset afterwards before real use |
 | `npm run test:agents` | Drafting-agent tests (28 checks), including a mock model that tries to cheat the guardrails. Also needs a fresh database |
 
 To use a real Postgres instead of PGlite, set `DATABASE_URL` in `.env`.

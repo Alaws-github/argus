@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// People and roles (admin only): add people, change roles, reset passwords,
+// disable accounts. People are never deleted, so their approvals keep a name.
 import { onMounted, ref } from 'vue';
 import { ROLES, ROLE_HINTS, ROLE_LABELS, type Role, type User } from '@gh/shared';
 import { api, ago } from '../api';

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+// Controls, four tabs: the register (controls per use case), the library
+// (reusable controls mapped to standards), the Statement of Applicability, and
+// the traceability matrix from obligation to evidence.
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import {

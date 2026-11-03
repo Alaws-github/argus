@@ -1,3 +1,5 @@
+// Talking to the server: one fetch helper (sends the session cookie, sends you
+// to sign-in when it lapses), the live-update socket, and small formatters.
 import { io } from 'socket.io-client';
 
 export class ApiError extends Error {

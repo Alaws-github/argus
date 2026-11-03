@@ -1,3 +1,6 @@
+// Core API: engagements, the board and its gate actions (approve, request
+// changes, move on, retry, reject), runs, the risk register, overview and the
+// audit log. Mounts the other route files at the end.
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { AGENT_ROLES, STAGES, UseCaseInput, riskRating, can, type Stage } from '@gh/shared';

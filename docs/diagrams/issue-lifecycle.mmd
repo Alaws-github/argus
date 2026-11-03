@@ -1,0 +1,10 @@
+stateDiagram-v2
+  [*] --> Open: raised from a failed test or eval
+  Open --> InRemediation: owner starts the fix
+  InRemediation --> ReadyForRetest: fix done
+  ReadyForRetest --> Closed: retest passed and reviewed
+  ReadyForRetest --> InRemediation: retest failed
+  Open --> RiskAccepted: accepted with a reason
+  InRemediation --> RiskAccepted: accepted with a reason
+  Closed --> Open: reopened
+  RiskAccepted --> Open: reopened

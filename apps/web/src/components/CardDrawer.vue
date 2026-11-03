@@ -1,4 +1,7 @@
 <script setup lang="ts">
+// The side panel for one use case: whatever decision it is waiting for (triage,
+// classification, control design, an agent draft, a manual sign-off), its exit
+// criteria, risks, controls, profile, runs and activity.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
   AGENT_ROLES, DRAFT_STAGES, OVERSIGHT_LABELS, STAGE_LABELS, TIER_LABELS, riskRating, riskScore,

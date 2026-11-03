@@ -1,3 +1,5 @@
+// Model prices and run cost. Cost = tokens x the price per million tokens set
+// on the Models page. Unbilled providers always cost $0.
 import type { ModelPrice } from '@gh/shared';
 
 // Default USD prices per million tokens for Anthropic models, the same table

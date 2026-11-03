@@ -90,12 +90,13 @@ declare global {
   }
 }
 
-const PUBLIC = new Set(['/health', '/auth/state', '/auth/login', '/auth/setup']);
+const PUBLIC = new Set(['/health', '/auth/state', '/auth/login', '/auth/setup', '/auth/sso', '/auth/sso/start', '/auth/sso/callback']);
 
 // Route-level permissions: the first matching rule decides. Anything not
 // listed needs 'read' for GET and 'prepare' otherwise.
 const RULES: [string, RegExp, Permission][] = [
   ['*', /^\/users/, 'manage_users'],
+  ['*', /^\/sso\/config/, 'manage_users'],
   ['*', /^\/auth\/(sessions|me)/, 'read'],
   ['POST', /^\/engagements$/, 'manage_engagement'],
   ['POST', /^\/knowledge\/(reindex|embeddings)/, 'manage_models'],
@@ -114,6 +115,14 @@ const RULES: [string, RegExp, Permission][] = [
   ['PUT', /^\/engagements\/[^/]+\/assessment/, 'manage_engagement'],
   ['POST', /^\/engagements\/[^/]+\/report\/sign/, 'sign_off_report'],
   ['POST', /^\/tests\/[^/]+\/review/, 'approve'],
+  ['PATCH', /^\/evals\/[^/]+\/schedule$/, 'manage_engagement'],
+  ['POST', /^\/connectors\/[^/]+\/pull$/, 'prepare'],
+  ['PUT', /^\/engagements\/[^/]+\/access$/, 'manage_engagement'],
+  ['POST', /^\/engagements\/[^/]+\/members$/, 'manage_engagement'],
+  ['DELETE', /^\/engagements\/[^/]+\/members\//, 'manage_engagement'],
+  ['POST', /^\/engagements\/[^/]+\/connectors$/, 'manage_engagement'],
+  ['*', /^\/connectors\//, 'manage_engagement'],
+  ['POST', /^\/alerts\/[^/]+\/acknowledge$/, 'approve'],
   ['POST', /^\/library/, 'manage_engagement'],
   ['PATCH', /^\/library/, 'manage_engagement'],
 ];

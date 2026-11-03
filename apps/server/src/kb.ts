@@ -189,6 +189,7 @@ const TEXTY = /^text\/|json|csv|xml|markdown/;
 export async function indexEvidence(q: Queryable, e: any) {
   let text = '';
   if (e.kind === 'note') text = e.note ?? '';
+  else if (e.text_content) text = e.text_content;
   else if (e.kind === 'file' && (TEXTY.test(e.mime ?? '') || /\.(txt|csv|md|json|log)$/i.test(e.filename ?? ''))) {
     const path = resolve(DATA_DIR, 'evidence', e.sha256);
     if (existsSync(path) && statSync(path).size < 400_000) text = readFileSync(path, 'utf8');

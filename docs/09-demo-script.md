@@ -73,7 +73,7 @@ Use the 15-minute script as the spine, and add these.
 
 **How do you prove the record hasn't been changed?** Every audit entry carries a fingerprint of the one before it; changing one breaks the chain, and anyone can verify it. Evidence files are fingerprinted when collected.
 
-**What isn't built yet?** Pulling evidence straight from client systems, reading PDFs and spreadsheets as evidence, scheduled monitoring and drift alerts, incident records, per-engagement access, and single sign-on. Say so plainly; it's a working prototype.
+**What isn't built yet?** Reading scanned documents (OCR), multi-factor sign-in inside the app (it relies on the identity provider's through single sign-on), SAML, and a limit on failed sign-ins. Evidence connectors read from systems that offer a report or export link over HTTPS; deeper integrations (for example a document management system's own API) would be added per client. Say so plainly; it's a working prototype.
 
 ## If something goes wrong
 

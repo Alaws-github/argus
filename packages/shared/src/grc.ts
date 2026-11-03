@@ -321,6 +321,7 @@ export const IssueInput = z.object({
   testId: z.string().uuid().nullable().default(null),
   evalRunId: z.string().uuid().nullable().default(null),
   cardId: z.string().uuid().nullable().default(null),
+  incidentId: z.string().uuid().nullable().default(null),
 });
 
 export interface Issue {
@@ -403,6 +404,35 @@ export interface EvalSuite {
   judgeModel: string | null;
   cases: number;
   lastRun: { id: string; passPct: number; passed: number; total: number; at: string; status: string } | null;
+  // Monitoring: how often it runs by itself, and the drop that raises an alert.
+  schedule: MonitorSchedule;
+  nextRunAt: string | null;
+  driftDropPct: number;
+  // Pass rate of the last completed runs, oldest first, for the trend line.
+  trend: number[];
+}
+
+export const MONITOR_SCHEDULES = ['off', 'daily', 'weekly'] as const;
+export type MonitorSchedule = (typeof MONITOR_SCHEDULES)[number];
+
+// An alert from monitoring: a scheduled or manual run fell below its
+// threshold, dropped against its recent baseline (drift), or failed to run.
+export interface MonitorAlert {
+  id: string;
+  key: string; // AL-1
+  suiteId: string;
+  suiteName: string;
+  runId: string | null;
+  kind: 'below_threshold' | 'drift' | 'run_failed';
+  message: string;
+  passPct: number | null;
+  baselinePct: number | null;
+  status: 'open' | 'acknowledged';
+  acknowledgedBy: string | null;
+  acknowledgedAt: string | null;
+  note: string;
+  issueKey: string | null;
+  createdAt: string;
 }
 
 export interface EvalCase extends EvalCaseInput {
@@ -785,4 +815,105 @@ export interface AssistantMessage {
   runtime: 'rules' | 'live' | null;
   author: string;
   at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Incidents
+// ---------------------------------------------------------------------------
+// Something that went wrong with a live AI system: a harmful output, a data
+// leak, an outage. Each one tracks who must be told and by when.
+export const INCIDENT_STATUSES = ['open', 'contained', 'resolved', 'closed'] as const;
+export type IncidentStatus = (typeof INCIDENT_STATUSES)[number];
+
+// Notification clocks, counted from when the organisation became aware.
+// EU AI Act Art. 73 (serious incidents) and the Jamaica DPA 2020 (breaches).
+export const NOTIFY_CLOCKS = {
+  ai_act_serious: { label: 'EU AI Act serious incident: market surveillance authority', hours: 15 * 24, to: 'Market surveillance authority' },
+  ai_act_widespread: { label: 'EU AI Act widespread infringement or critical infrastructure', hours: 2 * 24, to: 'Market surveillance authority' },
+  ai_act_death: { label: 'EU AI Act incident involving a death', hours: 10 * 24, to: 'Market surveillance authority' },
+  jdpa_breach: { label: 'Jamaica DPA personal data breach: Information Commissioner', hours: 72, to: 'Information Commissioner' },
+  data_subjects: { label: 'People affected by a personal data breach', hours: 72, to: 'Affected people' },
+  internal: { label: 'Internal escalation (your own policy)', hours: 24, to: 'Board Risk Committee' },
+} as const;
+export type NotifyClock = keyof typeof NOTIFY_CLOCKS;
+
+export const NewIncident = z.object({
+  title: z.string().trim().min(3).max(200),
+  description: z.string().max(4000).default(''),
+  severity: Severity.default('high'),
+  occurredAt: z.string().nullable().default(null),
+  awareAt: z.string().min(10),
+  inventoryId: z.string().uuid().nullable().default(null),
+  cardId: z.string().uuid().nullable().default(null),
+  owner: z.string().max(120).default(''),
+  clocks: z.array(z.enum(Object.keys(NOTIFY_CLOCKS) as [NotifyClock, ...NotifyClock[]])).default([]),
+});
+export type NewIncident = z.infer<typeof NewIncident>;
+
+export interface IncidentNotice { clock: NotifyClock; to: string; due: string; sentAt: string | null; sentBy: string | null; reference: string }
+export interface IncidentEvent { at: string; by: string; text: string }
+export interface Incident {
+  id: string;
+  key: string; // INC-1
+  engagementId: string;
+  title: string;
+  description: string;
+  severity: Severity;
+  status: IncidentStatus;
+  occurredAt: string | null;
+  awareAt: string;
+  inventoryId: string | null;
+  inventoryName: string | null;
+  cardId: string | null;
+  cardKey: string | null;
+  owner: string;
+  notices: IncidentNotice[];
+  timeline: IncidentEvent[];
+  rootCause: string;
+  lessons: string;
+  issueKeys: string[];
+  reportedBy: string;
+  createdAt: string;
+  closedBy: string | null;
+  closedAt: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Evidence connectors
+// ---------------------------------------------------------------------------
+// A read-only link to a client system: the harness fetches a report, export
+// or file over HTTPS and files it as fingerprinted evidence. It never writes
+// back. Credentials are encrypted and never shown again.
+export const CONNECTOR_AUTH = ['none', 'bearer', 'header', 'basic'] as const;
+export const CONNECTOR_SCHEDULES = ['manual', 'daily', 'weekly'] as const;
+export const ConnectorInput = z.object({
+  name: z.string().trim().min(3).max(120),
+  url: z.string().trim().url().max(2000).refine((u) => /^https?:\/\//i.test(u), 'Use an http or https address'),
+  auth: z.enum(CONNECTOR_AUTH).default('none'),
+  headerName: z.string().trim().max(80).default(''),
+  secret: z.string().max(4000).optional(),
+  controlId: z.string().uuid().nullable().default(null),
+  schedule: z.enum(CONNECTOR_SCHEDULES).default('manual'),
+  enabled: z.boolean().default(true),
+});
+export type ConnectorInput = z.infer<typeof ConnectorInput>;
+
+export interface Connector {
+  id: string;
+  key: string; // CN-1
+  name: string;
+  url: string;
+  auth: (typeof CONNECTOR_AUTH)[number];
+  headerName: string;
+  secretSet: boolean;
+  controlId: string | null;
+  controlKey: string | null;
+  schedule: (typeof CONNECTOR_SCHEDULES)[number];
+  enabled: boolean;
+  nextPullAt: string | null;
+  lastPullAt: string | null;
+  lastStatus: 'never' | 'added' | 'unchanged' | 'failed';
+  lastMessage: string;
+  pulls: number;
+  createdBy: string;
 }

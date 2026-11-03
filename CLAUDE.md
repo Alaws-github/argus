@@ -4,7 +4,7 @@ Context for Claude working on this project. Read this first.
 
 ## What this is
 
-**Governance Harness** (v0.9): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report). Six AI agents draft the work; named people make every decision; everything is written to a hash-chained audit log.
+**Governance Harness** (v1.0): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report). Six AI agents draft the work; named people make every decision; everything is written to a hash-chained audit log.
 
 It was rebuilt from **GoldenEye**, the owner's AI delivery harness, keeping its board-and-gate engine, Models page, tabbed Settings, account menu and look. GoldenEye is a reference only: never change anything in it.
 
@@ -30,6 +30,9 @@ These are the product. Any change must keep them, and the tests check them.
 13. **Agents are grounded** (`kb.ts`): they get knowledge-base passages, must cite them by K-id, and `strayCitations` rejects any id they weren't given. Cited passages are snapshotted onto the draft. Drafting calls use temperature 0 (`postDeterministic` in `llm.ts`).
 14. **The Verifier is advisory** (`verifier.ts`). Its verdicts sit in `cards.verification`, never in `decisions`, and never block or allow an approval. A "supported" or "partly" verdict must quote a cited passage word for word or it is downgraded. Live checks are off by default. Billed Verifier, golden and calibration calls go into `ai_spend`, which the spend cap counts.
 15. **The assistant only suggests** (`assistant.ts`, `routes-assistant.ts`). Suggestion kinds are a whitelist (`AssistantSuggestion` in shared): decide_item, update_risk, update_control, raise_issue, rerun_agent. No approve, sign-off, conclude, accept-risk or close kinds, ever. Suggestions must name ids from the context it was shown (`checkSuggestion`). Apply replays the change through the API with the person's own cookie (and their client IP via `INTERNAL_TOKEN`), so RULES, SoD, exit criteria and audit apply unchanged.
+16. **Per-engagement access is enforced centrally** (`access.ts`, before `archiveGuard`): every request, reads included, is mapped to its engagement through `OWNERS` in `archive.ts`; non-members of a members-only engagement get 404. A new route whose URL doesn't start with `/engagements/:id/` must be added to `OWNERS`. Lists (`/engagements`, `/runs`, `/audit`, judge labels) filter with `visibleIds`; `emit()` in `realtime.ts` filters live updates; `logAudit` tags `audit_log.engagement_id` (outside the hash).
+17. **Connectors only read** (`connectors.ts`): GET only, credentials encrypted and never returned or audited, private and loopback addresses refused unless the admin setting `connectorsAllowPrivate` is on, every address on a redirect re-checked.
+18. **SSO never creates accounts or changes roles** (`sso.ts`): pre-provisioned users only, matched by email; state, nonce and PKCE; ID token signature, issuer, audience and expiry checked with `jose`; admins always keep password sign-in.
 11. **Generic names only.** No client firm's trademarked service or product names in the app or docs. Demo data is fictional ("Client Zero", "Northshore Financial Group (demo)").
 
 ## Run it
@@ -43,6 +46,7 @@ npm run demo         # on a FRESH db with the app running: realistic Client Zero
 npm run smoke        # 66 API checks; needs a fresh db and a running server
 npm run test:agents  # 30 drafting-agent checks incl. a cheating mock model
 npm run test:grounding # 31 checks: knowledge base, citations, decisions, meaning search, temperature
+npm run test:operations # 58 checks: PDF/Excel/Word reading, incidents, monitoring and drift, connectors, members-only access, SSO (mock IdP)
 npm run test:assistant # 27 checks: assistant offline/live, dropped citations and suggestions, apply under own role, discard, spend cap, JSON fallback
 npm run test:verifier  # 36 checks: golden runs, regressions, Verifier quote check, calibration, live checks, spend cap
 ```
@@ -82,6 +86,12 @@ apps/server/src
   routes-testing.ts agent testing API and POST /cards/:id/verify
   assistant.ts    the assistant: context builder (ids it may refer to), suggestion whitelist and checks, rules and live answers
   routes-assistant.ts conversation per person and context; apply (replayed through the API as the person) and discard
+  extract.ts      text from PDF (unpdf), Excel (exceljs), Word (mammoth) and text files, for evidence and uploads
+  routes-incidents.ts incidents, notification clocks (NOTIFY_CLOCKS in shared), timeline, closing rules
+  monitoring.ts   scheduler tick (suites and connectors), checkRun: below threshold, drift, run failed
+  connectors.ts   read-only evidence pulls with the private-network guard; routes-connectors.ts
+  access.ts       visibleIds, canSee, accessGuard, engagementOfEntity; routes-access.ts (members, open or members-only)
+  sso.ts          OpenID Connect scaffold: discovery, start, callback, config, passwordAllowed
   schema.sql      idempotent schema; versions append ALTER TABLE ... IF NOT EXISTS at the end
   seed.ts         demo engagement, providers, agents, library, inventory and eval suites
 apps/web/src
@@ -91,7 +101,7 @@ apps/web/src
   components/     AssistantPanel (Ask), StandardsTab (plain-English framework coverage), ProviderForm (presets), VerifierBar, DraftItem
   styles.css      GoldenEye design tokens (dark first, light via data-theme or system)
 docs/             plain-language docs, runbooks, diagrams (Mermaid source) and images
-scripts/          smoke.mjs, agents-test.mjs, grounding-test.mjs, verifier-test.mjs, assistant-test.mjs, mock-model.cjs, demo-data.mjs
+scripts/          smoke.mjs, agents-test.mjs, grounding-test.mjs, verifier-test.mjs, assistant-test.mjs, operations-test.mjs, mock-model.cjs, demo-data.mjs
 data/             database, evidence files, secret.key (gitignored; back up together)
 ```
 
@@ -114,4 +124,6 @@ The working copy lives in `~/Documents/Governance and Risk - AI/governance-harne
 
 ## Not built yet
 
-Verifier coverage of the four drafting agents (it checks classify and design only); the assistant streaming answers and acting on more record types; connectors for the Evidence Collector; reading PDFs and spreadsheets as evidence; scheduled evals and drift monitoring; incident records; per-engagement membership; SSO and MFA; sign-in rate limiting.
+OCR for scanned evidence; SAML, sign-out at the provider and MFA inside the app; OAuth connectors for document stores; sign-in rate limiting; Verifier coverage of the four drafting agents; the assistant streaming answers.
+
+The full manual is `docs/manual.md`, rendered to `docs/manual.pdf` by `scripts/build-manual.mjs` (Playwright). Rebuild the PDF after changing the manual or its screenshots.

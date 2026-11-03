@@ -161,6 +161,21 @@ for (const i of await andrew('GET', `/engagements/${E}/issues`)) {
 }
 step('Chatbot evaluations run: answer quality and red team, with issues raised from red-team failures');
 
+// ---- Monitoring and an incident on the live chatbot
+const redSuite = (await andrew('GET', `/engagements/${E}/evals`)).find((s) => s.kind === 'red_team');
+await jordan('PATCH', `/evals/${redSuite.id}/schedule`, { schedule: 'weekly' });
+const bot = (await andrew('GET', `/engagements/${E}/inventory`)).find((i) => /chatbot/i.test(i.name));
+const chatbotCard = (await card('AI-2')).card;
+const inc = await sam('POST', `/engagements/${E}/incidents`, {
+  title: 'Chatbot quoted the old card replacement fee to customers',
+  description: 'Between 28 and 30 October the chatbot told customers the replacement fee was J$500; it is J$1,200. 41 chats affected. Customers were charged the correct fee, but some complained.',
+  severity: 'medium', occurredAt: new Date(Date.now() - 4 * 864e5).toISOString(), awareAt: new Date(Date.now() - 20 * 3600_000).toISOString(),
+  inventoryId: bot.id, cardId: chatbotCard.id, owner: 'Customer Experience Manager', clocks: ['internal'],
+});
+await sam('PATCH', `/incidents/${inc.id}`, { status: 'contained', note: 'Fee answer switched to the human team while the knowledge source is fixed' });
+await sam('POST', `/engagements/${E}/issues`, { title: 'Chatbot fee answers come from an out-of-date page', severity: 'medium', incidentId: inc.id, cardId: chatbotCard.id, owner: 'Head of Digital', description: 'Point the chatbot at the live fee schedule and add a quality eval case for fees.' });
+step('Red-team suite monitored weekly; an incident on the chatbot, contained, with a corrective action');
+
 // ---- AI-1 Loan pre-approval: tested and waiting for sign-off at Validate
 {
   const { id } = await classifyAndDesign('AI-1', {

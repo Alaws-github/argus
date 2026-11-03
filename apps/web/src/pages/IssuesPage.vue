@@ -5,6 +5,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { ISSUE_STATUS_LABELS, SEVERITIES, type Issue, type IssueStatus } from '@gh/shared';
 import { api, csv, day, downloadText, socket } from '../api';
 import { useApp } from '../stores/app';
+import IssueTabs from '../components/IssueTabs.vue';
 
 const app = useApp();
 const issues = ref<Issue[]>([]);
@@ -116,6 +117,7 @@ function exportCsv() {
         <button v-if="app.can('prepare')" class="btn primary" @click="adding = true">Raise issue</button>
       </div>
     </div>
+    <IssueTabs />
     <div class="toolbar">
       <div class="filters">
         <button class="filter" :class="{ active: filter === 'open' }" @click="filter = 'open'">Open<span class="count">{{ issues.filter((i) => OPEN.includes(i.status)).length }}</span></button>

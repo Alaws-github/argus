@@ -6,10 +6,11 @@ import { useRoute } from 'vue-router';
 import { TEST_STATUS_LABELS, type ControlTest, type EngagementControl, type Evidence } from '@gh/shared';
 import { api, csv, downloadText, when } from '../api';
 import { useApp } from '../stores/app';
+import ConnectorsTab from '../components/ConnectorsTab.vue';
 
 const app = useApp();
 const route = useRoute();
-const tab = computed(() => route.params.tab as 'tests' | 'evidence');
+const tab = computed(() => route.params.tab as 'tests' | 'evidence' | 'connectors');
 
 const tests = ref<ControlTest[]>([]);
 const evidence = ref<Evidence[]>([]);
@@ -191,6 +192,7 @@ function exportTests() {
     <nav class="tabs">
       <RouterLink to="/testing/tests" :class="{ active: tab === 'tests' }">Tests</RouterLink>
       <RouterLink to="/testing/evidence" :class="{ active: tab === 'evidence' }">Evidence vault</RouterLink>
+      <RouterLink to="/testing/connectors" :class="{ active: tab === 'connectors' }">Connectors</RouterLink>
     </nav>
     <div v-if="loading" class="muted">Loading…</div>
 
@@ -231,6 +233,7 @@ function exportTests() {
       </div>
     </template>
 
+    <ConnectorsTab v-else-if="tab === 'connectors'" :controls="controls" @pulled="load" />
     <template v-else>
       <p class="small muted" style="margin-bottom: 12px">Each item is fingerprinted with SHA-256 when it's collected. Verify recomputes the hash from what's stored, so you can show it hasn't changed since.</p>
       <div v-if="!evidence.length" class="card empty"><h2>No evidence yet</h2><p>Attach evidence from a test, or it arrives automatically from evaluation runs.</p></div>
@@ -243,6 +246,7 @@ function exportTests() {
               <td style="min-width: 220px">
                 {{ e.title }}
                 <div class="small faint">{{ e.kind }}<template v-if="e.filename"> · {{ e.filename }}</template><template v-if="e.source"> · {{ e.source }}</template></div>
+                <div v-if="(e as any).readNote" class="small" :style="{ color: (e as any).readable ? 'var(--muted)' : 'var(--warn)' }">{{ (e as any).readable ? 'Agents can read it: ' : '' }}{{ (e as any).readNote }}</div>
                 <a v-if="e.url" :href="e.url" target="_blank" rel="noopener" class="small">{{ e.url }}</a>
               </td>
               <td class="small mono">{{ evTarget(e) }}</td>
@@ -343,6 +347,7 @@ function exportTests() {
               <button type="button" :class="{ on: evForm.kind === 'note' }" @click="evForm.kind = 'note'">Note</button>
             </div>
             <input v-if="evForm.kind === 'file'" ref="fileInput" type="file" class="input" aria-label="Evidence file" />
+            <span v-if="evForm.kind === 'file'" class="hint">PDF, Excel (.xlsx), Word (.docx) and text files are read so agents can use them. Scanned PDFs need a note saying what they show.</span>
             <input v-if="evForm.kind === 'link'" v-model="evForm.url" type="url" class="input" placeholder="https://…" aria-label="Evidence link" />
             <textarea v-if="evForm.kind === 'note'" v-model="evForm.note" class="textarea" placeholder="Walkthrough notes, inquiry responses…" aria-label="Evidence note" />
             <input v-model="evForm.title" class="input" :placeholder="evForm.kind === 'file' ? 'Title (defaults to the file name)' : 'Title'" aria-label="Evidence title" />

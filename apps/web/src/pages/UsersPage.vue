@@ -5,6 +5,7 @@ import { onMounted, ref } from 'vue';
 import { ROLES, ROLE_HINTS, ROLE_LABELS, type Role, type User } from '@gh/shared';
 import { api, ago } from '../api';
 import { useApp } from '../stores/app';
+import SsoSettings from '../components/SsoSettings.vue';
 
 const app = useApp();
 const users = ref<User[]>([]);
@@ -102,5 +103,6 @@ async function add() {
         <div class="row"><button class="btn primary">Add person</button><button type="button" class="btn" @click="adding = false">Cancel</button></div>
       </form>
     </template>
+    <SsoSettings />
   </div>
 </template>

@@ -122,7 +122,7 @@ onBeforeUnmount(() => {
           <RouterLink to="/risks">Risks</RouterLink>
           <RouterLink to="/controls" :class="{ 'router-link-active': $route.path.startsWith('/controls') }">Controls</RouterLink>
           <RouterLink to="/testing" :class="{ 'router-link-active': $route.path.startsWith('/testing') }">Testing</RouterLink>
-          <RouterLink to="/issues">Issues</RouterLink>
+          <RouterLink to="/issues" :class="{ 'router-link-active': $route.path.startsWith('/incidents') }">Issues</RouterLink>
           <RouterLink to="/evals" :class="{ 'router-link-active': $route.path.startsWith('/evals') }">Evals</RouterLink>
           <RouterLink to="/inventory">Inventory</RouterLink>
           <RouterLink to="/report">Report</RouterLink>

@@ -128,5 +128,5 @@ Each agent can run on a different model. The Models page has ready-made settings
 
 ## What the agents can't do yet
 
-- Read PDFs, spreadsheets or web links. They read notes and text files, and say so when they can't see something.
-- Pull evidence from a client's systems. The team uploads it.
+- Read scanned PDFs (images with no text layer). They read notes, text files, PDFs with text, Excel (.xlsx) and Word (.docx) files, and say so when they can't see something.
+- Open web links on their own. Evidence connectors fetch from client systems on a schedule or on request, and the agents read what was fetched.

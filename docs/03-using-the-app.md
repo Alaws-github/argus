@@ -111,6 +111,30 @@ Each person has their own conversation per use case or page. With no model chose
 
 ![The assistant on a use case](images/assistant-card.png)
 
+## Incidents (Issues > Incidents)
+
+When a live AI system causes harm, leaks data or fails: what happened, when you became aware, who must be told and by when (EU AI Act and Jamaica DPA deadlines are worked out for you), a timeline, corrective actions (raised as issues), the root cause and lessons. Closing needs a reviewer or lead who didn't report it, every notice sent and every corrective action closed. See [Report and close an incident](runbooks/report-an-incident.md).
+
+![An incident](images/walkthrough/24-incident-detail.png)
+
+## Monitoring (on the Evals page)
+
+Each evaluation suite can run by itself daily or weekly. Every run is checked against its threshold and against the average of its last three runs, and a drop raises an alert at the top of the Evals page. Someone acknowledges each alert with a note, or turns it into an issue. See [Set up monitoring](runbooks/set-up-monitoring.md).
+
+![Monitoring alerts and a trend line](images/walkthrough/25-monitoring.png)
+
+## Evidence: files and connectors (Testing)
+
+Evidence can be a note, a link or a file. PDFs with text, Excel (.xlsx), Word (.docx) and text files are read when collected, so agents and search can use them; the vault says what was read. Scanned PDFs need a note. **Connectors** pull a report or export from a client system over HTTPS, read-only, on request or on a schedule, and file each new version as fingerprinted evidence against a control. See [Connect a client system](runbooks/connect-a-client-system.md).
+
+## Who can see an engagement (Settings > General)
+
+An engagement is open to everyone signed in, or **members only**: then only its members and admins can see it, its records, audit entries and live updates. See [Make an engagement members-only](runbooks/restrict-an-engagement.md).
+
+## Single sign-on (People and roles)
+
+Admins can let people sign in through an identity provider (OpenID Connect). It signs in people who already have an account, matched by email. See [Set up single sign-on](runbooks/set-up-single-sign-on.md).
+
 ## Agent testing (More)
 
 Tests for the AI agents themselves. **Golden dataset** runs an agent over use cases with known right answers and shows what it got right, what it got wrong, and any regressions since the last run. **Verifier** sets which model checks drafts and whether it checks every new draft automatically, and shows how far the Verifier agrees with people's judgement. **History** lists every run and measurement. Admins run tests; everyone can see the results. See [Test the agents](runbooks/test-the-agents.md).

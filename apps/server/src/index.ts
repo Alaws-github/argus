@@ -14,6 +14,9 @@ import { ensureBaseline, seed } from './seed.js';
 import { routes } from './routes.js';
 import { attach } from './realtime.js';
 import { startEngine } from './engine.js';
+import { accessGuard } from './access.js';
+import { startMonitoring } from './monitoring.js';
+import { startSuiteRun } from './routes-grc.js';
 import { setInternalToken, withRequestContext } from './context.js';
 import { INTERNAL_TOKEN } from './assistant.js';
 import { archiveGuard } from './archive.js';
@@ -42,8 +45,10 @@ app.use((_req, res, next) => {
 });
 // Evidence uploads arrive as base64 JSON, so that one route takes a larger body.
 app.use('/api/evidence', express.json({ limit: '15mb' }));
+app.use(/^\/api\/engagements\/[^/]+\/knowledge$/, express.json({ limit: '15mb' }));
 app.use(express.json({ limit: '256kb' }));
 app.use('/api', authMiddleware(db));
+app.use('/api', accessGuard(db));
 app.use('/api', archiveGuard(db));
 app.use('/api', routes(db));
 
@@ -69,11 +74,16 @@ const io = new Server(http, { cors: { origin: false } });
 // Live updates only go to signed-in browsers.
 io.use((socket, next) => {
   userFromToken(db, readCookie(socket.handshake.headers.cookie))
-    .then((u) => (u ? next() : next(new Error('Sign in to continue'))))
+    .then((u) => {
+      if (!u) return next(new Error('Sign in to continue'));
+      socket.data.user = { id: u.id, role: u.role };
+      next();
+    })
     .catch(() => next(new Error('Sign in to continue')));
 });
-attach(io);
+attach(io, db);
 startEngine(db);
+startMonitoring(db, (id, actor) => startSuiteRun(db, id, actor));
 
 http.listen(PORT, () => {
   console.log(`[server] http://localhost:${PORT}  db=${db.kind}  models: see /models in the app`);

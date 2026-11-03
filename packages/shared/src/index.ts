@@ -461,6 +461,9 @@ export const WorkspaceSettings = z.object({
   // The assistant's model. None means the offline assistant.
   assistantProviderId: z.string().uuid().nullable(),
   assistantModel: z.string().max(120),
+  // Evidence connectors may reach addresses on a private network or this
+  // machine only when an admin allows it (off by default, against SSRF).
+  connectorsAllowPrivate: z.boolean(),
 });
 export type WorkspaceSettings = z.infer<typeof WorkspaceSettings>;
 
@@ -484,6 +487,8 @@ export interface Engagement {
   archivedAt: string | null;
   archivedBy: string | null;
   archiveReason: string | null;
+  // 'open': everyone signed in can see it; 'members': its members and admins.
+  access: 'open' | 'members';
 }
 
 // Risk appetite: the highest residual score the engagement accepts without

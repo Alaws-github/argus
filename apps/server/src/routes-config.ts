@@ -241,6 +241,8 @@ export function configRoutes(r: Router, db: Db, actorOf: (req: Request) => strin
         [slug, b.name, b.client, b.prefix, b.color, JSON.stringify(gates), b.about, labels.join(' · '), b.sector, JSON.stringify(b.appetite), actor],
       );
       const eid = rows[0].id;
+      // The person who creates an engagement is its first member.
+      await q.query(`INSERT INTO engagement_members (engagement_id, user_id, added_by) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, [eid, req.user!.id, actor]);
       await ensureAgents(q, eid);
       for (const [role, a] of Object.entries(b.agents)) {
         await q.query(`UPDATE agents SET provider_id = $3, model = $4, effort = $5 WHERE engagement_id = $1 AND role = $2`, [eid, role, a.providerId, a.model, a.effort]);

@@ -3,10 +3,13 @@
 // evaluations, readiness assessment and report.
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { extract } from './extract.js';
+import { checkRun } from './monitoring.js';
 import { resolve } from 'node:path';
 import type { NextFunction, Request, Response, Router } from 'express';
 import { z } from 'zod';
 import {
+  MONITOR_SCHEDULES,
   ASSESSMENT_AREAS, ControlInput, ControlStatus, EvalCaseInput, EvalSuiteInput, InventoryInput, IssueInput, IssueStatus,
   Severity, TestInput, TestStatus, agentReadiness, riskRating,
   type EvalResult, type FrameworkRefs,
@@ -70,6 +73,8 @@ const toEvidence = (r: any) => ({
   id: r.id, key: `E-${r.number}`, engagementId: r.engagement_id, title: r.title, kind: r.kind, filename: r.filename, mime: r.mime,
   size: r.size, sha256: r.sha256, url: r.url, note: r.note, source: r.source, collectedBy: r.collected_by, collectedAt: iso(r.collected_at),
   controlId: r.control_id, testId: r.test_id, verified: null as boolean | null,
+  // What the harness could read of the file, for agents and search.
+  readNote: r.text_note ?? null, readable: !!r.text_content,
 });
 
 const ISSUE_SELECT = `
@@ -185,7 +190,24 @@ async function runSuite(db: Db, suiteId: string, runId: string, actor: string) {
   } catch (e: any) {
     await db.query(`UPDATE eval_runs SET status='failed', error=$2, ended_at=now() WHERE id=$1`, [runId, String(e?.message ?? e).slice(0, 500)]);
   }
+  // Monitoring compares every run with its threshold and recent baseline.
+  await checkRun(db, runId).catch((e) => console.warn(`[monitor] check failed: ${e.message}`));
   emit('eval', { runId, finished: true });
+}
+
+// Start a run of a suite: from the Evals page, or from the monitoring schedule.
+export async function startSuiteRun(db: Db, suiteId: string, actor: string): Promise<string> {
+  const { rows } = await db.query(`SELECT s.*, p.name AS provider_name FROM eval_suites s LEFT JOIN providers p ON p.id = s.provider_id WHERE s.id = $1`, [suiteId]);
+  const s = rows[0];
+  if (!s) throw httpError(404, 'Suite not found');
+  const { rows: busy } = await db.query(`SELECT 1 FROM eval_runs WHERE suite_id = $1 AND status = 'running'`, [s.id]);
+  if (busy.length) throw httpError(409, 'This suite is already running');
+  const { rows: n } = await db.query(`SELECT count(*)::int AS n FROM eval_cases WHERE suite_id = $1`, [s.id]);
+  if (!n[0].n) throw httpError(400, 'Add at least one case first');
+  const { rows: run } = await db.query(`INSERT INTO eval_runs (suite_id, model, provider, total, run_by) VALUES ($1,$2,$3,$4,$5) RETURNING id`, [s.id, s.model, s.provider_name ?? '?', n[0].n, actor]);
+  await logAudit(db, actor, 'eval.started', `eval:${s.name}`, { model: s.model, cases: n[0].n, ...(actor === 'Monitoring' ? { scheduled: s.schedule } : {}) });
+  void runSuite(db, s.id, run[0].id, actor);
+  return run[0].id;
 }
 
 // --------------------------------------------------------------- assessment
@@ -496,6 +518,7 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
       testId: z.string().uuid().nullable().default(null),
     }).parse(req.body);
     let hash: string, size: number | null = null;
+    let read: { text: string; note: string } | null = null;
     if (b.kind === 'file') {
       if (!b.dataBase64 || !b.filename) throw httpError(400, 'Attach a file');
       const buf = Buffer.from(b.dataBase64, 'base64');
@@ -505,6 +528,8 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
       mkdirSync(EVIDENCE_DIR, { recursive: true });
       const path = resolve(EVIDENCE_DIR, hash);
       if (!existsSync(path)) writeFileSync(path, buf);
+      // Read PDFs, spreadsheets, Word and text files so agents can use them.
+      read = await extract(buf, b.filename, b.mime ?? '');
     } else if (b.kind === 'link') {
       if (!b.url) throw httpError(400, 'Give the link');
       hash = sha256(b.url);
@@ -515,11 +540,11 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
     const controlId = b.controlId ?? (b.testId ? (await db.query(`SELECT control_id FROM tests WHERE id = $1`, [b.testId])).rows[0]?.control_id ?? null : null);
     const { rows } = await db.tx(async (q) => {
       const out = await q.query(
-        `INSERT INTO evidence (engagement_id, title, kind, filename, mime, size, sha256, url, note, source, collected_by, control_id, test_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-        [b.engagementId, b.title, b.kind, b.filename ?? null, b.mime ?? null, size, hash, b.url ?? null, b.note ?? null, b.source, actorOf(req), controlId, b.testId],
+        `INSERT INTO evidence (engagement_id, title, kind, filename, mime, size, sha256, url, note, source, collected_by, control_id, test_id, text_content, text_note)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+        [b.engagementId, b.title, b.kind, b.filename ?? null, b.mime ?? null, size, hash, b.url ?? null, b.note ?? null, b.source, actorOf(req), controlId, b.testId, read?.text || null, read?.note ?? null],
       );
-      await logAudit(q, actorOf(req), 'evidence.added', `evidence:E-${out.rows[0].number}`, { title: b.title, kind: b.kind, sha256: hash });
+      await logAudit(q, actorOf(req), 'evidence.added', `evidence:E-${out.rows[0].number}`, { title: b.title, kind: b.kind, sha256: hash, ...(read ? { read: read.note } : {}) });
       return out;
     });
     // Agents can now retrieve it (notes and text files).
@@ -568,9 +593,9 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
     if (!cardId && b.controlId) cardId = (await db.query(`SELECT card_id FROM controls WHERE id = $1`, [b.controlId])).rows[0]?.card_id ?? null;
     const id = await db.tx(async (q) => {
       const { rows } = await q.query(
-        `INSERT INTO issues (engagement_id, title, description, severity, owner, due_date, control_id, test_id, eval_run_id, card_id, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id, number`,
-        [req.params.id, b.title, b.description, b.severity, b.owner, b.dueDate, b.controlId, b.testId, b.evalRunId, cardId, actorOf(req)],
+        `INSERT INTO issues (engagement_id, title, description, severity, owner, due_date, control_id, test_id, eval_run_id, card_id, created_by, incident_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, number`,
+        [req.params.id, b.title, b.description, b.severity, b.owner, b.dueDate, b.controlId, b.testId, b.evalRunId, cardId, actorOf(req), b.incidentId],
       );
       await logAudit(q, actorOf(req), 'issue.raised', `issue:I-${rows[0].number}`, { title: b.title, severity: b.severity });
       return rows[0].id;
@@ -666,14 +691,71 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
   const SUITE_SELECT = `
     SELECT s.*, i.name AS inventory_name, p.name AS provider_name,
       (SELECT count(*)::int FROM eval_cases c WHERE c.suite_id = s.id) AS cases,
-      (SELECT row_to_json(x) FROM (SELECT r.id, r.passed, r.total, r.ended_at, r.started_at, r.status FROM eval_runs r WHERE r.suite_id = s.id ORDER BY r.started_at DESC LIMIT 1) x) AS last_run
+      (SELECT row_to_json(x) FROM (SELECT r.id, r.passed, r.total, r.ended_at, r.started_at, r.status FROM eval_runs r WHERE r.suite_id = s.id ORDER BY r.started_at DESC LIMIT 1) x) AS last_run,
+      (SELECT json_agg(t.p ORDER BY t.st) FROM (SELECT round(r.passed * 100.0 / r.total)::int AS p, r.started_at AS st FROM eval_runs r WHERE r.suite_id = s.id AND r.status = 'completed' AND r.total > 0 ORDER BY r.started_at DESC LIMIT 10) t) AS trend
     FROM eval_suites s LEFT JOIN inventory i ON i.id = s.inventory_id LEFT JOIN providers p ON p.id = s.provider_id`;
   const toSuite = (r: any) => ({
     id: r.id, key: `EV-${r.number}`, engagementId: r.engagement_id, name: r.name, kind: r.kind, inventoryId: r.inventory_id, inventoryName: r.inventory_name,
     providerId: r.provider_id, providerName: r.provider_name ?? 'Removed provider', model: r.model, systemPrompt: r.system_prompt, thresholdPct: r.threshold_pct,
     judgeProviderId: r.judge_provider_id, judgeModel: r.judge_model, cases: r.cases,
     lastRun: r.last_run ? { id: r.last_run.id, passed: r.last_run.passed, total: r.last_run.total, passPct: r.last_run.total ? Math.round((r.last_run.passed / r.last_run.total) * 100) : 0, at: iso(r.last_run.ended_at ?? r.last_run.started_at), status: r.last_run.status } : null,
+    schedule: r.schedule ?? 'off', nextRunAt: iso(r.next_run_at), driftDropPct: r.drift_drop_pct ?? 10, trend: r.trend ?? [],
   });
+
+  // ------------------------------------------------------------- monitoring
+  r.patch('/evals/:id/schedule', wrap(async (req, res) => {
+    const b = z.object({ schedule: z.enum(MONITOR_SCHEDULES), driftDropPct: z.number().int().min(1).max(100).optional() }).parse(req.body);
+    const { rows } = await db.query(`SELECT * FROM eval_suites WHERE id = $1`, [req.params.id]);
+    if (!rows[0]) throw httpError(404, 'Suite not found');
+    await db.tx(async (q) => {
+      // The first scheduled run starts straight away, then on the chosen period.
+      await q.query(`UPDATE eval_suites SET schedule = $2, next_run_at = $3, drift_drop_pct = COALESCE($4, drift_drop_pct) WHERE id = $1`, [
+        rows[0].id, b.schedule, b.schedule === 'off' ? null : new Date().toISOString(), b.driftDropPct ?? null]);
+      await logAudit(q, actorOf(req), 'monitor.scheduled', `eval:${rows[0].name}`, { from: rows[0].schedule, to: b.schedule, driftDropPct: b.driftDropPct ?? rows[0].drift_drop_pct });
+    });
+    const { rows: out } = await db.query(`${SUITE_SELECT} WHERE s.id = $1`, [rows[0].id]);
+    res.json(toSuite(out[0]));
+  }));
+
+  const toAlert = (a: any) => ({
+    id: a.id, key: `AL-${a.number}`, suiteId: a.suite_id, suiteName: a.suite_name, runId: a.run_id, kind: a.kind, message: a.message, passPct: a.pass_pct, baselinePct: a.baseline_pct,
+    status: a.status, acknowledgedBy: a.acknowledged_by, acknowledgedAt: iso(a.acknowledged_at), note: a.note, issueKey: a.issue_number ? `I-${a.issue_number}` : null, createdAt: iso(a.created_at),
+  });
+  const ALERT_SELECT = `SELECT a.*, s.name AS suite_name, i.number AS issue_number FROM monitor_alerts a JOIN eval_suites s ON s.id = a.suite_id LEFT JOIN issues i ON i.id = a.issue_id`;
+  r.get('/engagements/:id/alerts', wrap(async (req, res) => {
+    const { rows } = await db.query(`${ALERT_SELECT} WHERE a.engagement_id = $1 ORDER BY a.number DESC LIMIT 100`, [req.params.id]);
+    res.json(rows.map(toAlert));
+  }));
+  r.post('/alerts/:id/acknowledge', wrap(async (req, res) => {
+    const b = z.object({ note: z.string().trim().min(3, 'Say what was done or why it is acceptable').max(1000) }).parse(req.body);
+    await db.tx(async (q) => {
+      const { rows } = await q.query(`SELECT * FROM monitor_alerts WHERE id = $1`, [req.params.id]);
+      if (!rows[0]) throw httpError(404, 'Alert not found');
+      if (rows[0].status !== 'open') throw httpError(409, 'Already acknowledged');
+      await q.query(`UPDATE monitor_alerts SET status = 'acknowledged', acknowledged_by = $2, acknowledged_at = now(), note = $3 WHERE id = $1`, [rows[0].id, actorOf(req), b.note]);
+      await logAudit(q, actorOf(req), 'monitor.acknowledged', `alert:AL-${rows[0].number}`, { note: b.note });
+    });
+    emit('alert', {});
+    res.json({ ok: true });
+  }));
+  r.post('/alerts/:id/issue', wrap(async (req, res) => {
+    const { rows } = await db.query(`SELECT a.*, s.name AS suite_name, s.inventory_id FROM monitor_alerts a JOIN eval_suites s ON s.id = a.suite_id WHERE a.id = $1`, [req.params.id]);
+    const a = rows[0];
+    if (!a) throw httpError(404, 'Alert not found');
+    if (a.issue_id) throw httpError(409, 'An issue already tracks this alert');
+    const { rows: inv } = a.inventory_id ? await db.query(`SELECT card_ids FROM inventory WHERE id = $1`, [a.inventory_id]) : { rows: [] as any[] };
+    const num = await db.tx(async (q) => {
+      const { rows: ins } = await q.query(
+        `INSERT INTO issues (engagement_id, title, description, severity, due_date, eval_run_id, card_id, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, number`,
+        [a.engagement_id, `Monitoring: ${a.message}`.slice(0, 200), `Raised from monitoring alert AL-${a.number}. Investigate why the result changed and fix or accept it.`, a.kind === 'below_threshold' ? 'high' : 'medium',
+          new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10), a.run_id, inv[0]?.card_ids?.[0] ?? null, actorOf(req)]);
+      await q.query(`UPDATE monitor_alerts SET issue_id = $2 WHERE id = $1`, [a.id, ins[0].id]);
+      await logAudit(q, actorOf(req), 'issue.raised', `issue:I-${ins[0].number}`, { fromAlert: `AL-${a.number}`, title: a.message });
+      return ins[0].number;
+    });
+    emit('issue', { changed: true });
+    res.status(201).json({ issueKey: `I-${num}` });
+  }));
   const toCase = (c: any) => ({ id: c.id, suiteId: c.suite_id, name: c.name, category: c.category, ref: c.ref, input: c.input, check: c.check, expected: c.expected, severity: c.severity });
 
   r.get('/engagements/:id/evals', wrap(async (req, res) => {
@@ -733,18 +815,7 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
   }));
 
   r.post('/evals/:id/run', wrap(async (req, res) => {
-    const { rows } = await db.query(`SELECT s.*, p.name AS provider_name FROM eval_suites s LEFT JOIN providers p ON p.id = s.provider_id WHERE s.id = $1`, [req.params.id]);
-    const s = rows[0];
-    if (!s) throw httpError(404, 'Suite not found');
-    const { rows: busy } = await db.query(`SELECT 1 FROM eval_runs WHERE suite_id = $1 AND status = 'running'`, [s.id]);
-    if (busy.length) throw httpError(409, 'This suite is already running');
-    const { rows: n } = await db.query(`SELECT count(*)::int AS n FROM eval_cases WHERE suite_id = $1`, [s.id]);
-    if (!n[0].n) throw httpError(400, 'Add at least one case first');
-    const actor = actorOf(req);
-    const { rows: run } = await db.query(`INSERT INTO eval_runs (suite_id, model, provider, total, run_by) VALUES ($1,$2,$3,$4,$5) RETURNING id`, [s.id, s.model, s.provider_name ?? '?', n[0].n, actor]);
-    await logAudit(db, actor, 'eval.started', `eval:${s.name}`, { model: s.model, cases: n[0].n });
-    void runSuite(db, s.id, run[0].id, actor);
-    res.status(202).json({ runId: run[0].id });
+    res.status(202).json({ runId: await startSuiteRun(db, req.params.id, actorOf(req)) });
   }));
 
   r.get('/eval-runs/:id', wrap(async (req, res) => {

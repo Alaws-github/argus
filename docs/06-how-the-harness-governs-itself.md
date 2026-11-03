@@ -20,8 +20,12 @@ An AI governance tool that uses AI should meet the standard it checks others aga
 
 ![The audit log, filtered, with a verified chain](images/audit-log.png)
 
+| Members-only engagements | A lead can make an engagement visible only to its members (and admins). Everyone else gets "not found" for its records, its audit entries and its live updates |
+| Single sign-on | Optional sign-in through the firm's or client's identity provider (OpenID Connect). It only signs in people who already have an account; roles are still set here. Admins always keep a password, so a broken provider can't lock everyone out |
+| Evidence connectors | Read-only (they only ever read), credentials encrypted and never shown again, and by default unable to reach this machine or a private network |
+
 ## What is not done yet
 
-- Single sign-on (for example Microsoft Entra ID) and multi-factor sign-in.
+- Multi-factor sign-in inside the harness (use the identity provider's, through single sign-on), SAML, and signing out at the provider.
 - A limit on repeated failed sign-in attempts. Put the app behind a proxy that has one before exposing it to the internet.
-- Per-engagement membership. Today everyone signed in can see every engagement.
+- Reading scanned documents (OCR).

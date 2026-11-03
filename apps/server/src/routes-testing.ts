@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { GOLDEN_AGENTS, JUDGE_TRUST, NewGoldenCase, NewJudgeLabel } from '@gh/shared';
 import type { Db } from './db.js';
 import { logAudit } from './audit.js';
+import { visibleIds } from './access.js';
 import { getProviderRow } from './providers.js';
 import { getSettings } from './store.js';
 import { calibrate, importDecisionLabels, startGoldenRun, toCalibration, toCase, toLabel, toRunRow } from './golden.js';
@@ -14,11 +15,13 @@ type Wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Req
 const httpError = (status: number, message: string) => Object.assign(new Error(message), { status });
 
 export function testingRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
-  r.get('/agent-testing', wrap(async (_req, res) => {
+  r.get('/agent-testing', wrap(async (req, res) => {
+    // Examples taken from a members-only engagement are shown only to its members.
+    const ids = await visibleIds(db, req.user);
     const [cases, runs, labels, cals, s] = await Promise.all([
       db.query(`SELECT * FROM golden_cases ORDER BY agent, number`),
       db.query(`SELECT * FROM golden_runs ORDER BY number DESC LIMIT 20`),
-      db.query(`SELECT * FROM judge_labels ORDER BY number`),
+      ids ? db.query(`SELECT * FROM judge_labels WHERE engagement_id IS NULL OR engagement_id = ANY($1) ORDER BY number`, [ids]) : db.query(`SELECT * FROM judge_labels ORDER BY number`),
       db.query(`SELECT * FROM judge_calibrations ORDER BY number DESC LIMIT 10`),
       getSettings(db),
     ]);

@@ -9,6 +9,7 @@ import {
   type Engagement,
 } from '@gh/shared';
 import { useApp } from '../stores/app';
+import EngagementAccess from '../components/EngagementAccess.vue';
 import { api } from '../api';
 
 const app = useApp();
@@ -250,6 +251,8 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
       </div>
       </fieldset>
     </section>
+
+    <EngagementAccess v-if="tab === 'general'" />
 
     <section v-if="tab === 'general' && app.canRaw('manage_engagement')" class="card danger-zone">
       <h2>Archive or delete</h2>

@@ -557,3 +557,99 @@ CREATE TABLE IF NOT EXISTS assistant_messages (
   created_at     timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS assistant_thread ON assistant_messages (engagement_id, user_id, context_kind, context_id, created_at);
+
+-- v0.10: text read out of PDFs, spreadsheets and Word files, so agents and
+-- search can use them. The original file is unchanged and still fingerprinted.
+ALTER TABLE evidence ADD COLUMN IF NOT EXISTS text_content text;
+ALTER TABLE evidence ADD COLUMN IF NOT EXISTS text_note text;
+
+-- v0.10: incidents on live AI systems, with notification deadlines.
+CREATE SEQUENCE IF NOT EXISTS incident_seq;
+CREATE TABLE IF NOT EXISTS incidents (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  number         integer NOT NULL DEFAULT nextval('incident_seq'),
+  engagement_id  uuid NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  title          text NOT NULL,
+  description    text NOT NULL DEFAULT '',
+  severity       text NOT NULL DEFAULT 'high',
+  status         text NOT NULL DEFAULT 'open',
+  occurred_at    timestamptz,
+  aware_at       timestamptz NOT NULL,
+  inventory_id   uuid REFERENCES inventory(id) ON DELETE SET NULL,
+  card_id        uuid REFERENCES cards(id) ON DELETE SET NULL,
+  owner          text NOT NULL DEFAULT '',
+  notices        jsonb NOT NULL DEFAULT '[]',
+  timeline       jsonb NOT NULL DEFAULT '[]',
+  root_cause     text NOT NULL DEFAULT '',
+  lessons        text NOT NULL DEFAULT '',
+  reported_by    text NOT NULL,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  closed_by      text,
+  closed_at      timestamptz
+);
+ALTER TABLE issues ADD COLUMN IF NOT EXISTS incident_id uuid REFERENCES incidents(id) ON DELETE SET NULL;
+
+-- v0.10: monitoring. Suites can run on a schedule; each completed run is
+-- compared with the suite's threshold and its recent baseline (drift).
+ALTER TABLE eval_suites ADD COLUMN IF NOT EXISTS schedule text NOT NULL DEFAULT 'off';
+ALTER TABLE eval_suites ADD COLUMN IF NOT EXISTS next_run_at timestamptz;
+ALTER TABLE eval_suites ADD COLUMN IF NOT EXISTS drift_drop_pct integer NOT NULL DEFAULT 10;
+CREATE SEQUENCE IF NOT EXISTS alert_seq;
+CREATE TABLE IF NOT EXISTS monitor_alerts (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  number           integer NOT NULL DEFAULT nextval('alert_seq'),
+  engagement_id    uuid NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  suite_id         uuid NOT NULL REFERENCES eval_suites(id) ON DELETE CASCADE,
+  run_id           uuid REFERENCES eval_runs(id) ON DELETE SET NULL,
+  kind             text NOT NULL,
+  message          text NOT NULL,
+  pass_pct         integer,
+  baseline_pct     integer,
+  status           text NOT NULL DEFAULT 'open',
+  acknowledged_by  text,
+  acknowledged_at  timestamptz,
+  note             text NOT NULL DEFAULT '',
+  issue_id         uuid REFERENCES issues(id) ON DELETE SET NULL,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (run_id, kind)
+);
+
+-- v0.10: evidence connectors (read-only pulls from client systems).
+CREATE SEQUENCE IF NOT EXISTS connector_seq;
+CREATE TABLE IF NOT EXISTS connectors (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  number         integer NOT NULL DEFAULT nextval('connector_seq'),
+  engagement_id  uuid NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  name           text NOT NULL,
+  url            text NOT NULL,
+  auth           text NOT NULL DEFAULT 'none',
+  header_name    text NOT NULL DEFAULT '',
+  secret_enc     text,
+  control_id     uuid REFERENCES controls(id) ON DELETE SET NULL,
+  schedule       text NOT NULL DEFAULT 'manual',
+  enabled        boolean NOT NULL DEFAULT true,
+  next_pull_at   timestamptz,
+  last_pull_at   timestamptz,
+  last_status    text NOT NULL DEFAULT 'never',
+  last_message   text NOT NULL DEFAULT '',
+  last_sha256    text,
+  pulls          integer NOT NULL DEFAULT 0,
+  created_by     text NOT NULL,
+  created_at     timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE evidence ADD COLUMN IF NOT EXISTS connector_id uuid REFERENCES connectors(id) ON DELETE SET NULL;
+
+-- v0.10: per-engagement access. An open engagement is visible to everyone
+-- signed in (as before); a members-only one to its members and admins.
+ALTER TABLE engagements ADD COLUMN IF NOT EXISTS access text NOT NULL DEFAULT 'open';
+CREATE TABLE IF NOT EXISTS engagement_members (
+  engagement_id  uuid NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  user_id        uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  added_by       text NOT NULL,
+  added_at       timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (engagement_id, user_id)
+);
+-- Which engagement an audit entry belongs to, so members-only work stays
+-- private in the audit log. Not part of the hash (added after the fact).
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS engagement_id uuid;
+ALTER TABLE judge_labels ADD COLUMN IF NOT EXISTS engagement_id uuid;

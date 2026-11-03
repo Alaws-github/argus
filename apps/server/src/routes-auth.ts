@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { Role } from '@gh/shared';
 import type { Db } from './db.js';
 import { logAudit } from './audit.js';
+import { passwordAllowed } from './sso.js';
 import { COOKIE, IDLE_HOURS, createSession, endSession, tokenId, hashPassword, readCookie, setCookie, toUser, userFromToken, verifyPassword } from './auth.js';
 
 type Wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => void;
@@ -43,6 +44,7 @@ export function authRoutes(r: Router, db: Db, wrap: Wrap) {
       await logAudit(db, body.email.slice(0, 80), 'auth.failed', `user:${body.email.slice(0, 80)}`, {});
       throw httpError(401, "That email and password don't match an active account");
     }
+    if (!(await passwordAllowed(db, rows[0].role))) throw httpError(403, 'Sign in with single sign-on instead. Passwords are only for admins here.');
     const token = await createSession(db, rows[0].id, req);
     await logAudit(db, rows[0].name, 'auth.signed_in', `user:${rows[0].email}`, { ip: req.ip });
     setCookie(res, token);

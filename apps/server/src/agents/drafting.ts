@@ -43,6 +43,9 @@ const TEXTY = /^text\/|json|csv|xml|markdown/;
 function readable(r: any): string {
   if (r.kind === 'note') return String(r.note ?? '').slice(0, 6000);
   if (r.kind === 'link') return `Link: ${r.url} (the agent can't open links)`;
+  // Text read out of the file when it was collected (PDF, spreadsheet, Word, text).
+  if (r.text_content) return `${r.text_note ? `(${r.text_note})\n` : ''}${String(r.text_content).slice(0, 8000)}`;
+  if (r.text_note) return `File ${r.filename ?? ''}: ${r.text_note}`;
   const path = resolve(DATA_DIR, 'evidence', r.sha256);
   const texty = TEXTY.test(r.mime ?? '') || /\.(txt|csv|md|json|log)$/i.test(r.filename ?? '');
   if (!texty) return `File ${r.filename ?? ''} (${r.mime ?? 'unknown type'}): the agent can't read this kind of file`;

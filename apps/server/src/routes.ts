@@ -11,6 +11,11 @@ import { archiveRoutes } from './archive.js';
 import { kbRoutes } from './routes-kb.js';
 import { testingRoutes } from './routes-testing.js';
 import { assistantRoutes } from './routes-assistant.js';
+import { visibleIds } from './access.js';
+import { incidentRoutes } from './routes-incidents.js';
+import { connectorRoutes } from './routes-connectors.js';
+import { accessRoutes } from './routes-access.js';
+import { ssoRoutes } from './sso.js';
 import { requireDifferentPerson, requirePerm } from './auth.js';
 import { MAX_PARALLEL } from './engine.js';
 import type { Db } from './db.js';
@@ -46,8 +51,9 @@ export function routes(db: Db) {
     res.json({ ok: true, db: db.kind, runtime: live.length ? 'live' : 'dry-run', model: live[0] ? `${live[0].model} on ${live[0].name}` : 'rules-v1' });
   }));
 
-  r.get('/engagements', wrap(async (_req, res) => {
-    const { rows } = await db.query(`SELECT * FROM engagements ORDER BY created_at`);
+  r.get('/engagements', wrap(async (req, res) => {
+    const ids = await visibleIds(db, req.user);
+    const { rows } = await db.query(`SELECT * FROM engagements ${ids ? 'WHERE id = ANY($1)' : ''} ORDER BY created_at`, ids ? [ids] : []);
     res.json(rows.map(toEngagement));
   }));
 
@@ -227,11 +233,17 @@ export function routes(db: Db) {
 
   r.get('/runs', wrap(async (req, res) => {
     const params: unknown[] = [];
-    let where = '';
+    const conds: string[] = [];
     if (req.query.cardId) {
       params.push(String(req.query.cardId));
-      where = `WHERE r.card_id = $1`;
+      conds.push(`r.card_id = $${params.length}`);
     }
+    const ids = await visibleIds(db, req.user);
+    if (ids) {
+      params.push(ids);
+      conds.push(`r.card_id IN (SELECT id FROM cards WHERE engagement_id = ANY($${params.length}))`);
+    }
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const { rows } = await db.query(`${RUN_SELECT} ${where} ORDER BY r.started_at DESC LIMIT 200`, params);
     res.json(rows.map(toRun));
   }));
@@ -353,6 +365,9 @@ export function routes(db: Db) {
     if (f.ip?.trim()) add(`ip ILIKE ?`, `${f.ip.trim()}%`);
     if (f.from) add(`at >= ?::date`, f.from);
     if (f.to) add(`at < (?::date + 1)`, f.to);
+    // Members-only engagements stay private in the audit log too.
+    const ids = await visibleIds(db, req.user);
+    if (ids) add(`(engagement_id IS NULL OR engagement_id = ANY(?))`, ids);
     const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const size = f.limit ? Math.min(f.limit, 1000) : f.pageSize;
     const { rows: total } = await db.query(`SELECT count(*)::int AS n FROM audit_log ${w}`, vals);
@@ -373,5 +388,9 @@ export function routes(db: Db) {
   kbRoutes(r, db, actorOf, wrap);
   testingRoutes(r, db, actorOf, wrap);
   assistantRoutes(r, db, actorOf, wrap);
+  incidentRoutes(r, db, actorOf, wrap);
+  connectorRoutes(r, db, actorOf, wrap);
+  accessRoutes(r, db, actorOf, wrap);
+  ssoRoutes(r, db, actorOf, wrap);
   return r;
 }

@@ -3,7 +3,7 @@
 // their last result against a pass threshold.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import type { EvalSuite, InventoryItem, Provider } from '@gh/shared';
+import type { EvalSuite, InventoryItem, MonitorAlert, MonitorSchedule, Provider } from '@gh/shared';
 import { api, ago, socket } from '../api';
 import { useApp } from '../stores/app';
 
@@ -13,11 +13,12 @@ const suites = ref<EvalSuite[]>([]);
 const providers = ref<Provider[]>([]);
 const inventory = ref<InventoryItem[]>([]);
 const loading = ref(true);
+const alerts = ref<MonitorAlert[]>([]);
 
 async function load() {
   try {
     const E = await app.eid();
-    [suites.value, providers.value, inventory.value] = await Promise.all([api(`/engagements/${E}/evals`), api('/providers'), api(`/engagements/${E}/inventory`)]);
+    [suites.value, providers.value, inventory.value, alerts.value] = await Promise.all([api(`/engagements/${E}/evals`), api('/providers'), api(`/engagements/${E}/inventory`), api(`/engagements/${E}/alerts`)]);
   } catch (e: any) {
     app.toast(e.message, 'error');
   } finally {
@@ -25,11 +26,47 @@ async function load() {
   }
 }
 const onEval = (e: { finished?: boolean }) => e.finished && void load();
+const onAlert = () => void load();
 onMounted(() => {
   void load();
   socket.on('eval', onEval);
+  socket.on('alert', onAlert);
 });
-onBeforeUnmount(() => socket.off('eval', onEval));
+onBeforeUnmount(() => {
+  socket.off('eval', onEval);
+  socket.off('alert', onAlert);
+});
+
+// Monitoring: schedules, the trend line and alerts.
+async function setSchedule(s: EvalSuite, schedule: MonitorSchedule) {
+  try {
+    Object.assign(s, await api(`/evals/${s.id}/schedule`, { method: 'PATCH', body: { schedule } }));
+    app.toast(schedule === 'off' ? `${s.name} is no longer scheduled` : `${s.name} runs ${schedule}, starting now`);
+  } catch (e: any) {
+    app.toast(e.message, 'error');
+  }
+}
+const spark = (t: number[]) => (t.length < 2 ? '' : t.map((v, i) => `${(i / (t.length - 1)) * 100},${30 - (v / 100) * 28}`).join(' '));
+const openAlerts = computed(() => alerts.value.filter((a) => a.status === 'open'));
+const ackNote = ref<Record<string, string>>({});
+async function ack(a: MonitorAlert) {
+  try {
+    await api(`/alerts/${a.id}/acknowledge`, { method: 'POST', body: { note: ackNote.value[a.id] ?? '' } });
+    await load();
+  } catch (e: any) {
+    app.toast(e.message, 'error');
+  }
+}
+async function toIssue(a: MonitorAlert) {
+  try {
+    const r = await api(`/alerts/${a.id}/issue`, { method: 'POST', body: {} });
+    app.toast(`Raised ${r.issueKey}`);
+    await load();
+  } catch (e: any) {
+    app.toast(e.message, 'error');
+  }
+}
+const ALERT_KIND: Record<string, string> = { below_threshold: 'Below threshold', drift: 'Drift', run_failed: 'Run failed' };
 
 const adding = ref(false);
 const form = ref({ name: '', kind: 'red_team' as 'red_team' | 'quality', template: 'red_team', inventoryId: '', providerId: '', model: '', systemPrompt: '', thresholdPct: 100, judgeProviderId: '', judgeModel: '' });
@@ -75,6 +112,16 @@ async function run(s: EvalSuite) {
       </div>
       <button v-if="app.can('prepare')" class="btn primary" @click="startAdd">New suite</button>
     </div>
+    <div v-if="openAlerts.length" class="card alert-card" style="margin-bottom: 16px; gap: 8px">
+      <h2>Monitoring alerts <span class="count">{{ openAlerts.length }}</span></h2>
+      <div v-for="a in openAlerts" :key="a.id" class="alert-row">
+        <div class="grow"><span class="mono faint small">{{ a.key }}</span> <span class="badge" :class="a.kind === 'drift' ? 'warn' : 'danger'">{{ ALERT_KIND[a.kind] }}</span> <span class="small">{{ a.message }}</span><div class="small faint">{{ ago(a.createdAt) }} ago<template v-if="a.issueKey"> · tracked as {{ a.issueKey }}</template></div></div>
+        <div class="row" style="flex-wrap: wrap">
+          <button v-if="!a.issueKey && app.can('prepare')" class="btn sm" @click="toIssue(a)">Raise an issue</button>
+          <template v-if="app.can('approve')"><input v-model="ackNote[a.id]" class="input" style="width: 220px" placeholder="What was done, or why it's acceptable" /><button class="btn sm" @click="ack(a)">Acknowledge</button></template>
+        </div>
+      </div>
+    </div>
     <div v-if="loading" class="muted">Loading…</div>
     <div v-else-if="!suites.length" class="card empty"><h2>No suites yet</h2><p>Start from the red-team or quality template, then add cases of your own.</p></div>
     <div v-else class="grid-2">
@@ -96,6 +143,17 @@ async function run(s: EvalSuite) {
           <div class="meter"><i :style="{ width: `${s.lastRun.passPct}%`, background: s.lastRun.passPct >= s.thresholdPct ? 'var(--ok)' : 'var(--danger)' }" /></div>
           <span class="small faint">{{ s.lastRun.passPct }}% against a {{ s.thresholdPct }}% threshold · {{ ago(s.lastRun.at) }} ago</span>
         </div>
+        <div v-if="s.trend.length > 1" class="trend" :title="`Last ${s.trend.length} runs: ${s.trend.join('%, ')}%`">
+          <svg viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="100" :y1="30 - (s.thresholdPct / 100) * 28" :y2="30 - (s.thresholdPct / 100) * 28" class="th" /><polyline :points="spark(s.trend)" /></svg>
+          <span class="small faint">Last {{ s.trend.length }} runs</span>
+        </div>
+        <label class="row small" style="gap: 6px">
+          <span class="faint">Monitoring</span>
+          <select class="select" style="width: auto; padding: 3px 8px" :value="s.schedule" :disabled="!app.can('manage_engagement')" :aria-label="`How often ${s.name} runs by itself`" @change="setSchedule(s, ($event.target as HTMLSelectElement).value as MonitorSchedule)">
+            <option value="off">Off</option><option value="daily">Daily</option><option value="weekly">Weekly</option>
+          </select>
+          <span v-if="s.schedule !== 'off' && s.nextRunAt" class="faint">next {{ new Date(s.nextRunAt).toLocaleString() }}</span>
+        </label>
         <div class="row">
           <button v-if="app.can('prepare')" class="btn sm primary" :disabled="s.lastRun?.status === 'running'" @click="run(s)">Run</button>
           <RouterLink class="btn sm" :to="`/evals/${s.id}`">Open</RouterLink>

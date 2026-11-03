@@ -25,6 +25,7 @@ export function toEngagement(r: any): Engagement {
     archivedAt: iso(r.archived_at),
     archivedBy: r.archived_by ?? null,
     archiveReason: r.archive_reason ?? null,
+    access: r.access ?? 'open',
     createdAt: iso(r.created_at)!,
   };
 }
@@ -152,6 +153,7 @@ export const SETTING_DEFAULTS: WorkspaceSettings = {
   verifierLive: false,
   assistantProviderId: null,
   assistantModel: '',
+  connectorsAllowPrivate: false,
 };
 
 export async function getSettings(q: Queryable): Promise<WorkspaceSettings> {

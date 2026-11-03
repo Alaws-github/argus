@@ -140,8 +140,8 @@ const KIND: Record<string, string> = { framework: 'Framework', control: 'Library
         <div class="spread"><h2>Add a client document</h2><button type="button" class="btn ghost sm" aria-label="Close" @click="adding = false">✕</button></div>
         <p class="small muted">The client's AI policy, risk procedures, committee minutes. Agents will cite it in their drafts for this engagement only.</p>
         <label class="field"><span>Title</span><input v-model="form.title" class="input" required minlength="3" placeholder="e.g. Group AI Policy v2 (2026)" /></label>
-        <label class="field"><span>A text, Markdown or CSV file</span><input ref="fileEl" type="file" accept=".txt,.md,.markdown,.csv,.json" class="input" /></label>
-        <label class="field"><span>Or paste the text</span><textarea v-model="form.text" class="textarea" style="min-height: 140px" placeholder="PDF and Word files aren't read yet: paste their text here." /></label>
+        <label class="field"><span>A PDF, Word, Excel, text or CSV file</span><input ref="fileEl" type="file" accept=".pdf,.docx,.xlsx,.txt,.md,.markdown,.csv,.json" class="input" /></label>
+        <label class="field"><span>Or paste the text</span><textarea v-model="form.text" class="textarea" style="min-height: 140px" placeholder="Or paste text here, for example from a scanned document." /></label>
         <div class="row"><button class="btn primary">Add to knowledge base</button><button type="button" class="btn" @click="adding = false">Cancel</button></div>
       </form>
     </template>

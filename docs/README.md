@@ -7,6 +7,7 @@ The Governance Harness is a workbench for assurance teams who review how organis
 | You are... | Read |
 | --- | --- |
 | New to the harness, or not technical | [What it is](01-what-it-is.md), then [How it works](02-how-it-works.md) |
+| Wanting everything in one place | The [user manual (PDF)](manual.pdf), also as [Markdown](manual.md) |
 | Giving or watching a demo | [Walkthrough](08-walkthrough.md) and the [demo scripts](09-demo-script.md) |
 | Going to use it on an engagement | [Using the app](03-using-the-app.md) and the [runbooks](runbooks/README.md) |
 | Asking "can we trust the AI in it?" | [The AI agents](04-ai-agents.md) and [How the harness governs itself](06-how-the-harness-governs-itself.md) |

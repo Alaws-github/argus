@@ -4,6 +4,8 @@
 
 An AI governance, risk and assurance workbench. AI use cases move across a board from Intake to Board report. Agents draft the work at each stage; a named person approves at each gate; every action lands in a hash-chained audit trail.
 
+v1.0 closes the prototype's gaps: PDFs, Excel and Word files are read as evidence; incidents with EU AI Act and Jamaica DPA notification deadlines; scheduled monitoring with drift alerts; read-only evidence connectors; members-only engagements; and a single sign-on (OpenID Connect) scaffold. A full manual is in docs/manual.pdf.
+
 v0.9 adds `npm run demo` (a realistic engagement built through the real API, for demos and learning), a walkthrough guide with screenshots, 15- and 30-minute demo scripts (docs/08-walkthrough.md, docs/09-demo-script.md) and a tidier top bar on laptop screens.
 
 v0.8 adds the assistant (Ask: explains and suggests; people apply or discard every suggestion, under their own permissions), a plain-English Standards tab with coverage per framework, and ready-made settings for 14 AI services. See docs/03-using-the-app.md.
@@ -72,6 +74,7 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run smoke` | API smoke test (66 checks) against a running server on a **fresh** database. It creates test accounts (password `correct-horse-9`), so reset afterwards before real use |
 | `npm run test:grounding` | Grounding tests (31 checks): knowledge base, citations, item-by-item decisions, meaning search, temperature 0. Fresh database |
 | `npm run test:assistant` | Assistant tests (27 checks): offline and live, dropped citations and suggestions, apply under the person's role, discard, spend cap, JSON fallback. Fresh database |
+| `npm run test:operations` | Operations tests (58 checks): file reading, incidents, monitoring and drift, connectors and the private-network guard, members-only access, SSO against a mock provider. Fresh database |
 | `npm run test:verifier` | Verifier and agent-testing tests (36 checks): golden runs and regressions, the quote check, calibration, live checks, spend cap. Fresh database |
 | `npm run test:agents` | Drafting-agent tests (30 checks), including a mock model that tries to cheat the guardrails. Also needs a fresh database |
 
@@ -232,19 +235,20 @@ scripts/smoke.mjs          API smoke test
 | Assessment and report | `GET /api/engagements/:id/assessment`, `PUT /api/engagements/:id/assessment/:area`, `GET /api/engagements/:id/report`, `POST /api/engagements/:id/report/sign` |
 | Knowledge base | `GET /api/engagements/:id/knowledge`, `GET /api/engagements/:id/knowledge/search?q=`, `POST /api/engagements/:id/knowledge`, `GET /api/knowledge/passages/:kid`, `DELETE /api/knowledge/:id`, `POST /api/knowledge/reindex`, `POST /api/knowledge/embeddings/test`, `POST /api/cards/:id/decisions` |
 | Agent testing | `GET /api/agent-testing`, `GET/POST /api/agent-testing/runs`, `GET /api/agent-testing/runs/:id`, `POST /api/agent-testing/cases`, `DELETE /api/agent-testing/cases/:id`, `POST /api/agent-testing/labels`, `POST /api/agent-testing/labels/import`, `DELETE /api/agent-testing/labels/:id`, `POST /api/agent-testing/calibrate`, `POST /api/cards/:id/verify` |
+| Operations | `GET/POST /api/engagements/:id/incidents`, `PATCH /api/incidents/:id`, `PATCH /api/evals/:id/schedule`, `GET /api/engagements/:id/alerts`, `POST /api/alerts/:id/acknowledge`, `POST /api/alerts/:id/issue`, `GET/POST /api/engagements/:id/connectors`, `PATCH/DELETE /api/connectors/:id`, `POST /api/connectors/:id/pull` |
+| Access and SSO | `GET /api/engagements/:id/members`, `PUT /api/engagements/:id/access`, `POST /api/engagements/:id/members`, `DELETE /api/engagements/:id/members/:userId`, `GET /api/auth/sso`, `GET /api/auth/sso/start`, `GET /api/auth/sso/callback`, `GET/PUT /api/sso/config` |
 | Assistant | `GET/POST /api/engagements/:id/assistant` (`kind`: card, risks, controls, issues, engagement; `contextId`), `POST /api/engagements/:id/assistant/:messageId/suggestions/:id/apply`, `.../discard` |
 | Agents and audit | `POST /api/agents/:id/kill` (`{ test: true }` to test), `GET /api/audit/verify` |
 | Health | `GET /api/health` |
 
-Realtime events: `card`, `run`, `run:event`, `risk`, `audit`, `usage`, `engagement`, `issue`, `eval`, `golden`, `assistant`. The socket needs a signed-in session.
+Realtime events: `card`, `run`, `run:event`, `risk`, `audit`, `usage`, `engagement`, `issue`, `eval`, `golden`, `assistant`, `alert`, `incident`, `evidence`. Events about a members-only engagement go only to its members and admins. The socket needs a signed-in session.
 
 ## Next to build
 
-1. **Connectors for the Evidence Collector**: read-only pulls from a client's document store or ticketing system, with credentials agreed per client.
-2. **Reading PDFs and spreadsheets** as evidence.
-3. **Monitoring**: scheduled eval runs with drift alerts, and incident records with regulator notification timelines.
-4. **Per-engagement membership**: today everyone signed in sees every engagement.
-5. **SSO** (OIDC) alongside passwords, and MFA for admins.
+1. **OCR** for scanned evidence.
+2. **SSO beyond the scaffold**: SAML, sign-out at the provider, accounts from group claims; MFA inside the app.
+3. **Connectors with OAuth** for document stores that need it (they read HTTPS report and export links today).
+4. **Sign-in rate limiting.**
 
 ## Before you put it on a server
 

@@ -7,6 +7,7 @@ import { vectorAvailable, type Db } from './db.js';
 import { logAudit } from './audit.js';
 import { embedPending, getEmbedder, scheduleEmbedding, search, upsertSource } from './kb.js';
 import { apiKeyOf, getProviderRow } from './providers.js';
+import { extract, kindOf } from './extract.js';
 
 type Wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => void;
 const httpError = (status: number, message: string) => Object.assign(new Error(message), { status });
@@ -43,18 +44,20 @@ export function kbRoutes(r: Router, db: Db, actorOf: (req: Request) => string, w
     res.json({ id: `K-${rows[0].number}`, title: rows[0].heading, kind: rows[0].kind, ref: rows[0].ref, text: rows[0].text });
   }));
 
-  // Client documents: policies, procedures, minutes. Plain text formats for now.
+  // Client documents: policies, procedures, minutes. PDF, Word, Excel or text.
   r.post('/engagements/:id/knowledge', wrap(async (req, res) => {
     const b = z.object({
       title: z.string().trim().min(3).max(200),
       text: z.string().max(400_000).optional(),
       filename: z.string().max(200).optional(),
-      dataBase64: z.string().max(600_000).optional(),
+      dataBase64: z.string().max(14_000_000).optional(),
     }).parse(req.body);
     let text = b.text ?? '';
     if (!text && b.dataBase64) {
-      if (!/\.(txt|md|markdown|csv|json|log)$/i.test(b.filename ?? '')) throw httpError(400, 'Upload a text, Markdown or CSV file. PDF and Word are not read yet: paste their text instead.');
-      text = Buffer.from(b.dataBase64, 'base64').toString('utf8');
+      if (!kindOf(b.filename ?? '')) throw httpError(400, 'Upload a PDF, Word (.docx), Excel (.xlsx), text, Markdown or CSV file');
+      const got = await extract(Buffer.from(b.dataBase64, 'base64'), b.filename);
+      text = got?.text ?? '';
+      if (!text.trim()) throw httpError(400, got?.note ?? 'Nothing readable in that file');
     }
     if (text.trim().length < 20) throw httpError(400, 'Add the document text (at least a sentence)');
     const ref = `U-${Date.now().toString(36)}`;

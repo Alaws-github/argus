@@ -352,8 +352,8 @@ export async function importDecisionLabels(db: Db, actor: string): Promise<numbe
           const ps = passages.filter((p) => c.sources.includes(p.id));
           const human = d.decision === 'accept' ? 'good' : 'bad';
           const { rows: ins } = await q.query(
-            `INSERT INTO judge_labels (kind, claim, passages, human, note, origin, ref, created_by) VALUES ($1,$2,$3,$4,$5,'decision',$6,$7) ON CONFLICT (ref) DO NOTHING RETURNING id`,
-            [c.kind, c.text, JSON.stringify(ps), human, `${r.key}: ${d.by ?? 'a reviewer'} ${d.decision === 'accept' ? 'kept it' : `rejected it: ${d.reason ?? ''}`}`.slice(0, 600), ref, actor],
+            `INSERT INTO judge_labels (kind, claim, passages, human, note, origin, ref, created_by, engagement_id) VALUES ($1,$2,$3,$4,$5,'decision',$6,$7,$8) ON CONFLICT (ref) DO NOTHING RETURNING id`,
+            [c.kind, c.text, JSON.stringify(ps), human, `${r.key}: ${d.by ?? 'a reviewer'} ${d.decision === 'accept' ? 'kept it' : `rejected it: ${d.reason ?? ''}`}`.slice(0, 600), ref, actor, r.engagement_id],
           );
           added += ins.length;
         }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // First run: create the first admin. After that: sign in.
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { api } from '../api';
 import { useApp } from '../stores/app';
 
@@ -10,6 +10,16 @@ const email = ref('');
 const password = ref('');
 const busy = ref(false);
 const error = ref('');
+// Single sign-on, when an admin has set it up. Errors come back in the address.
+const sso = ref<{ enabled: boolean; label: string } | null>(null);
+onMounted(async () => {
+  sso.value = await api('/auth/sso').catch(() => null);
+  const e = new URLSearchParams(window.location.search).get('sso_error');
+  if (e) {
+    error.value = e;
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+});
 
 async function submit() {
   error.value = '';
@@ -48,6 +58,10 @@ async function submit() {
       </label>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
       <button class="btn primary" :disabled="busy">{{ app.needsSetup ? 'Create admin and sign in' : 'Sign in' }}</button>
+      <template v-if="!app.needsSetup && sso?.enabled">
+        <div class="row small faint" style="justify-content: center">or</div>
+        <a class="btn" href="/api/auth/sso/start" style="justify-content: center">Sign in with {{ sso.label || 'single sign-on' }}</a>
+      </template>
     </form>
   </main>
 </template>

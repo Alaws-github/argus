@@ -12,18 +12,24 @@ import { logAudit } from './audit.js';
 import { emit } from './realtime.js';
 import { toEngagement } from './store.js';
 
-const OWNERS: [RegExp, string][] = [
+export const OWNERS: [RegExp, string][] = [
   [/^\/engagements\/([^/]+)\//, `SELECT $1::uuid AS id`],
   [/^\/cards\/([^/]+)/, `SELECT engagement_id AS id FROM cards WHERE id::text = $1 OR key = $1`],
   [/^\/risks\/([^/]+)/, `SELECT engagement_id AS id FROM risks WHERE id = $1`],
   [/^\/controls\/([^/]+)/, `SELECT engagement_id AS id FROM controls WHERE id = $1`],
   [/^\/tests\/([^/]+)/, `SELECT engagement_id AS id FROM tests WHERE id = $1`],
   [/^\/issues\/([^/]+)/, `SELECT engagement_id AS id FROM issues WHERE id = $1`],
+  [/^\/connectors\/([^/]+)/, `SELECT engagement_id AS id FROM connectors WHERE id = $1`],
+  [/^\/alerts\/([^/]+)/, `SELECT engagement_id AS id FROM monitor_alerts WHERE id = $1`],
+  [/^\/incidents\/([^/]+)/, `SELECT engagement_id AS id FROM incidents WHERE id = $1`],
   [/^\/inventory\/([^/]+)/, `SELECT engagement_id AS id FROM inventory WHERE id = $1`],
   [/^\/agents\/([^/]+)/, `SELECT engagement_id AS id FROM agents WHERE id = $1`],
   [/^\/evals\/([^/]+)/, `SELECT engagement_id AS id FROM eval_suites WHERE id = $1`],
   [/^\/eval-cases\/([^/]+)/, `SELECT s.engagement_id AS id FROM eval_cases c JOIN eval_suites s ON s.id = c.suite_id WHERE c.id = $1`],
   [/^\/knowledge\/([0-9a-f-]{36})$/, `SELECT engagement_id AS id FROM kb_sources WHERE id = $1`],
+  [/^\/evidence\/([0-9a-f-]{36})/, `SELECT engagement_id AS id FROM evidence WHERE id = $1`],
+  [/^\/runs\/([^/]+)/, `SELECT c.engagement_id AS id FROM runs r JOIN cards c ON c.id = r.card_id WHERE r.id::text = $1 OR 'R-' || r.number = $1`],
+  [/^\/knowledge\/passages\/K-?(\d+)/, `SELECT engagement_id AS id FROM kb_chunks WHERE number = $1::int`],
   [/^\/eval-runs\/([^/]+)/, `SELECT s.engagement_id AS id FROM eval_runs r JOIN eval_suites s ON s.id = r.suite_id WHERE r.id = $1`],
 ];
 
@@ -81,6 +87,7 @@ const TABLES: [string, string][] = [
   ['agents', `SELECT id, role, name, stage, enabled, provider_id, model, effort, instructions, max_cost_usd, timeout_min, killed_at, kill_tested_at FROM agents WHERE engagement_id = $1`],
   ['runs', `SELECT r.* FROM runs r JOIN cards c ON c.id = r.card_id WHERE c.engagement_id = $1 ORDER BY r.started_at`],
   ['runEvents', `SELECT ev.* FROM run_events ev JOIN runs r ON r.id = ev.run_id JOIN cards c ON c.id = r.card_id WHERE c.engagement_id = $1 ORDER BY ev.id`],
+  ['incidents', `SELECT * FROM incidents WHERE engagement_id = $1 ORDER BY number`],
   ['assistantMessages', `SELECT * FROM assistant_messages WHERE engagement_id = $1 ORDER BY created_at`],
 ];
 

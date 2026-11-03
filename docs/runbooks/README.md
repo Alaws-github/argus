@@ -14,6 +14,11 @@ Step-by-step instructions for common jobs. Each one says who can do it and what 
 | [Assess a use case end to end](assess-a-use-case.md) | The team doing the work |
 | [Run an evaluation or red team](run-an-evaluation.md) | Preparers testing an AI system directly |
 | [Use the assistant](use-the-assistant.md) | Anyone preparing or reviewing work |
+| [Report and close an incident](report-an-incident.md) | Anyone, when a live AI system causes harm or leaks data |
+| [Set up monitoring and handle alerts](set-up-monitoring.md) | Leads and reviewers |
+| [Connect a client system for evidence](connect-a-client-system.md) | Leads and admins |
+| [Make an engagement members-only](restrict-an-engagement.md) | Leads and admins |
+| [Set up single sign-on](set-up-single-sign-on.md) | Admins |
 | [Test the agents](test-the-agents.md) | Admins checking the agents before a model or rules change |
 | [Finish an engagement](finish-an-engagement.md) | Leads scoring, signing off and archiving |
 | [Archive or delete an engagement](archive-or-delete.md) | Leads and admins |

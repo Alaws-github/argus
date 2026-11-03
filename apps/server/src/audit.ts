@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import type { Queryable } from './db.js';
 import { emit } from './realtime.js';
 import { requestContext } from './context.js';
+import { engagementOfEntity } from './access.js';
 
 const SECRET_KEYS = /key|token|secret|password/i;
 
@@ -43,10 +44,12 @@ export async function logAudit(
   const at = new Date().toISOString();
   const clean = scrub(detail);
   const ip = requestContext.getStore()?.ip ?? null;
+  // Which engagement this belongs to, for members-only access. Kept outside the hash.
+  const engagementId = requestContext.getStore()?.engagementId ?? (await engagementOfEntity(q, entity));
   const hash = auditHash(prev, { at, actor, action, entity, detail: clean, ip });
   const { rows } = await q.query(
-    `INSERT INTO audit_log (at, actor, action, entity, detail, prev_hash, hash, ip) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-    [at, actor, action, entity, JSON.stringify(clean), prev, hash, ip],
+    `INSERT INTO audit_log (at, actor, action, entity, detail, prev_hash, hash, ip, engagement_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+    [at, actor, action, entity, JSON.stringify(clean), prev, hash, ip, engagementId],
   );
   emit('audit', { id: rows[0].id, at, actor, action, entity, ip });
 }

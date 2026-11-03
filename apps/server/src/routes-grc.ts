@@ -13,7 +13,7 @@ import {
 } from '@gh/shared';
 import { DATA_DIR, type Db, type Queryable } from './db.js';
 import { logAudit, verifyAudit } from './audit.js';
-import { requireDifferentPerson, requirePerm } from './auth.js';
+import { isMe, requireDifferentPerson, requirePerm } from './auth.js';
 import { emit } from './realtime.js';
 import { apiKeyOf, getProviderRow } from './providers.js';
 import { callStructured, callText } from './llm.js';
@@ -832,7 +832,7 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
   r.post('/engagements/:id/report/sign', wrap(async (req, res) => {
     const { rows: scored } = await db.query(`SELECT assessed_by FROM assessments WHERE engagement_id = $1`, [req.params.id]);
     if (scored.length < ASSESSMENT_AREAS.length) throw httpError(409, `Score all ${ASSESSMENT_AREAS.length} assessment areas before signing off`);
-    if (scored.every((s: any) => s.assessed_by === actorOf(req))) {
+    if (scored.every((s: any) => isMe(req, s.assessed_by))) {
       throw httpError(403, 'You scored every area yourself, so someone else has to sign the report off');
     }
     await db.tx(async (q) => {

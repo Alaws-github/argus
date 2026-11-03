@@ -21,6 +21,8 @@ export function toEngagement(r: any): Engagement {
     appetite: { maxResidual: 8, statement: '', escalateTo: 'Board Risk Committee', ...(r.appetite ?? {}) },
     reportSignedBy: r.report_signed_by ?? null,
     reportSignedAt: iso(r.report_signed_at),
+    sector: r.sector ?? '',
+    createdAt: iso(r.created_at)!,
   };
 }
 

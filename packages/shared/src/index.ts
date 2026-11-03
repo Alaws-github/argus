@@ -424,6 +424,8 @@ export interface Engagement {
   appetite: RiskAppetite;
   reportSignedBy: string | null;
   reportSignedAt: string | null;
+  sector: string;
+  createdAt: string;
 }
 
 // Risk appetite: the highest residual score the engagement accepts without

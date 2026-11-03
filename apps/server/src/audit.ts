@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { Queryable } from './db.js';
 import { emit } from './realtime.js';
+import { requestContext } from './context.js';
 
 const SECRET_KEYS = /key|token|secret|password/i;
 
@@ -17,8 +18,10 @@ function canon(v: unknown): string {
   return JSON.stringify(v ?? null);
 }
 
-export function auditHash(prev: string, row: { at: string; actor: string; action: string; entity: string; detail: unknown }) {
-  return createHash('sha256').update(`${prev}|${row.at}|${row.actor}|${row.action}|${row.entity}|${canon(row.detail)}`).digest('hex');
+// The address joins the hash only when there is one, so rows written before
+// addresses were recorded still verify.
+export function auditHash(prev: string, row: { at: string; actor: string; action: string; entity: string; detail: unknown; ip?: string | null }) {
+  return createHash('sha256').update(`${prev}|${row.at}|${row.actor}|${row.action}|${row.entity}|${canon(row.detail)}${row.ip ? `|${row.ip}` : ''}`).digest('hex');
 }
 
 // Call inside the change's own transaction so the change and its record
@@ -36,21 +39,22 @@ export async function logAudit(
   const prev = last[0]?.hash ?? 'genesis';
   const at = new Date().toISOString();
   const clean = scrub(detail);
-  const hash = auditHash(prev, { at, actor, action, entity, detail: clean });
+  const ip = requestContext.getStore()?.ip ?? null;
+  const hash = auditHash(prev, { at, actor, action, entity, detail: clean, ip });
   const { rows } = await q.query(
-    `INSERT INTO audit_log (at, actor, action, entity, detail, prev_hash, hash) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-    [at, actor, action, entity, JSON.stringify(clean), prev, hash],
+    `INSERT INTO audit_log (at, actor, action, entity, detail, prev_hash, hash, ip) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+    [at, actor, action, entity, JSON.stringify(clean), prev, hash, ip],
   );
-  emit('audit', { id: rows[0].id, at, actor, action, entity });
+  emit('audit', { id: rows[0].id, at, actor, action, entity, ip });
 }
 
 // Recompute the chain. Rows written before v0.3 have no hash and are skipped.
 export async function verifyAudit(q: Queryable) {
-  const { rows } = await q.query(`SELECT id, at, actor, action, entity, detail, prev_hash, hash FROM audit_log WHERE hash IS NOT NULL ORDER BY id`);
+  const { rows } = await q.query(`SELECT id, at, actor, action, entity, detail, prev_hash, hash, ip FROM audit_log WHERE hash IS NOT NULL ORDER BY id`);
   let prev = 'genesis';
   for (const r of rows) {
     const at = r.at instanceof Date ? r.at.toISOString() : new Date(r.at).toISOString();
-    const expect = auditHash(prev, { at, actor: r.actor, action: r.action, entity: r.entity, detail: r.detail });
+    const expect = auditHash(prev, { at, actor: r.actor, action: r.action, entity: r.entity, detail: r.detail, ip: r.ip });
     if (r.prev_hash !== prev || r.hash !== expect) {
       return { ok: false, checked: rows.length, brokenAt: Number(r.id), message: `Row ${r.id} doesn't match the chain: it was changed, or a row before it was removed` };
     }

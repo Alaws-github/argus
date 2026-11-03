@@ -145,4 +145,35 @@ const ag = await admin('GET', `/engagements/${E}/agents`).catch(() => admin('GET
 const a0 = (ag.agents ?? ag)[0];
 await admin('POST', `/agents/${a0.id}/kill`, { test: true }).then((x) => ok(true, 'kill switch test ' + JSON.stringify(x).slice(0, 100))).catch((e) => ok(false, e.message));
 
+// v0.4: engagements, renames, sessions, audit filters
+const providers = await admin('GET', '/providers');
+const rulesP = providers.find((x) => x.type === 'rules');
+const newEng = {
+  name: 'Readiness 2027', client: 'Harbourview Credit Union', prefix: 'HCU', frameworks: ['nistAiRmf', 'jdpa'], startSoa: true,
+  appetite: { maxResidual: 6, statement: '', escalateTo: 'Board' }, gates: { classify: true, design: true },
+  agents: { risk_classifier: { providerId: rulesP.id, model: 'rules-v1', effort: 'low' }, control_designer: { providerId: rulesP.id, model: 'rules-v1', effort: 'low' } },
+  useCases: ['Member chatbot', 'Loan document reader'],
+};
+await expectErr(pat('POST', '/engagements', newEng), 403, 'preparer cannot add an engagement');
+await expectErr(lee('POST', '/engagements', { ...newEng, prefix: 'AI' }), 409, 'card prefix must be unique');
+const hcu = await lee('POST', '/engagements', newEng);
+ok(hcu.prefix === 'HCU' && hcu.appetite.maxResidual === 6, 'lead adds an engagement');
+const hb = await lee('GET', `/engagements/${hcu.id}/board`);
+ok(hb.cards.map((c) => c.key).join() === 'HCU-1,HCU-2', 'starting use cases land in Intake');
+const hsoa = await lee('GET', `/engagements/${hcu.id}/soa`);
+ok(hsoa.some((x) => x.applicable === true) && hsoa.some((x) => x.applicable === null), `SoA started (${hsoa.filter((x) => x.applicable).length} applicable)`);
+await expectErr(lee('POST', `/cards/${hb.cards[0].id}/actions`, { action: 'approve' }), 403, 'creator cannot triage their own imported use case');
+await expectErr(pat('PATCH', '/auth/me', { name: 'Riley Reviewer' }), 409, 'cannot take someone else\'s name');
+// Rename must not open a segregation-of-duties hole
+const rt = await pat('POST', `/engagements/${E}/tests`, { controlId: t0.controlId, kind: 'operating', title: 'Rename check', procedure: 'x' });
+await riley('PATCH', `/tests/${rt.id}`, { status: 'passed', actual: 'fine', exceptions: 0 });
+await riley('PATCH', '/auth/me', { name: 'Riley R. Reviewer' });
+await expectErr(riley('POST', `/tests/${rt.id}/review`, {}), 403, 'renamed reviewer still cannot review their own test');
+await expectErr(pat('PATCH', '/auth/me', { name: 'Riley Reviewer' }), 409, 'former names stay reserved');
+const sess = await riley('GET', '/auth/sessions'); ok(sess.length === 1 && sess[0].current, 'sessions list shows this browser');
+const au = await admin('GET', '/audit?action=user.renamed'); ok(au.total === 1 && au.rows[0].ip, `audit filter by action, with address (${au.rows[0].ip})`);
+const au2 = await admin('GET', '/audit?q=Harbourview&pageSize=25'); ok(au2.total >= 1, 'audit search');
+await riley('POST', '/auth/sessions/end-all', {});
+await expectErr(riley('GET', '/engagements'), 401, 'signed out everywhere');
+
 const v = await admin('GET', '/audit/verify'); ok(v.ok, `audit chain verifies (${JSON.stringify(v)})`);

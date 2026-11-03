@@ -5,6 +5,30 @@ import { api, socket } from '../api';
 interface Toast { id: number; text: string; kind: 'info' | 'error' }
 
 let initOnce: Promise<void> | null = null;
+
+// Per-browser conveniences. Storage can be blocked, so every access is guarded.
+const local = {
+  get: (k: string) => {
+    try {
+      return localStorage.getItem(k);
+    } catch {
+      return null;
+    }
+  },
+  set: (k: string, v: string) => {
+    try {
+      localStorage.setItem(k, v);
+    } catch {
+      /* this session only */
+    }
+  },
+};
+export type Theme = 'system' | 'light' | 'dark';
+export function applyTheme(t: Theme) {
+  if (t === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', t);
+}
+applyTheme((local.get('gh.theme') as Theme) || 'system');
 let wired = false;
 
 export const useApp = defineStore('app', {
@@ -21,6 +45,8 @@ export const useApp = defineStore('app', {
     user: null as User | null,
     needsSetup: false,
     authChecked: false,
+    theme: ((local.get('gh.theme') as Theme) || 'system') as Theme,
+    notify: local.get('gh.notify') === 'on',
   }),
   getters: {
     engagement: (s) => s.engagements.find((e) => e.id === s.engagementId) ?? null,
@@ -52,7 +78,8 @@ export const useApp = defineStore('app', {
     },
     async load() {
       this.engagements = await api('/engagements');
-      this.engagementId = this.engagements[0]?.id ?? '';
+      const saved = local.get('gh.engagement');
+      this.engagementId = this.engagements.find((e) => e.id === saved)?.id ?? this.engagements[0]?.id ?? '';
       this.health = await api('/health');
       await this.loadBoard();
       if (wired) {
@@ -62,8 +89,12 @@ export const useApp = defineStore('app', {
       wired = true;
       socket.on('card', (card: Card) => {
         if (!card?.id) return void this.loadBoard();
-        if (card.engagementId !== this.engagementId) return;
+        if (card.engagementId !== this.engagementId) {
+          if (card.status === 'needs_approval') this.alert(card);
+          return;
+        }
         const i = this.cards.findIndex((c) => c.id === card.id);
+        if (card.status === 'needs_approval' && this.cards[i]?.status !== 'needs_approval') this.alert(card);
         if (i >= 0) this.cards.splice(i, 1, card);
         else this.cards.push(card);
         this.slots.busy = this.cards.filter((c) => c.status === 'running').length;
@@ -72,6 +103,7 @@ export const useApp = defineStore('app', {
       socket.on('engagement', (e: Engagement) => {
         const i = this.engagements.findIndex((x) => x.id === e.id);
         if (i >= 0) this.engagements.splice(i, 1, e);
+        else this.engagements.push(e);
       });
       this.loaded = true;
     },
@@ -86,6 +118,40 @@ export const useApp = defineStore('app', {
       this.slots = b.slots;
       this.autoStart = b.autoStart;
       this.agentStages = b.agentStages;
+    },
+    async switchEngagement(id: string) {
+      if (id === this.engagementId) return;
+      this.engagementId = id;
+      local.set('gh.engagement', id);
+      await this.loadBoard();
+    },
+    async addedEngagement(e: Engagement) {
+      if (!this.engagements.some((x) => x.id === e.id)) this.engagements.push(e);
+      await this.switchEngagement(e.id);
+    },
+    setTheme(t: Theme) {
+      this.theme = t;
+      local.set('gh.theme', t);
+      applyTheme(t);
+    },
+    async setNotify(on: boolean) {
+      if (on) {
+        if (!('Notification' in window)) return this.toast("This browser doesn't support desktop notifications", 'error');
+        const p = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+        if (p !== 'granted') return this.toast('Notifications are blocked for this site. Allow them in the browser, then try again.', 'error');
+      }
+      this.notify = on;
+      local.set('gh.notify', on ? 'on' : 'off');
+    },
+    // A card needs a person, this tab is in the background and the person can act on it.
+    alert(card: Card) {
+      if (!this.notify || !document.hidden || !this.can('approve') || !('Notification' in window) || Notification.permission !== 'granted') return;
+      const eng = this.engagements.find((e) => e.id === card.engagementId)?.name ?? '';
+      const n = new Notification(`${card.key} needs your approval`, { body: `${card.title}${eng ? ` · ${eng}` : ''}`, tag: card.id });
+      n.onclick = () => {
+        window.focus();
+        location.assign(`/?card=${encodeURIComponent(card.key)}`);
+      };
     },
     toast(text: string, kind: Toast['kind'] = 'info') {
       const id = Date.now() + Math.random();

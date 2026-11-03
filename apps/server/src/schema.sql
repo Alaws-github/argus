@@ -407,3 +407,14 @@ CREATE TABLE IF NOT EXISTS assessments (
   assessed_at    timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (engagement_id, area)
 );
+
+-- ---------------------------------------------------------------------------
+-- v0.4: engagements you can add, audit addresses, session idle timeout,
+-- display-name changes that keep segregation of duties intact
+-- ---------------------------------------------------------------------------
+ALTER TABLE audit_log   ADD COLUMN IF NOT EXISTS ip text;
+ALTER TABLE sessions    ADD COLUMN IF NOT EXISTS last_used_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE users       ADD COLUMN IF NOT EXISTS former_names jsonb NOT NULL DEFAULT '[]';
+ALTER TABLE engagements ADD COLUMN IF NOT EXISTS sector text NOT NULL DEFAULT '';
+ALTER TABLE engagements ADD COLUMN IF NOT EXISTS created_by text;
+CREATE INDEX IF NOT EXISTS audit_log_at ON audit_log (at);

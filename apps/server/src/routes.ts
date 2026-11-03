@@ -266,10 +266,42 @@ export function routes(db: Db) {
     });
   }));
 
+  // Audit log with filters: free text, who, what, address and a date range.
   r.get('/audit', wrap(async (req, res) => {
-    const limit = Math.min(Number(req.query.limit) || 200, 1000);
-    const { rows } = await db.query(`SELECT * FROM audit_log ORDER BY id DESC LIMIT $1`, [limit]);
-    res.json(rows.map(toAudit));
+    const f = z.object({
+      q: z.string().max(200).optional(),
+      actor: z.string().max(120).optional(),
+      action: z.string().max(120).optional(),
+      ip: z.string().max(60).optional(),
+      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      pageSize: z.coerce.number().int().refine((n) => [25, 50, 100, 200].includes(n)).default(50),
+      limit: z.coerce.number().int().optional(),
+    }).parse(req.query);
+    const where: string[] = [];
+    const vals: unknown[] = [];
+    const add = (sql: string, v: unknown) => {
+      vals.push(v);
+      where.push(sql.replace('?', `$${vals.length}`));
+    };
+    if (f.q?.trim()) add(`(actor ILIKE ? OR action ILIKE $X OR entity ILIKE $X OR detail::text ILIKE $X)`.replace(/\$X/g, `$${vals.length + 1}`), `%${f.q.trim()}%`);
+    if (f.actor) add(`actor = ?`, f.actor);
+    if (f.action) add(`action = ?`, f.action);
+    if (f.ip?.trim()) add(`ip ILIKE ?`, `${f.ip.trim()}%`);
+    if (f.from) add(`at >= ?::date`, f.from);
+    if (f.to) add(`at < (?::date + 1)`, f.to);
+    const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const size = f.limit ? Math.min(f.limit, 1000) : f.pageSize;
+    const { rows: total } = await db.query(`SELECT count(*)::int AS n FROM audit_log ${w}`, vals);
+    const { rows } = await db.query(`SELECT * FROM audit_log ${w} ORDER BY id DESC LIMIT ${size} OFFSET ${(f.page - 1) * size}`, vals);
+    const { rows: actors } = await db.query(`SELECT DISTINCT actor FROM audit_log ORDER BY actor`);
+    const { rows: actions } = await db.query(`SELECT DISTINCT action FROM audit_log ORDER BY action`);
+    res.json({
+      rows: rows.map((r: any) => ({ ...toAudit(r), ip: r.ip ?? null })),
+      total: total[0].n, page: f.page, pageSize: size,
+      actors: actors.map((a: any) => a.actor), actions: actions.map((a: any) => a.action),
+    });
   }));
 
   configRoutes(r, db, actorOf, wrap);

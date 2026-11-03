@@ -11,6 +11,7 @@ import { ensureBaseline, seed } from './seed.js';
 import { routes } from './routes.js';
 import { attach } from './realtime.js';
 import { startEngine } from './engine.js';
+import { withRequestContext } from './context.js';
 import { authMiddleware, readCookie, userFromToken } from './auth.js';
 
 const PORT = Number(process.env.PORT || 4300);
@@ -24,6 +25,9 @@ await ensureBaseline(db);
 
 const app = express();
 app.disable('x-powered-by');
+// Behind a reverse proxy, set TRUST_PROXY=true so audit entries record the client's address.
+if (process.env.TRUST_PROXY === 'true') app.set('trust proxy', true);
+app.use(withRequestContext);
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');

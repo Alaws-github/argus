@@ -9,6 +9,8 @@ import type { Db, Queryable } from './db.js';
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 export const COOKIE = 'gh_session';
 const SESSION_DAYS = 7;
+// A session also ends after this long without use.
+export const IDLE_HOURS = 12;
 
 export async function hashPassword(pw: string) {
   const salt = randomBytes(16);
@@ -24,17 +26,20 @@ export async function verifyPassword(pw: string, stored: string) {
   return timingSafeEqual(want, got);
 }
 
-const tokenId = (token: string) => createHash('sha256').update(token).digest('hex');
+export const tokenId = (token: string) => createHash('sha256').update(token).digest('hex');
 
 export function toUser(r: any): User {
   const iso = (v: any) => (v instanceof Date ? v.toISOString() : v ? String(v) : null);
-  return { id: r.id, email: r.email, name: r.name, role: r.role, disabled: r.disabled, createdAt: iso(r.created_at)!, lastSeenAt: iso(r.last_seen_at) };
+  return {
+    id: r.id, email: r.email, name: r.name, role: r.role, disabled: r.disabled, createdAt: iso(r.created_at)!, lastSeenAt: iso(r.last_seen_at),
+    formerNames: r.former_names ?? [],
+  };
 }
 
 export async function createSession(q: Queryable, userId: string, req: Request) {
   const token = randomBytes(32).toString('base64url');
   await q.query(`INSERT INTO sessions (id, user_id, expires_at, ip, user_agent) VALUES ($1,$2, now() + ($3 || ' days')::interval, $4, $5)`, [
-    tokenId(token), userId, String(SESSION_DAYS), req.ip ?? null, String(req.header('user-agent') ?? '').slice(0, 300),
+    tokenId(token), userId, String(SESSION_DAYS), req.ip ? req.ip.replace(/^::ffff:/, '') : null, String(req.header('user-agent') ?? '').slice(0, 300),
   ]);
   return token;
 }
@@ -61,10 +66,15 @@ export function readCookie(header: string | undefined, name = COOKIE) {
 export async function userFromToken(q: Queryable, token: string | null): Promise<User | null> {
   if (!token) return null;
   const { rows } = await q.query(
-    `SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = $1 AND s.expires_at > now() AND NOT u.disabled`,
-    [tokenId(token)],
+    `SELECT u.*, s.last_used_at FROM sessions s JOIN users u ON u.id = s.user_id
+     WHERE s.id = $1 AND s.expires_at > now() AND s.last_used_at > now() - ($2 || ' hours')::interval AND NOT u.disabled`,
+    [tokenId(token), String(IDLE_HOURS)],
   );
-  return rows[0] ? toUser(rows[0]) : null;
+  if (!rows[0]) return null;
+  if (Date.now() - new Date(rows[0].last_used_at).getTime() > 60_000) {
+    await q.query(`UPDATE sessions SET last_used_at = now() WHERE id = $1`, [tokenId(token)]);
+  }
+  return toUser(rows[0]);
 }
 
 export async function endSession(q: Queryable, token: string | null) {
@@ -86,7 +96,8 @@ const PUBLIC = new Set(['/health', '/auth/state', '/auth/login', '/auth/setup'])
 // listed needs 'read' for GET and 'prepare' otherwise.
 const RULES: [string, RegExp, Permission][] = [
   ['*', /^\/users/, 'manage_users'],
-  ['*', /^\/auth\/sessions/, 'read'],
+  ['*', /^\/auth\/(sessions|me)/, 'read'],
+  ['POST', /^\/engagements$/, 'manage_engagement'],
   ['GET', /^\/providers/, 'read'],
   ['*', /^\/providers/, 'manage_models'],
   ['PUT', /^\/settings$/, 'manage_models'],
@@ -123,9 +134,16 @@ export function requirePerm(req: Request, p: Permission) {
   if (!can(req.user?.role as Role, p)) throw Object.assign(new Error(`Your role (${req.user?.role}) can't do this`), { status: 403 });
 }
 
+// True when a recorded name is this person, under their current name or any
+// name they used before. Records keep the name used at the time, so a rename
+// must never let someone approve their own work.
+export function isMe(req: Request, name: string | null | undefined) {
+  return !!name && !!req.user && (name === req.user.name || req.user.formerNames.includes(name));
+}
+
 // Segregation of duties: the person who prepared something can't approve it.
 export function requireDifferentPerson(req: Request, preparer: string | null | undefined, what: string) {
-  if (preparer && req.user && preparer === req.user.name) {
+  if (isMe(req, preparer)) {
     throw Object.assign(new Error(`You prepared this ${what}, so someone else has to approve it`), { status: 403 });
   }
 }

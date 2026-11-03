@@ -54,6 +54,8 @@ export interface User {
   disabled: boolean;
   createdAt: string;
   lastSeenAt: string | null;
+  // Names this person used before; their past approvals carry those names.
+  formerNames: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -434,3 +436,42 @@ export type AreaId = (typeof ASSESSMENT_AREAS)[number]['id'];
 
 // A common capability-maturity scale.
 export const MATURITY = ['', 'Initial', 'Repeatable', 'Defined', 'Managed', 'Optimising'] as const;
+
+// ---------------------------------------------------------------------------
+// Adding an engagement (a client, or a project for a client)
+// ---------------------------------------------------------------------------
+export const FRAMEWORK_CHOICES = [
+  { id: 'nistAiRmf', label: 'NIST AI RMF 1.0', hint: 'The usual backbone for AI risk management' },
+  { id: 'iso42001', label: 'ISO/IEC 42001', hint: 'Certifiable AI management system; needs a Statement of Applicability' },
+  { id: 'euAiAct', label: 'EU AI Act', hint: 'If the client serves people in the EU' },
+  { id: 'jdpa', label: 'Jamaica Data Protection Act 2020', hint: 'Personal data of people in Jamaica' },
+  { id: 'nistCsf', label: 'NIST CSF 2.0', hint: 'Security controls around the AI' },
+  { id: 'coso', label: 'COSO Internal Control', hint: 'Financial reporting and internal audit' },
+  { id: 'owasp', label: 'OWASP LLM and Agentic Top 10', hint: 'Red-team coverage for LLM apps and agents' },
+] as const;
+export type FrameworkChoice = (typeof FRAMEWORK_CHOICES)[number]['id'];
+
+export const SECTORS = ['Banking and credit', 'Insurance', 'Public sector', 'Healthcare', 'Retail and consumer', 'Telecoms', 'Professional services', 'Other'] as const;
+
+export const AgentModelChoice = z.object({
+  providerId: z.string().uuid(),
+  model: z.string().min(1).max(120),
+  effort: z.enum(['low', 'medium', 'high', 'xhigh', 'max']).default('medium'),
+});
+
+export const NewEngagement = z.object({
+  name: z.string().trim().min(2).max(80),
+  client: z.string().trim().min(2).max(120),
+  prefix: z.string().trim().regex(/^[A-Z][A-Z0-9]{0,5}$/, 'Use 1 to 6 capital letters or digits, starting with a letter'),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#8b9dff'),
+  sector: z.string().max(60).default(''),
+  about: z.string().max(4000).default(''),
+  frameworks: z.array(z.string()).min(1, 'Pick at least one framework').max(10),
+  // Mark library controls that map to the chosen frameworks as applicable.
+  startSoa: z.boolean().default(true),
+  appetite: z.object({ maxResidual: z.number().int().min(1).max(25), statement: z.string().max(2000).default(''), escalateTo: z.string().max(120).default('Board Risk Committee') }),
+  gates: z.record(z.boolean()),
+  agents: z.record(AgentModelChoice),
+  useCases: z.array(z.string().trim().min(3).max(200)).max(100).default([]),
+});
+export type NewEngagement = z.infer<typeof NewEngagement>;

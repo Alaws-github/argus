@@ -3,7 +3,7 @@
 import type { Request, Response, NextFunction, Router } from 'express';
 import { z } from 'zod';
 import {
-  AgentPatch, EngagementPatch, ProviderInput, STAGES, WorkspaceSettings,
+  AgentPatch, EngagementPatch, FRAMEWORK_CHOICES, NewEngagement, ProviderInput, STAGES, WorkspaceSettings,
   type Stage,
 } from '@gh/shared';
 import type { Db } from './db.js';
@@ -12,6 +12,7 @@ import { encrypt } from './crypto.js';
 import { emit } from './realtime.js';
 import { RULES_VERSION as CLASSIFIER_RULES } from './agents/risk-classifier.js';
 import { RULES_VERSION as DESIGNER_RULES } from './agents/control-designer.js';
+import { ensureAgents } from './seed.js';
 import { AGENT_SELECT, getEngagement, getSettings, monthSpend, toAgent, toEngagement } from './store.js';
 import { PROVIDER_SELECT, apiKeyOf, discoverModels, getProviderRow, toProvider } from './providers.js';
 
@@ -217,6 +218,65 @@ export function configRoutes(r: Router, db: Db, actorOf: (req: Request) => strin
   }));
 
   // -------------------------------------------------------------- engagement
+  // Add an engagement: the client, what's in scope, where people step in and
+  // which models run the agents. Everything lands in one transaction.
+  r.post('/engagements', wrap(async (req, res) => {
+    const b = NewEngagement.parse(req.body);
+    const actor = actorOf(req);
+    const slugBase = b.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'engagement';
+    const { rows: taken } = await db.query(`SELECT slug, prefix FROM engagements`);
+    if (taken.some((e: any) => e.prefix === b.prefix)) throw httpError(409, `Another engagement already uses the prefix ${b.prefix}. Card keys must be unique, so pick another.`);
+    let slug = slugBase;
+    for (let n = 2; taken.some((e: any) => e.slug === slug); n++) slug = `${slugBase}-${n}`;
+    for (const a of Object.values(b.agents)) if (!(await getProviderRow(db, a.providerId))) throw httpError(400, 'A chosen provider no longer exists');
+    const gates = Object.fromEntries(STAGES.map((st) => [st, st === 'intake' ? true : st === 'closed' ? false : !!b.gates[st]]));
+    const labels = FRAMEWORK_CHOICES.filter((f) => b.frameworks.includes(f.id)).map((f) => f.label);
+
+    const id = await db.tx(async (q) => {
+      const { rows } = await q.query(
+        `INSERT INTO engagements (slug, name, client, prefix, color, gates, about, framework, sector, appetite, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+        [slug, b.name, b.client, b.prefix, b.color, JSON.stringify(gates), b.about, labels.join(' · '), b.sector, JSON.stringify(b.appetite), actor],
+      );
+      const eid = rows[0].id;
+      await ensureAgents(q, eid);
+      for (const [role, a] of Object.entries(b.agents)) {
+        await q.query(`UPDATE agents SET provider_id = $3, model = $4, effort = $5 WHERE engagement_id = $1 AND role = $2`, [eid, role, a.providerId, a.model, a.effort]);
+      }
+      let soa = 0;
+      if (b.startSoa) {
+        const { rows: lib } = await q.query(`SELECT id, code, refs FROM control_library`);
+        for (const l of lib) {
+          const hits = b.frameworks.filter((f) => (l.refs?.[f] ?? []).length);
+          if (!hits.length) continue;
+          const names = FRAMEWORK_CHOICES.filter((f) => hits.includes(f.id)).map((f) => f.label).join(', ');
+          await q.query(`INSERT INTO soa (engagement_id, library_id, applicable, justification, decided_by) VALUES ($1,$2,true,$3,$4)`, [
+            eid, l.id, `Starting position: maps to ${names}, which is in scope. Confirm or exclude with a reason.`, actor,
+          ]);
+          soa++;
+        }
+      }
+      let n = 0;
+      for (const title of b.useCases) {
+        n++;
+        const useCase = { title, businessOwner: '', description: '', dataUsed: '', affectedPeople: '', autonomy: 'human_in_loop', vendor: '' };
+        await q.query(`INSERT INTO cards (engagement_id, number, key, title, use_case, created_by) VALUES ($1,$2,$3,$4,$5,$6)`, [
+          eid, n, `${b.prefix}-${n}`, title, JSON.stringify(useCase), actor,
+        ]);
+      }
+      await q.query(`UPDATE engagements SET card_seq = $2 WHERE id = $1`, [eid, n]);
+      await logAudit(q, actor, 'engagement.created', `engagement:${slug}`, {
+        name: b.name, client: b.client, prefix: b.prefix, frameworks: labels, soaStarted: soa, useCases: n,
+        gates: Object.keys(gates).filter((k) => gates[k]), models: Object.fromEntries(Object.entries(b.agents).map(([k, v]) => [k, v.model])),
+      });
+      return eid;
+    });
+    const { rows } = await db.query(`SELECT * FROM engagements WHERE id = $1`, [id]);
+    const e = toEngagement(rows[0]);
+    emit('engagement', e);
+    res.status(201).json(e);
+  }));
+
   r.patch('/engagements/:id', wrap(async (req, res) => {
     const patch = EngagementPatch.parse(req.body);
     const before = await getEngagement(db, req.params.id);

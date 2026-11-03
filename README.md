@@ -2,7 +2,9 @@
 
 An AI governance, risk and assurance workbench. AI use cases move across a board from Intake to Board report. Agents draft the work at each stage; a named person approves at each gate; every action lands in a hash-chained audit trail.
 
-v0.3 adds the assurance layer: sign-in with roles and segregation of duties, a control library mapped to public standards, a Statement of Applicability, a requirements traceability matrix, control testing with a reviewer sign-off, a hashed evidence vault, issues handled like defects, evaluation and red-team suites, an AI inventory with an agent register, residual risk against appetite, and a readiness report scored on a maturity scale.
+v0.4 adds engagements you can add from the switcher (a five-step wizard modelled on GoldenEye's Add project), a GoldenEye-style account menu (Your account, People and roles, Audit log, theme, desktop notifications), a Your account page, and an audit log you can filter by person, action, address and date.
+
+v0.3 added the assurance layer: sign-in with roles and segregation of duties, a control library mapped to public standards, a Statement of Applicability, a requirements traceability matrix, control testing with a reviewer sign-off, a hashed evidence vault, issues handled like defects, evaluation and red-team suites, an AI inventory with an agent register, residual risk against appetite, and a readiness report scored on a maturity scale.
 
 Built on the structure of GoldenEye (the delivery harness): same board-and-gate engine, run log, Models & keys page, tabbed Settings, spend cap and design system, with a governance domain in place of software delivery.
 
@@ -54,9 +56,21 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run db:reset` | Drops everything and reseeds Client Zero (keeps `data/secret.key`) |
 | `npm run build` then `npm start` | Builds the web app and serves it from the API on port 4300 |
 | `npm run typecheck` | Type-checks server and web |
-| `npm run smoke` | API smoke test (37 checks) against a running server on a **fresh** database |
+| `npm run smoke` | API smoke test (50 checks) against a running server on a **fresh** database |
 
 To use a real Postgres instead of PGlite, set `DATABASE_URL` in `.env`.
+
+## Adding a client or project
+
+Open the engagement switcher next to the logo and choose **+ Add engagement** (admins and leads). The wizard has five steps:
+
+1. **Client**: client, sector, engagement name, card prefix (filled in from the client's initials, must be unique), colour, and what the client does and who regulates them. Agents read that as context.
+2. **Scope**: frameworks in scope. The harness shows how many library controls and obligations they bring in, and can start the Statement of Applicability with those marked applicable for you to confirm. Set the risk appetite, and optionally paste use cases, one per line, to land in Intake.
+3. **Gates**: where a reviewer or lead signs off. Intake is always gated.
+4. **Models**: Claude for every agent, the workspace default, or the built-in rules, then adjust per agent.
+5. **Review**: check, then add. You land on the new engagement's board.
+
+Every page belongs to the engagement chosen in the switcher; the choice is remembered per browser. Settings changes the engagement later.
 
 ## Pages
 
@@ -71,9 +85,11 @@ To use a real Postgres instead of PGlite, set `DATABASE_URL` in `.env`.
 | **Evals** | Quality and red-team suites against any provider and model; checks: contains, must not contain, pattern, refuses, length, judge model; results by category; raise issues from failures |
 | **Inventory** | AI systems, models, agents, datasets and vendor AI with owners; the agent register checks eight conditions before an agent may act alone |
 | **Report** | Readiness assessment across seven areas with suggested scores and your rationale; printable report; Markdown download; sign-off |
-| More › **Runs**, **Audit trail** | Every agent run and its log; every action, with a button that verifies the hash chain |
-| More › **Settings**, **Models** | Engagement settings, gates, agents (with kill switch and rules version); providers, keys, prices and the spending limit |
-| More › **People and roles** | Admin only: add people, change roles, reset passwords, disable |
+| More › **Runs**, **Settings**, **Models** | Agent runs and their logs; engagement settings, gates, agents (with kill switch and rules version); providers, keys, prices and the spending limit |
+| Account menu › **Your account** | Display name, password, where you're signed in, sign out one session or everywhere |
+| Account menu › **People and roles** | Admin only: add people, change roles, reset passwords, disable |
+| Account menu › **Audit log** | Every action with the address it came from; search and filter by who, what, address and date; pages; CSV; verify the hash chain |
+| Account menu › **Theme**, **Desktop notifications** | System, light or dark; a browser notification when a use case needs your approval and the tab is in the background |
 
 ## How it works
 
@@ -100,6 +116,8 @@ Intake ─▶ Classify risk ─▶ Design controls ─▶ Collect evidence ─�
 | Reviewer | Approve gates, review tests, accept risks within appetite, close issues |
 | Preparer | Add use cases, controls, tests, evidence and issues |
 | Viewer | Read everything |
+
+Renaming yourself is allowed (Your account), but your old names stay attached to you: you still can't approve work you signed under an earlier name, and nobody else can take that name. A session ends after 12 hours without use or 7 days after sign-in.
 
 On top of roles: nobody approves a use case they added, reviews a test they prepared, closes an issue without a passed and reviewed retest, or signs off a report whose areas they scored alone. A reviewed test result is locked; a retest is a new test. Passwords are hashed with scrypt; sessions are random tokens stored hashed, in an HttpOnly cookie.
 
@@ -159,12 +177,12 @@ scripts/smoke.mjs          API smoke test
 
 | Area | Endpoints |
 | --- | --- |
-| Board | `GET /api/engagements`, `GET /api/engagements/:id/board`, `POST /api/engagements/:id/cards`, `GET /api/cards/:key`, `POST /api/cards/:id/actions` (`approve`, `request_changes`, `retry`, `advance`, `reject`) |
-| Runs, risks, audit | `GET /api/runs`, `GET /api/runs/:id`, `GET /api/engagements/:id/risks`, `PATCH /api/risks/:id`, `GET /api/engagements/:id/overview`, `GET /api/audit` |
+| Board | `GET /api/engagements`, `POST /api/engagements`, `GET /api/engagements/:id/board`, `POST /api/engagements/:id/cards`, `GET /api/cards/:key`, `POST /api/cards/:id/actions` (`approve`, `request_changes`, `retry`, `advance`, `reject`) |
+| Runs, risks, audit | `GET /api/runs`, `GET /api/runs/:id`, `GET /api/engagements/:id/risks`, `PATCH /api/risks/:id`, `GET /api/engagements/:id/overview`, `GET /api/audit` (`q`, `actor`, `action`, `ip`, `from`, `to`, `page`, `pageSize`) |
 | Settings | `GET /api/settings`, `PUT /api/settings`, `PATCH /api/engagements/:id` |
 | Providers | `GET /api/providers`, `POST /api/providers`, `PATCH /api/providers/:id`, `DELETE /api/providers/:id`, `POST /api/providers/:id/test`, `POST /api/providers/test` |
 | Agents | `GET /api/engagements/:id/agents`, `PATCH /api/agents/:id` |
-| Auth and people | `GET /api/auth/state`, `POST /api/auth/setup`, `POST /api/auth/login`, `POST /api/auth/logout`, `POST /api/auth/password`, `GET/POST /api/users`, `PATCH /api/users/:id` |
+| Auth and people | `PATCH /api/auth/me`, `GET /api/auth/sessions`, `DELETE /api/auth/sessions/:id`, `POST /api/auth/sessions/end-all`, `GET /api/auth/state`, `POST /api/auth/setup`, `POST /api/auth/login`, `POST /api/auth/logout`, `POST /api/auth/password`, `GET/POST /api/users`, `PATCH /api/users/:id` |
 | Controls | `GET /api/library`, `POST /api/library`, `GET /api/obligations`, `GET /api/engagements/:id/soa`, `PUT /api/engagements/:id/soa/:libraryId`, `GET/POST /api/engagements/:id/controls`, `PATCH /api/controls/:id`, `GET /api/engagements/:id/traceability` |
 | Inventory | `GET/POST /api/engagements/:id/inventory`, `PATCH /api/inventory/:id` |
 | Testing and evidence | `GET/POST /api/engagements/:id/tests`, `PATCH /api/tests/:id`, `POST /api/tests/:id/review`, `GET /api/engagements/:id/evidence`, `POST /api/evidence`, `GET /api/evidence/:id/verify`, `GET /api/evidence/:id/download` |
@@ -182,11 +200,12 @@ Realtime events: `card`, `run`, `run:event`, `risk`, `audit`, `usage`, `engageme
 2. **Control Tester** agent that drafts test results for a person to review; it can flag failures but never conclude a pass alone.
 3. **Report Writer** agent that drafts the board narrative from the signed-off assessment.
 4. **Monitoring**: scheduled eval runs with drift alerts, and incident records with regulator notification timelines.
-5. **Multiple engagements** in the switcher, with per-engagement membership.
+5. **Per-engagement membership**: today everyone signed in sees every engagement. Archive or delete an engagement.
 6. **SSO** (OIDC) alongside passwords, and MFA for admins.
 
 ## Before you put it on a server
 
 - Put it behind HTTPS (and set `COOKIE_SECURE=true` so the session cookie is only sent over HTTPS). Set `SECRET_KEY` from a secrets manager rather than relying on `data/secret.key`.
 - Back up `data/` (database, evidence files and the key) together. Evidence files are named by their hash, so a restored file that doesn't match fails verification.
+- Behind a reverse proxy, set `TRUST_PROXY=true` so the audit log records the client's address rather than the proxy's.
 - There's no rate limit on sign-in yet; put the app behind a proxy that has one, or add it before exposing it to the internet.

@@ -14,6 +14,8 @@ import { assistantRoutes } from './routes-assistant.js';
 import { visibleIds } from './access.js';
 import { incidentRoutes } from './routes-incidents.js';
 import { connectorRoutes } from './routes-connectors.js';
+import { planRoutes } from './routes-plans.js';
+import { createCard } from './cards.js';
 import { accessRoutes } from './routes-access.js';
 import { ssoRoutes } from './sso.js';
 import { requireDifferentPerson, requirePerm } from './auth.js';
@@ -74,18 +76,7 @@ export function routes(db: Db) {
   r.post('/engagements/:id/cards', wrap(async (req, res) => {
     const input = UseCaseInput.parse(req.body);
     const actor = actorOf(req);
-    const card = await db.tx(async (q) => {
-      const { rows } = await q.query(`UPDATE engagements SET card_seq = card_seq + 1 WHERE id = $1 RETURNING prefix, card_seq`, [req.params.id]);
-      if (!rows[0]) throw Object.assign(new Error('Engagement not found'), { status: 404 });
-      const key = `${rows[0].prefix}-${rows[0].card_seq}`;
-      const { rows: c } = await q.query(
-        `INSERT INTO cards (engagement_id, number, key, title, use_case, created_by) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-        [req.params.id, rows[0].card_seq, key, input.title, JSON.stringify(input), actor],
-      );
-      await logAudit(q, actor, 'card.created', `card:${key}`, { title: input.title });
-      await indexUseCase(q, c[0]);
-      return toCard(c[0]);
-    });
+    const card = await db.tx((q) => createCard(q, req.params.id, input, actor));
     scheduleEmbedding(db);
     emit('card', card);
     res.status(201).json(card);
@@ -340,6 +331,60 @@ export function routes(db: Db) {
     });
   }));
 
+  // Activity over time for the Overview charts: agent runs and their cost by
+  // stage, agent or model, run outcomes, use cases added and closed, and how
+  // people decided the agents' draft items.
+  r.get('/engagements/:id/activity', wrap(async (req, res) => {
+    const { days } = z.object({ days: z.coerce.number().int().refine((n) => [7, 30, 90, 365].includes(n)).default(30) }).parse(req.query);
+    const id = req.params.id;
+    const tz = (await getSettings(db)).timeZone;
+    const dayList: string[] = [];
+    const today = new Date();
+    for (let i = days - 1; i >= 0; i--) dayList.push(new Date(today.getTime() - i * 864e5).toISOString().slice(0, 10));
+    const since = dayList[0];
+    const { rows: runs } = await db.query(
+      `SELECT to_char(r.started_at AT TIME ZONE $3, 'YYYY-MM-DD') AS day, r.stage, r.agent, r.model, r.status, r.cost_usd
+       FROM runs r JOIN cards c ON c.id = r.card_id WHERE c.engagement_id = $1 AND r.started_at >= $2::date`, [id, since, tz]);
+    const { rows: cards } = await db.query(
+      `SELECT to_char(created_at AT TIME ZONE $3, 'YYYY-MM-DD') AS created, CASE WHEN stage = 'closed' THEN to_char(stage_entered_at AT TIME ZONE $3, 'YYYY-MM-DD') END AS closed
+       FROM cards WHERE engagement_id = $1 AND (created_at >= $2::date OR stage_entered_at >= $2::date)`, [id, since, tz]);
+    const { rows: decisions } = await db.query(
+      `SELECT action, detail FROM audit_log WHERE engagement_id = $1 AND at >= $2::date AND action LIKE 'draft.%'`, [id, since]);
+    const idx = new Map(dayList.map((d, i) => [d, i]));
+    const series = (key: 'stage' | 'agent' | 'model', metric: 'cost' | 'runs') => {
+      const out: Record<string, number[]> = {};
+      for (const r of runs) {
+        const i = idx.get(r.day);
+        if (i == null) continue;
+        const name = String(r[key] ?? 'unknown');
+        out[name] ??= dayList.map(() => 0);
+        out[name][i] += metric === 'cost' ? Number(r.cost_usd) : 1;
+      }
+      return out;
+    };
+    const counts = (pick: (x: any) => string | null) => {
+      const a = dayList.map(() => 0);
+      for (const x of cards) { const d = pick(x); const i = d ? idx.get(d) : undefined; if (i != null) a[i]++; }
+      return a;
+    };
+    const outcome = (st: string) => { const a = dayList.map(() => 0); for (const r of runs) { const i = idx.get(r.day); if (i != null && r.status === st) a[i]++; } return a; };
+    const d = { accepted: 0, edited: 0, rejected: 0 };
+    for (const x of decisions) {
+      if (x.action === 'draft.rest_accepted') d.accepted += (x.detail?.items ?? []).length;
+      else if (x.action === 'draft.item_accepted') d.accepted++;
+      else if (x.action === 'draft.item_edited') d.edited++;
+      else if (x.action === 'draft.item_rejected') d.rejected++;
+    }
+    res.json({
+      days: dayList,
+      cost: { stage: series('stage', 'cost'), agent: series('agent', 'cost'), model: series('model', 'cost') },
+      runs: { stage: series('stage', 'runs'), agent: series('agent', 'runs'), model: series('model', 'runs') },
+      outcomes: { succeeded: outcome('succeeded'), failed: outcome('failed') },
+      flow: { added: counts((x) => x.created), closed: counts((x) => x.closed) },
+      decisions: d,
+    });
+  }));
+
   // Audit log with filters: free text, who, what, address and a date range.
   r.get('/audit', wrap(async (req, res) => {
     const f = z.object({
@@ -389,6 +434,7 @@ export function routes(db: Db) {
   testingRoutes(r, db, actorOf, wrap);
   assistantRoutes(r, db, actorOf, wrap);
   incidentRoutes(r, db, actorOf, wrap);
+  planRoutes(r, db, actorOf, wrap);
   connectorRoutes(r, db, actorOf, wrap);
   accessRoutes(r, db, actorOf, wrap);
   ssoRoutes(r, db, actorOf, wrap);

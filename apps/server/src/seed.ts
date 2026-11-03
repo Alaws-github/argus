@@ -19,6 +19,7 @@ const USE_CASES: UseCaseInput[] = [
     affectedPeople: 'Personal loan applicants in Jamaica, about 1,800 a month.',
     autonomy: 'human_in_loop',
     vendor: 'In-house model, trained by the analytics team',
+    category: 'decision', priority: 'p1',
   },
   {
     title: 'Customer service chatbot',
@@ -29,6 +30,7 @@ const USE_CASES: UseCaseInput[] = [
     affectedPeople: 'Retail banking customers.',
     autonomy: 'autonomous',
     vendor: 'OpenAI GPT model through a SaaS chatbot platform',
+    category: 'chatbot', priority: 'p1',
   },
   {
     title: 'Board paper summariser',
@@ -38,6 +40,7 @@ const USE_CASES: UseCaseInput[] = [
     affectedPeople: 'Directors and the secretariat.',
     autonomy: 'human_in_loop',
     vendor: 'Microsoft 365 Copilot',
+    category: 'generative', priority: 'p2',
   },
   {
     title: 'Expense receipt categoriser',
@@ -47,10 +50,13 @@ const USE_CASES: UseCaseInput[] = [
     affectedPeople: 'Employees who claim expenses.',
     autonomy: 'assistive',
     vendor: '',
+    category: 'decision',
+    priority: 'p3',
   },
 ];
 
 const AGENT_LIMITS: Record<AgentRole, { maxCostUsd: number; timeoutMin: number; concurrency: number }> = {
+  use_case_planner: { maxCostUsd: 0.5, timeoutMin: 3, concurrency: 4 },
   risk_classifier: { maxCostUsd: 1, timeoutMin: 5, concurrency: 2 },
   control_designer: { maxCostUsd: 2, timeoutMin: 10, concurrency: 2 },
   evidence_collector: { maxCostUsd: 2, timeoutMin: 20, concurrency: 2 },
@@ -167,7 +173,7 @@ async function startingModel(q: Queryable) {
 }
 
 // Drafting agents ship switched off; a lead turns them on per engagement.
-const ON_BY_DEFAULT: AgentRole[] = ['risk_classifier', 'control_designer'];
+const ON_BY_DEFAULT: AgentRole[] = ['use_case_planner', 'risk_classifier', 'control_designer'];
 
 export async function ensureAgents(q: Queryable, engagementId: string) {
   const { rows } = await q.query(`SELECT role FROM agents WHERE engagement_id = $1`, [engagementId]);

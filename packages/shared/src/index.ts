@@ -85,6 +85,17 @@ export const STATUS_LABELS: Record<CardStatus, string> = {
 export const Autonomy = z.enum(['assistive', 'human_in_loop', 'human_on_loop', 'autonomous']);
 export type Autonomy = z.infer<typeof Autonomy>;
 
+// What kind of AI it is, and how soon the team should look at it. Shown on the
+// board card; the Planner suggests both, a person can change them.
+export const UseCaseCategory = z.enum(['decision', 'chatbot', 'agent', 'generative', 'analytics', 'other']);
+export type UseCaseCategory = z.infer<typeof UseCaseCategory>;
+export const CATEGORY_LABELS: Record<UseCaseCategory, string> = {
+  decision: 'Decision', chatbot: 'Chatbot', agent: 'AI agent', generative: 'Generative', analytics: 'Analytics', other: 'Other',
+};
+export const Priority = z.enum(['p1', 'p2', 'p3']);
+export type Priority = z.infer<typeof Priority>;
+export const PRIORITY_LABELS: Record<Priority, string> = { p1: 'P1 Urgent', p2: 'P2 Normal', p3: 'P3 Later' };
+
 export const UseCaseInput = z.object({
   title: z.string().min(3).max(160),
   businessOwner: z.string().max(120).default(''),
@@ -93,8 +104,55 @@ export const UseCaseInput = z.object({
   affectedPeople: z.string().max(1000).default(''),
   autonomy: Autonomy.default('human_in_loop'),
   vendor: z.string().max(200).default(''),
+  category: UseCaseCategory.default('other'),
+  priority: Priority.default('p2'),
 });
 export type UseCaseInput = z.infer<typeof UseCaseInput>;
+
+// ---------------------------------------------------------------------------
+// Plans: a use case being drafted before it reaches the board. The Use Case
+// Planner asks questions and fills the brief; the person edits it and adds it
+// to Intake under their own name. "Fill it in myself" skips the chat.
+// ---------------------------------------------------------------------------
+export const PlanBrief = z.object({
+  title: z.string().max(160).default(''),
+  businessOwner: z.string().max(120).default(''),
+  description: z.string().max(4000).default(''),
+  dataUsed: z.string().max(2000).default(''),
+  affectedPeople: z.string().max(1000).default(''),
+  autonomy: Autonomy.default('human_in_loop'),
+  vendor: z.string().max(200).default(''),
+  category: UseCaseCategory.default('other'),
+  priority: Priority.default('p2'),
+});
+export type PlanBrief = z.infer<typeof PlanBrief>;
+export const PLAN_FIELDS: { key: keyof PlanBrief; label: string; required: boolean }[] = [
+  { key: 'title', label: 'Name', required: true },
+  { key: 'description', label: 'What it does', required: true },
+  { key: 'businessOwner', label: 'Business owner', required: true },
+  { key: 'dataUsed', label: 'Data it uses', required: true },
+  { key: 'affectedPeople', label: 'People affected', required: true },
+  { key: 'autonomy', label: 'Autonomy', required: true },
+  { key: 'vendor', label: 'Vendor or model', required: false },
+  { key: 'category', label: 'Kind of AI', required: false },
+  { key: 'priority', label: 'Priority', required: false },
+];
+export interface PlanMessage { role: 'planner' | 'user'; text: string; at: string; author: string; model?: string; runtime?: 'rules' | 'live' }
+export interface Plan {
+  id: string;
+  key: string;
+  mode: 'ai' | 'manual';
+  status: 'draft' | 'added';
+  brief: PlanBrief;
+  /** Fields a person typed in the brief; the Planner won't overwrite them. */
+  edited: string[];
+  messages: PlanMessage[];
+  missing: string[];
+  cardKey: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // ---------------------------------------------------------------------------
 // Risk tiers. Modelled on the EU AI Act's four tiers, which most clients
@@ -257,6 +315,8 @@ export interface AuditEntry {
   action: string;
   entity: string;
   detail: Record<string, unknown>;
+  /** Set when an admin did this while acting as the actor. */
+  realActor?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -266,9 +326,9 @@ export const ProviderType = z.enum(['anthropic', 'openai', 'ollama', 'rules']);
 export type ProviderType = z.infer<typeof ProviderType>;
 
 export const PROVIDER_TYPE_LABELS: Record<ProviderType, string> = {
-  anthropic: 'Anthropic API',
-  openai: 'OpenAI-compatible',
-  ollama: 'Ollama Cloud',
+  anthropic: 'Anthropic format',
+  openai: 'OpenAI-compatible format',
+  ollama: 'Ollama format',
   rules: 'Built-in rules (offline)',
 };
 
@@ -312,6 +372,33 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   { id: 'custom', label: 'Other OpenAI-compatible', type: 'openai', name: 'Custom provider', baseUrl: 'http://localhost:8000/v1', billed: false, keyFrom: '', needsKey: false, hint: 'vLLM, llama.cpp, a company gateway or anything else that speaks the OpenAI API. Usually ends in /v1.', examples: [] },
 ];
 
+// Which service a provider points at, judged from its address. The connection
+// type says how the harness talks to it (many services speak OpenAI's API);
+// the service says who it is.
+const SERVICE_HOSTS: [RegExp, string][] = [
+  [/generativelanguage\.googleapis\.com/, 'Google Gemini API'],
+  [/aiplatform\.googleapis\.com/, 'Google Vertex AI'],
+  [/api\.anthropic\.com/, 'Anthropic API'],
+  [/\.openai\.azure\.com|\.cognitiveservices\.azure\.com/, 'Azure OpenAI'],
+  [/api\.openai\.com/, 'OpenAI API'],
+  [/api\.mistral\.ai/, 'Mistral API'],
+  [/api\.groq\.com/, 'Groq API'],
+  [/api\.together\.(xyz|ai)/, 'Together AI API'],
+  [/openrouter\.ai/, 'OpenRouter'],
+  [/api\.deepseek\.com/, 'DeepSeek API'],
+  [/api\.x\.ai/, 'xAI API'],
+  [/api\.perplexity\.ai/, 'Perplexity API'],
+  [/ollama\.com/, 'Ollama Cloud'],
+  [/(localhost|127\.0\.0\.1):11434/, 'Ollama (this computer)'],
+  [/(localhost|127\.0\.0\.1):1234/, 'LM Studio (this computer)'],
+];
+export function serviceOf(type: ProviderType, baseUrl: string): string {
+  if (type === 'rules') return 'Built-in rules';
+  const hit = SERVICE_HOSTS.find(([re]) => re.test(baseUrl ?? ''));
+  if (hit) return hit[1];
+  return type === 'anthropic' ? 'Anthropic API' : type === 'ollama' ? 'Ollama API' : 'Custom service';
+}
+
 // USD per million tokens.
 export const ModelPrice = z.object({
   input: z.number().min(0),
@@ -323,6 +410,8 @@ export type ModelPrice = z.infer<typeof ModelPrice>;
 export interface Provider {
   id: string;
   type: ProviderType;
+  /** Who the provider is, e.g. "Google Gemini API". `type` is only how we connect. */
+  service: string;
   name: string;
   baseUrl: string;
   enabled: boolean;
@@ -360,6 +449,7 @@ export const Effort = z.enum(EFFORTS);
 export type Effort = z.infer<typeof Effort>;
 
 export const AgentRole = z.enum([
+  'use_case_planner',
   'risk_classifier',
   'control_designer',
   'evidence_collector',
@@ -370,6 +460,7 @@ export const AgentRole = z.enum([
 export type AgentRole = z.infer<typeof AgentRole>;
 
 export const AGENT_ROLES: Record<AgentRole, { name: string; stage: Stage; built: boolean; summary: string; tools: AgentTool[] }> = {
+  use_case_planner: { name: 'Use Case Planner', stage: 'intake', built: true, summary: 'Talks a new use case through with the person who raises it and drafts the intake brief', tools: ['ask'] },
   risk_classifier: { name: 'Risk Classifier', stage: 'classify', built: true, summary: 'Tiers the use case, sets the oversight model, proposes starting risks', tools: ['read_profile', 'ask'] },
   control_designer: { name: 'Control Designer', stage: 'design', built: true, summary: 'Proposes controls for each approved risk from the control library', tools: ['read_profile', 'read_register', 'ask'] },
   evidence_collector: { name: 'Evidence Collector', stage: 'evidence', built: true, summary: 'Drafts the evidence request list for each control and checks what has arrived', tools: ['read_profile', 'read_register', 'read_evidence'] },
@@ -388,12 +479,58 @@ export const AGENT_TOOL_INFO: Record<AgentTool, { label: string; hint: string }>
   ask: { label: 'Ask you a question', hint: 'Stops the card at Needs you until you answer' },
 };
 
-export const AgentRoute = z.enum(['all', 'high_only', 'not_minimal']);
-export const ROUTE_LABELS: Record<z.infer<typeof AgentRoute>, string> = {
-  all: 'All use cases',
+// Which cards an agent takes. With two agents on one stage, a card goes to the
+// most specific agent that takes it (a kind or priority beats a tier, a tier
+// beats "all").
+export const AgentRoute = z.enum([
+  'all', 'high_only', 'not_minimal', 'p1_only',
+  'cat_decision', 'cat_chatbot', 'cat_agent', 'cat_generative', 'cat_analytics', 'cat_other',
+]);
+export type AgentRoute = z.infer<typeof AgentRoute>;
+export const ROUTE_LABELS: Record<AgentRoute, string> = {
+  all: 'All cards',
   high_only: 'High and prohibited tier only',
   not_minimal: 'Everything but minimal tier',
+  p1_only: 'P1 urgent cards only',
+  cat_decision: 'Decision systems only',
+  cat_chatbot: 'Chatbots only',
+  cat_agent: 'AI agents only',
+  cat_generative: 'Generative AI only',
+  cat_analytics: 'Analytics only',
+  cat_other: 'Other kinds only',
 };
+export const routeSpecificity = (r: AgentRoute) => (r === 'all' ? 0 : r === 'high_only' || r === 'not_minimal' ? 1 : 2);
+export function routeTakes(route: AgentRoute, card: { tier: RiskTier | null; useCase: { category?: string; priority?: string } }) {
+  if (route === 'all') return true;
+  if (route === 'p1_only') return card.useCase.priority === 'p1';
+  if (route.startsWith('cat_')) return (card.useCase.category ?? 'other') === route.slice(4);
+  if (!card.tier) return true;
+  if (route === 'high_only') return card.tier === 'high' || card.tier === 'prohibited';
+  return card.tier !== 'minimal';
+}
+
+// Adding an agent: it takes a stage, and does that stage's job (the stage's
+// built-in role) with its own model, instructions, routing and limits.
+export const NewAgent = z.object({
+  stage: z.string(),
+  name: z.string().trim().min(2).max(60),
+  enabled: z.boolean().default(true),
+  route: AgentRoute.default('all'),
+  providerId: z.string().uuid().nullable().optional(),
+  model: z.string().trim().min(1).max(120).optional(),
+  effort: Effort.optional(),
+  fallbackProviderId: z.string().uuid().nullable().optional(),
+  fallbackModel: z.string().trim().max(120).nullable().optional(),
+  summary: z.string().max(200).default(''),
+  instructions: z.string().max(8000).default(''),
+  tools: z.array(z.enum(AGENT_TOOLS)).optional(),
+  maxCostUsd: z.number().min(0).max(1000).optional(),
+  timeoutMin: z.number().int().min(1).max(120).optional(),
+  concurrency: z.number().int().min(1).max(8).optional(),
+});
+export type NewAgent = z.infer<typeof NewAgent>;
+export const roleForStage = (stage: string): AgentRole | null =>
+  ((Object.entries(AGENT_ROLES) as [AgentRole, (typeof AGENT_ROLES)[AgentRole]][]).find(([, m]) => m.stage === stage && m.built)?.[0]) ?? null;
 
 export interface AgentConfig {
   id: string;
@@ -401,9 +538,11 @@ export interface AgentConfig {
   role: AgentRole;
   name: string;
   stage: Stage;
-  route: z.infer<typeof AgentRoute>;
+  route: AgentRoute;
   enabled: boolean;
   built: boolean;
+  /** Added by a person (can be deleted); the built-in agent for a stage can only be turned off. */
+  custom: boolean;
   providerId: string | null;
   model: string;
   effort: Effort;
@@ -464,6 +603,10 @@ export const WorkspaceSettings = z.object({
   // Evidence connectors may reach addresses on a private network or this
   // machine only when an admin allows it (off by default, against SSRF).
   connectorsAllowPrivate: z.boolean(),
+  // Act as: an admin can work as any other person without signing out, to
+  // run the whole flow alone (demos, testing, training). Off by default:
+  // segregation of duties then rests on the audit log, which names both.
+  allowActAs: z.boolean(),
 });
 export type WorkspaceSettings = z.infer<typeof WorkspaceSettings>;
 

@@ -4,7 +4,7 @@ Context for Claude working on this project. Read this first.
 
 ## What this is
 
-**Governance Harness** (v1.0): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report). Six AI agents draft the work; named people make every decision; everything is written to a hash-chained audit log.
+**Governance Harness** (v1.1): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report). Seven AI agents draft the work (the Use Case Planner drafts the intake brief, six more draft each later stage), and a lead can add more per stage; named people make every decision; everything is written to a hash-chained audit log.
 
 It was rebuilt from **GoldenEye**, the owner's AI delivery harness, keeping its board-and-gate engine, Models page, tabbed Settings, account menu and look. GoldenEye is a reference only: never change anything in it.
 
@@ -33,6 +33,9 @@ These are the product. Any change must keep them, and the tests check them.
 16. **Per-engagement access is enforced centrally** (`access.ts`, before `archiveGuard`): every request, reads included, is mapped to its engagement through `OWNERS` in `archive.ts`; non-members of a members-only engagement get 404. A new route whose URL doesn't start with `/engagements/:id/` must be added to `OWNERS`. Lists (`/engagements`, `/runs`, `/audit`, judge labels) filter with `visibleIds`; `emit()` in `realtime.ts` filters live updates; `logAudit` tags `audit_log.engagement_id` (outside the hash).
 17. **Connectors only read** (`connectors.ts`): GET only, credentials encrypted and never returned or audited, private and loopback addresses refused unless the admin setting `connectorsAllowPrivate` is on, every address on a redirect re-checked.
 18. **SSO never creates accounts or changes roles** (`sso.ts`): pre-provisioned users only, matched by email; state, nonce and PKCE; ID token signature, issuer, audience and expiry checked with `jose`; admins always keep password sign-in.
+19. **The Use Case Planner drafts; a person adds** (`planner.ts`, `routes-plans.ts`). Only `POST /plans/:id/add` creates the card, as the person (`createCard` in `cards.ts`), with `draftedByPlanner` and `editedByPerson` in the audit detail. Fields in `plans.edited` are never overwritten by the Planner (`merge`). The Planner is excluded from board dispatch (`engine.ts` pickAgent, `agentStages`). Switched off, plans fall back to manual and the chat refuses with 409.
+20. **More than one agent per stage** (`roleForStage`, `routeTakes`, `routeSpecificity` in shared; `pickAgent` in engine). A new agent takes its stage's built-in role (same rules version, same output checks); routing picks the most specific enabled agent; a card no agent takes goes idle with the reason. Built-in agents can't be deleted, only turned off; custom agents (`agents.custom`) can.
+21. **Act as is off by default and always recorded** (`userFromToken` in `auth.ts`, `/auth/act-as` in `routes-auth.ts`). Only a real admin, only while `allowActAs` is on, only as an active account; the acting user's role applies, never the admin's. `audit_log.real_actor` joins the hash only when present (`auditHash`), set only when the entry's actor is the person acted as. Password, name and session changes are refused while acting. Drag and drop on the board calls the same `/cards/:id/actions` (approve or advance) as the buttons.
 11. **Generic names only.** No client firm's trademarked service or product names in the app or docs. Demo data is fictional ("Client Zero", "Northshore Financial Group (demo)").
 
 ## Run it
@@ -48,6 +51,7 @@ npm run test:agents  # 30 drafting-agent checks incl. a cheating mock model
 npm run test:grounding # 31 checks: knowledge base, citations, decisions, meaning search, temperature
 npm run test:operations # 58 checks: PDF/Excel/Word reading, incidents, monitoring and drift, connectors, members-only access, SSO (mock IdP)
 npm run test:assistant # 27 checks: assistant offline/live, dropped citations and suggestions, apply under own role, discard, spend cap, JSON fallback
+npm run test:v11       # 65 checks: Use Case Planner (rules and mock model), new agents and routing, act as, provider service names, activity charts
 npm run test:verifier  # 36 checks: golden runs, regressions, Verifier quote check, calibration, live checks, spend cap
 ```
 
@@ -66,7 +70,8 @@ apps/server/src
   index.ts        startup, middleware order: request context, auth, archive guard, routes
   routes.ts       engagements, board, card actions (approve/request_changes/advance/retry/reject), runs, risks, audit
   routes-config.ts settings, providers, agents, engagement create and update
-  routes-auth.ts  sign-in, sessions, your account, people
+  routes-auth.ts  sign-in, sessions, your account, people, act as
+  planner.ts      Use Case Planner (offline rules and live); routes-plans.ts plans API; cards.ts createCard
   routes-grc.ts   library, SoA, controls, inventory, tests, evidence, issues, traceability, evals, assessment, report, kill switch
   archive.ts      read-only guard, archive, restore, export, delete
   auth.ts         scrypt passwords, sessions (12 h idle, 7 days), permission RULES, isMe, requireDifferentPerson
@@ -124,6 +129,6 @@ The working copy lives in `~/Documents/Governance and Risk - AI/governance-harne
 
 ## Not built yet
 
-OCR for scanned evidence; SAML, sign-out at the provider and MFA inside the app; OAuth connectors for document stores; sign-in rate limiting; Verifier coverage of the four drafting agents; the assistant streaming answers.
+OCR for scanned evidence; the Planner reading the knowledge base or suggesting similar existing use cases; SAML, sign-out at the provider and MFA inside the app; OAuth connectors for document stores; sign-in rate limiting; Verifier coverage of the four drafting agents; the assistant streaming answers.
 
 The full manual is `docs/manual.md`, rendered to `docs/manual.pdf` by `scripts/build-manual.mjs` (Playwright). Rebuild the PDF after changing the manual or its screenshots.

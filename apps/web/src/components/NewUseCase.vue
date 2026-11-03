@@ -1,10 +1,11 @@
 <script setup lang="ts">
-// The "+ Add use case" form: the profile of a new AI use case, which lands in
-// Intake for someone else to triage.
+// Quick add: the profile of a new AI use case typed straight in, without the
+// Use Case Planner. It lands in Intake for someone else to triage.
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useApp } from '../stores/app';
 import { api } from '../api';
+import { CATEGORY_LABELS, PRIORITY_LABELS } from '@gh/shared';
 
 const emit = defineEmits<{ close: [] }>();
 const app = useApp();
@@ -19,6 +20,8 @@ const form = reactive({
   affectedPeople: '',
   autonomy: 'human_in_loop',
   vendor: '',
+  category: 'other',
+  priority: 'p2',
 });
 
 async function submit() {
@@ -45,10 +48,10 @@ async function submit() {
   <div class="backdrop" @click="emit('close')" />
   <form class="modal" @submit.prevent="submit" @keydown.esc="emit('close')">
     <div class="spread">
-      <h2>Add an AI use case</h2>
+      <h2>Quick add a use case</h2>
       <button type="button" class="btn ghost sm" aria-label="Close" @click="emit('close')">✕</button>
     </div>
-    <p class="muted small">It goes to Intake. You decide whether it goes forward to classification.</p>
+    <p class="muted small">It goes to Intake for someone else to take forward. Want help filling it in? <RouterLink :to="{ path: '/plan', query: { new: '1' } }" @click="emit('close')">Plan it with AI</RouterLink>.</p>
     <label class="field"><span>Name</span><input v-model="form.title" class="input" placeholder="Loan pre-approval scoring" autofocus /></label>
     <label class="field"><span>Business owner</span><input v-model="form.businessOwner" class="input" placeholder="Head of Retail Credit" /></label>
     <label class="field"><span>What it does</span><textarea v-model="form.description" class="textarea" placeholder="What the AI does, who acts on its output, how often" /></label>
@@ -65,6 +68,14 @@ async function submit() {
         </select>
       </label>
       <label class="field"><span>Vendor or model</span><input v-model="form.vendor" class="input" placeholder="In-house, or the vendor's name" /></label>
+      <label class="field">
+        <span>Kind of AI</span>
+        <select v-model="form.category" class="select"><option v-for="(l, k) in CATEGORY_LABELS" :key="k" :value="k">{{ l }}</option></select>
+      </label>
+      <label class="field">
+        <span>Priority</span>
+        <select v-model="form.priority" class="select"><option v-for="(l, k) in PRIORITY_LABELS" :key="k" :value="k">{{ l }}</option></select>
+      </label>
     </div>
     <p v-if="error" class="error">{{ error }}</p>
     <div class="row" style="justify-content: flex-end">

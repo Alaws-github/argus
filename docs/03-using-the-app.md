@@ -2,6 +2,10 @@
 
 A tour of every page. The top bar shows the engagement switcher (left), the main pages, **+ Add use case**, and your account menu (your initials, right).
 
+## Adding a use case (the Plan page)
+
+**+ Add use case** opens the Plan page. By default the **Use Case Planner** talks the use case through with you and fills in the brief on the right; fields it filled carry an **AI** tag. Edit any field yourself (the Planner then leaves it alone) and click **Add to Intake**. **Fill it in myself** switches to the same brief without the chat. Your drafts are listed on the left. See [Plan a use case with the AI](runbooks/plan-a-use-case.md).
+
 ## Signing in
 
 The first time the app opens, it asks someone to create the **first admin** account. After that, everyone signs in with their email and password. Sessions end after 12 hours without use, or 7 days after signing in.
@@ -27,11 +31,11 @@ Pick the engagement you want to work on. Leads and admins also see **+ Add engag
 
 ## Overview
 
-The engagement at a glance: how many use cases are classified, open high risks, what needs you, AI spend this month, recent agent runs.
+The engagement at a glance: how many use cases are classified, open high risks, what needs you, AI spend this month, recent agent runs. Charts show agent activity per day (runs or cost, by stage, agent or model, over 7, 30 or 90 days or 12 months, with a table view), run outcomes, and how people decided the agents' draft items.
 
 ## Board
 
-One column per stage, one card per use case. Filters show what needs you, what's running and high-risk cases. Click a card to open its panel, which shows the decision it's waiting for:
+One column per stage, one card per use case. The **Show**, **Kind** and **Priority** lists filter the cards. Each column head shows its count, its cost, where a person steps in and which agents work it; each card shows the kind of AI, key, cost, priority, title, the agent's draft, status and tier. Drag a card one column to the right to move it on: the drop runs the same approve or move-on action as the buttons, so roles, segregation of duties and exit criteria still apply, and a refused move says why. Click a card to open its panel, which shows the decision it's waiting for:
 
 ![A classification draft, item by item](images/ai-draft-classification.png)
 
@@ -107,7 +111,7 @@ Everything the agents ground their drafts in: framework summaries, the control l
 
 A suggestion changes nothing until you click **Apply**. Applying runs it under your own name and role, exactly as if you had made the change by hand: a preparer can't apply a decision only a reviewer may make, and the change gets its normal audit entry plus a note that the assistant proposed it. **Discard** sets it aside. The assistant can never approve a stage, sign off, conclude a test, accept a risk or close an issue. Anything it gets wrong (a passage it wasn't given, a record it wasn't shown) is removed and listed under "things the harness removed".
 
-Each person has their own conversation per use case or page. With no model chosen, the offline assistant reports what the harness can check by itself. Choose its model on the Models page.
+Each person has their own conversation per use case or page. With no model chosen, the offline assistant reports what the harness can check by itself. Choose its model under Workspace settings > Models & keys.
 
 ![The assistant on a use case](images/assistant-card.png)
 
@@ -127,11 +131,11 @@ Each evaluation suite can run by itself daily or weekly. Every run is checked ag
 
 Evidence can be a note, a link or a file. PDFs with text, Excel (.xlsx), Word (.docx) and text files are read when collected, so agents and search can use them; the vault says what was read. Scanned PDFs need a note. **Connectors** pull a report or export from a client system over HTTPS, read-only, on request or on a schedule, and file each new version as fingerprinted evidence against a control. See [Connect a client system](runbooks/connect-a-client-system.md).
 
-## Who can see an engagement (Settings > General)
+## Who can see an engagement (Engagement settings > Access)
 
 An engagement is open to everyone signed in, or **members only**: then only its members and admins can see it, its records, audit entries and live updates. See [Make an engagement members-only](runbooks/restrict-an-engagement.md).
 
-## Single sign-on (People and roles)
+## Single sign-on (Workspace settings > Sign-in & security)
 
 Admins can let people sign in through an identity provider (OpenID Connect). It signs in people who already have an account, matched by email. See [Set up single sign-on](runbooks/set-up-single-sign-on.md).
 
@@ -143,7 +147,14 @@ On a use case's classification or control design, the Verifier's line sits above
 
 ![Agent testing: measuring the Verifier](images/verifier-trust.png)
 
-## More: Runs, Settings, Models
+## Act as (account menu)
+
+When an admin has turned it on (Workspace settings > Sign-in & security), the account menu lists **Act as**: work as anyone else without signing out, to run the whole flow alone. A banner shows who you are acting as; **Stop acting** returns you. Everything is recorded under both names. Keep it off on client work. See [Run the whole flow as one person](runbooks/act-as.md).
+
+## More: Runs, Engagement settings, Workspace settings
+
+**Engagement settings** lists the engagements on the left (with **+ Add engagement**) and has five tabs for the one you pick: General, Workflow & gates, Integrations (evidence connectors), Agents (including **+ New agent**, see [Add an agent to a stage](runbooks/add-an-agent.md)) and Access. **Workspace settings** applies to every engagement: Models & keys, People & roles, and Sign-in & security.
+
 
 - **Runs**: every agent run, with the model used, cost and a step-by-step log.
 - **Settings**: General (details, pause, archive or delete), Workflow & gates, Agents (model, limits, instructions, kill switch).

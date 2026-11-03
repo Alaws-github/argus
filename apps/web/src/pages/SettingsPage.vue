@@ -1,6 +1,9 @@
 <script setup lang="ts">
-// Engagement settings, three tabs: General (details, pause, archive or delete),
-// Workflow & gates, and Agents (model, limits, instructions, kill switch).
+// Engagement settings. Engagements on the left (like projects), five tabs on
+// the right: General (details, pause, archive or delete), Workflow & gates,
+// Integrations (evidence connectors), Agents (add, route, model, limits,
+// instructions, kill switch) and Access. Workspace-wide settings live under
+// Workspace settings instead.
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
@@ -10,12 +13,18 @@ import {
 } from '@gh/shared';
 import { useApp } from '../stores/app';
 import EngagementAccess from '../components/EngagementAccess.vue';
+import ConnectorsTab from '../components/ConnectorsTab.vue';
 import { api } from '../api';
 
 const app = useApp();
 const route = useRoute();
 const router = useRouter();
-const tab = computed(() => (['general', 'workflow', 'agents'].includes(String(route.params.tab)) ? String(route.params.tab) : 'general'));
+const TABS = { general: 'General', workflow: 'Workflow & gates', integrations: 'Integrations', agents: 'Agents', access: 'Access' } as const;
+const tab = computed(() => (String(route.params.tab) in TABS ? String(route.params.tab) : 'general'));
+async function openEngagement(id: string) {
+  if (id === app.engagementId) return;
+  await app.switchEngagement(id);
+}
 
 const providers = ref<Provider[]>([]);
 const agents = ref<AgentConfig[]>([]);
@@ -27,8 +36,10 @@ onMounted(async () => {
   await loadAll();
 });
 
+const controls = ref<any[]>([]);
 async function loadAll() {
   providers.value = await api('/providers');
+  controls.value = await api(`/engagements/${app.engagementId}/controls`).catch(() => []);
   agents.value = await api(`/engagements/${app.engagementId}/agents`);
   if (!selectedId.value && agents.value[0]) selectedId.value = agents.value[0].id;
   resetGeneral();
@@ -125,7 +136,84 @@ async function toggleGate(s: Stage) {
 }
 
 // ------------------------------------------------------------------- Agents
-const selected = computed(() => agents.value.find((a) => a.id === selectedId.value) ?? null);
+// A new agent is a draft until "Create agent": shown in the list as "Not saved yet".
+const NEW = 'new';
+const newStage = ref<Stage>('classify');
+const agentStagesList = computed(() => STAGES.filter((s) => Object.values(AGENT_ROLES).some((m) => m.stage === s && m.built)));
+const selected = computed<AgentConfig | null>(() => {
+  if (selectedId.value !== NEW) return agents.value.find((a) => a.id === selectedId.value) ?? null;
+  const base = agents.value.find((a) => a.stage === newStage.value && !a.custom) ?? agents.value[0];
+  return base ? { ...base, id: NEW, name: 'New agent', custom: true, enabled: true, route: 'all', instructions: '', summary: '', killedAt: null, killTestedAt: null, activeRuns: 0, stage: newStage.value } : null;
+});
+const isNew = computed(() => selectedId.value === NEW);
+function startNew() {
+  newStage.value = (agents.value.find((a) => a.id === selectedId.value)?.stage as Stage) ?? 'classify';
+  if (newStage.value === 'intake' || !agentStagesList.value.includes(newStage.value)) newStage.value = 'classify';
+  selectedId.value = NEW;
+}
+watch(newStage, () => {
+  if (!isNew.value) return;
+  const name = draft.name;
+  resetAgent();
+  draft.name = name;
+});
+async function createAgent() {
+  const [fbProvider, fbModel] = draft.fallback ? draft.fallback.split('|') : [null, null];
+  saving.value = true;
+  try {
+    const a = await api<AgentConfig>(`/engagements/${app.engagementId}/agents`, {
+      method: 'POST',
+      body: {
+        stage: newStage.value, name: draft.name, enabled: draft.enabled, route: draft.route, summary: draft.summary,
+        providerId: draft.providerId || null, model: draft.model, effort: draft.effort,
+        fallbackProviderId: fbProvider, fallbackModel: fbModel, instructions: draft.instructions, tools: draft.tools,
+        maxCostUsd: Number(draft.maxCostUsd), timeoutMin: Number(draft.timeoutMin), concurrency: Number(draft.concurrency),
+      },
+    });
+    agents.value = await api(`/engagements/${app.engagementId}/agents`);
+    selectedId.value = a.id;
+    app.toast(`${a.name} created. It takes ${ROUTE_LABELS[a.route].toLowerCase()} on ${STAGE_LABELS[a.stage]}.`);
+  } catch (e: any) {
+    app.toast(e.message, 'error');
+  } finally {
+    saving.value = false;
+  }
+}
+async function duplicateAgent() {
+  try {
+    const a = await api<AgentConfig>(`/agents/${selected.value!.id}/duplicate`, { method: 'POST' });
+    agents.value = await api(`/engagements/${app.engagementId}/agents`);
+    selectedId.value = a.id;
+    app.toast(`${a.name} created, switched off. Change what it takes, then turn it on.`);
+  } catch (e: any) {
+    app.toast(e.message, 'error');
+  }
+}
+async function deleteAgent() {
+  const a = selected.value!;
+  if (!window.confirm(`Delete ${a.name}? Its past runs stay in the record.`)) return;
+  try {
+    await api(`/agents/${a.id}`, { method: 'DELETE' });
+    agents.value = await api(`/engagements/${app.engagementId}/agents`);
+    selectedId.value = agents.value.find((x) => x.stage === a.stage)?.id ?? agents.value[0]?.id ?? '';
+    app.toast(`${a.name} deleted`);
+  } catch (e: any) {
+    app.toast(e.message, 'error');
+  }
+}
+// What differs from the stage's built-in agent, so a lead can see and reset it.
+const baseOf = computed(() => (selected.value?.custom ? agents.value.find((a) => a.stage === selected.value!.stage && !a.custom) ?? null : null));
+const overrides = computed(() => {
+  const b = baseOf.value;
+  if (!b || isNew.value) return [] as { label: string; reset: () => void }[];
+  const out: { label: string; reset: () => void }[] = [];
+  if (draft.providerId !== (b.providerId ?? '') || draft.model !== b.model) out.push({ label: 'model', reset: () => { draft.providerId = b.providerId ?? ''; draft.model = b.model; } });
+  const bfb = b.fallbackModel ? `${b.fallbackProviderId ?? b.providerId}|${b.fallbackModel}` : '';
+  if (draft.fallback !== bfb) out.push({ label: 'fallback', reset: () => (draft.fallback = bfb) });
+  if (draft.instructions !== b.instructions) out.push({ label: 'instructions', reset: () => (draft.instructions = b.instructions) });
+  if (draft.tools.join() !== b.tools.join()) out.push({ label: 'tools', reset: () => (draft.tools = [...b.tools]) });
+  return out;
+});
 const draft = reactive({
   name: '', enabled: false, route: 'all', summary: '', providerId: '', model: '', effort: 'medium',
   fallback: '', instructions: '', tools: [] as string[], maxCostUsd: '1', timeoutMin: '10', concurrency: '2',
@@ -142,6 +230,7 @@ function resetAgent() {
 watch(selectedId, resetAgent);
 
 const providerOf = (id: string) => providers.value.find((p) => p.id === id);
+const stageGroups = computed(() => STAGES.map((s) => ({ stage: s, list: agents.value.filter((a) => a.stage === s) })).filter((g) => g.list.length || (isNew.value && g.stage === newStage.value)));
 const modelOptions = computed(() => {
   const p = providerOf(draft.providerId);
   const list = p ? [...p.models] : [];
@@ -161,6 +250,7 @@ function onProviderChange() {
 const agentDirty = computed(() => {
   const a = selected.value;
   if (!a) return false;
+  if (isNew.value) return true;
   const fb = a.fallbackModel ? `${a.fallbackProviderId ?? a.providerId}|${a.fallbackModel}` : '';
   return (
     draft.name !== a.name || draft.enabled !== a.enabled || draft.route !== a.route || draft.summary !== a.summary ||
@@ -211,19 +301,34 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
 </script>
 
 <template>
-  <div class="page">
+  <div class="page settings-layout">
+    <aside class="eng-list" aria-label="Engagements">
+      <span class="label-caps">Engagements</span>
+      <button v-for="e in app.active" :key="e.id" class="eng-item" :class="{ selected: e.id === app.engagementId }" @click="openEngagement(e.id)">
+        <span class="swatch" :style="{ background: e.color }">{{ e.prefix[0] }}</span>
+        <span class="grow clip"><span class="clip" style="display: block">{{ e.name }}</span><span class="small faint clip" style="display: block">{{ e.client }}</span></span>
+      </button>
+      <template v-if="app.archived.length">
+        <span class="label-caps" style="margin-top: 10px">Archived</span>
+        <button v-for="e in app.archived" :key="e.id" class="eng-item" :class="{ selected: e.id === app.engagementId }" style="opacity: 0.75" @click="openEngagement(e.id)">
+          <span class="swatch" :style="{ background: e.color, filter: 'grayscale(1)' }">{{ e.prefix[0] }}</span>
+          <span class="grow clip">{{ e.name }}</span>
+        </button>
+      </template>
+      <RouterLink v-if="app.canRaw('manage_engagement')" to="/engagements/new" class="btn sm" style="margin-top: 8px">+ Add engagement</RouterLink>
+      <RouterLink v-if="app.canRaw('manage_models') || app.canRaw('manage_users')" to="/workspace" class="small faint-link" style="margin-top: 14px">Workspace settings →</RouterLink>
+    </aside>
+    <div class="settings-main">
     <div class="page-head">
       <div>
-        <h1>{{ app.engagement?.name }} settings</h1>
-        <p>Changes apply to new runs. Runs in progress keep the settings they started with.</p>
+        <h1>{{ app.engagement?.name }}</h1>
+        <p>Settings for this engagement. Changes apply to new runs; runs in progress keep the settings they started with.</p>
       </div>
       <span class="badge" :class="app.engagement?.archivedAt ? 'warn' : app.engagement?.paused ? 'warn' : 'ok'">{{ app.engagement?.archivedAt ? 'Archived' : app.engagement?.paused ? 'Paused' : 'Active' }} · {{ agents.filter((a) => a.enabled).length }} agent{{ agents.filter((a) => a.enabled).length === 1 ? '' : 's' }} on</span>
     </div>
 
     <nav class="tabs" aria-label="Settings sections">
-      <RouterLink v-for="t in (['general', 'workflow', 'agents'] as const)" :key="t" :to="`/settings/${t}`" :class="{ active: tab === t }">
-        {{ { general: 'General', workflow: 'Workflow & gates', agents: 'Agents' }[t] }}
-      </RouterLink>
+      <RouterLink v-for="(label, t) in TABS" :key="t" :to="`/settings/${t}`" :class="{ active: tab === t }">{{ label }}</RouterLink>
     </nav>
 
     <!-- General -->
@@ -252,7 +357,11 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
       </fieldset>
     </section>
 
-    <EngagementAccess v-if="tab === 'general'" />
+    <EngagementAccess v-if="tab === 'access'" />
+    <template v-if="tab === 'integrations'">
+      <p class="small muted">Evidence connectors pull reports and exports from the client's systems into the evidence vault on a schedule. Preparers can also run them from Testing &gt; Connectors.</p>
+      <ConnectorsTab :controls="controls" />
+    </template>
 
     <section v-if="tab === 'general' && app.canRaw('manage_engagement')" class="card danger-zone">
       <h2>Archive or delete</h2>
@@ -291,8 +400,11 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
               <td><strong>{{ STAGE_LABELS[s] }}</strong></td>
               <td>
                 <template v-if="agentFor(s)">
-                  {{ agentFor(s)!.name }}
-                  <span class="badge" :class="agentFor(s)!.enabled ? 'ok' : ''" style="margin-left: 4px">{{ agentFor(s)!.enabled ? 'On' : agentFor(s)!.built ? 'Off' : 'Not built yet' }}</span>
+                  <span v-for="a in agents.filter((x) => x.stage === s)" :key="a.id" style="display: block">
+                    {{ a.name }}
+                    <span class="badge" :class="a.enabled ? 'ok' : ''" style="margin-left: 4px">{{ a.enabled ? 'On' : a.built ? 'Off' : 'Not built yet' }}</span>
+                    <span v-if="a.route !== 'all'" class="small faint"> · {{ ROUTE_LABELS[a.route].toLowerCase() }}</span>
+                  </span>
                 </template>
                 <span v-else class="faint">A person</span>
               </td>
@@ -310,29 +422,37 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
     </section>
 
     <!-- Agents -->
-    <section v-else class="two-pane">
+    <section v-else-if="tab === 'agents'" class="stack">
+      <div class="spread" style="align-items: flex-start">
+        <p class="small muted" style="max-width: 640px; margin: 0">Each agent owns one stage. Add a second agent to a stage and route cards between them by kind, priority or tier; a card goes to the most specific agent that takes it. Instructions are added after the harness's own rules for that job.</p>
+        <button v-if="app.can('manage_agents')" class="btn primary" :disabled="isNew" @click="startNew">+ New agent</button>
+      </div>
+    <div class="two-pane">
       <aside class="pane-list">
-        <p class="small muted">Each agent owns one stage. Its instructions are added after the harness's own rules for that role.</p>
-        <template v-for="s in STAGES" :key="s">
-          <template v-for="a in agents.filter((x) => x.stage === s)" :key="a.id">
-            <span class="label-caps" style="margin-top: 8px">
-              {{ STAGE_LABELS[s] }} <span v-if="app.engagement?.gates[s]" class="badge warn" style="padding: 0 6px; font-size: 10px">gate</span>
+        <template v-for="g in stageGroups" :key="g.stage">
+          <span class="label-caps" style="margin-top: 8px">
+            {{ STAGE_LABELS[g.stage] }} <span v-if="app.engagement?.gates[g.stage] || g.stage === 'intake'" class="badge warn" style="padding: 0 6px; font-size: 10px">{{ g.stage === 'intake' ? 'You triage' : 'You approve' }}</span>
+          </span>
+          <button v-for="a in g.list" :key="a.id" class="agent-item" :class="{ selected: a.id === selectedId }" @click="selectedId = a.id">
+            <span class="agent-mark">{{ initials(a.name) }}</span>
+            <span class="grow" style="text-align: left">
+              <strong>{{ a.name }}</strong>
+              <span class="mono small faint">{{ a.route !== 'all' ? ROUTE_LABELS[a.route] : a.model }}</span>
             </span>
-            <button class="agent-item" :class="{ selected: a.id === selectedId }" @click="selectedId = a.id">
-              <span class="agent-mark">{{ initials(a.name) }}</span>
-              <span class="grow" style="text-align: left">
-                <strong>{{ a.name }}</strong>
-                <span class="mono small faint" style="display: block">{{ a.model }}</span>
-              </span>
-              <span class="small" :style="{ color: a.enabled ? 'var(--ok)' : 'var(--faint)' }">{{ a.enabled ? 'On' : a.built ? 'Off' : 'Soon' }}</span>
-            </button>
-          </template>
+            <span class="small" :style="{ color: a.enabled ? 'var(--ok)' : 'var(--faint)' }">{{ a.enabled ? 'On' : a.built ? 'Off' : 'Soon' }}</span>
+          </button>
+          <button v-if="isNew && g.stage === newStage" class="agent-item selected">
+            <span class="agent-mark">{{ initials(draft.name || 'New agent') }}</span>
+            <span class="grow" style="text-align: left"><strong>{{ draft.name || 'New agent' }}</strong><span class="small faint">New</span></span>
+            <span class="small" style="color: var(--warn)">Not saved yet</span>
+          </button>
         </template>
       </aside>
 
       <div v-if="selected" class="card">
         <div class="spread">
-          <div class="row"><span class="agent-mark">{{ initials(selected.name) }}</span><h2>{{ selected.name }}</h2></div>
+          <div class="row" style="min-width: 0"><span class="agent-mark">{{ initials(isNew ? draft.name || 'New agent' : selected.name) }}</span><h2 class="clip">{{ isNew ? draft.name || 'New agent' : selected.name }}</h2>
+            <span v-if="isNew" class="badge warn">Not saved yet</span><span v-else-if="selected.custom" class="badge">Added</span></div>
           <label class="switch" :class="{ on: draft.enabled }" :title="selected.built ? '' : 'Not built yet'">
             <input v-model="draft.enabled" type="checkbox" class="sr-only" :disabled="!selected.built" /><span class="track" />{{ draft.enabled ? 'Enabled' : 'Off' }}
           </label>
@@ -343,9 +463,13 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
 
         <div class="grid" style="grid-template-columns: 1fr 1fr">
           <label class="field"><span>Name</span><input v-model="draft.name" class="input" /></label>
-          <label class="field"><span>Stage</span><input class="input" :value="STAGE_LABELS[selected.stage]" disabled /></label>
           <label class="field">
-            <span>Takes use cases</span>
+            <span>Stage</span>
+            <select v-if="isNew" v-model="newStage" class="select"><option v-for="s in agentStagesList" :key="s" :value="s">{{ STAGE_LABELS[s] }} · {{ Object.values(AGENT_ROLES).find((m) => m.stage === s)!.name }}'s job</option></select>
+            <input v-else class="input" :value="STAGE_LABELS[selected.stage]" disabled />
+          </label>
+          <label class="field">
+            <span>Takes cards</span>
             <select v-model="draft.route" class="select"><option v-for="(l, k) in ROUTE_LABELS" :key="k" :value="k">{{ l }}</option></select>
           </label>
           <label class="field"><span>What it does <span class="faint">optional</span></span><input v-model="draft.summary" class="input" /></label>
@@ -356,7 +480,7 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
           <label class="field">
             <span>Provider</span>
             <select v-model="draft.providerId" class="select" @change="onProviderChange">
-              <option v-for="p in providers" :key="p.id" :value="p.id" :disabled="!p.enabled">{{ p.name }}{{ p.enabled ? '' : ' (off)' }}</option>
+              <option v-for="p in providers" :key="p.id" :value="p.id" :disabled="!p.enabled">{{ p.name }}{{ p.name === p.service ? '' : ` · ${p.service}` }}{{ p.enabled ? '' : ' (off)' }}</option>
             </select>
           </label>
           <label class="field">
@@ -402,7 +526,7 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
           <span class="hint">A run that passes its timeout fails and the use case shows Needs you. A run that costs more than its max spend is flagged in its steps.</span>
         </div>
 
-        <div class="field">
+        <div v-if="!isNew" class="field">
           <span>Kill switch</span>
           <div class="notice" :class="selected.killedAt ? 'danger' : ''" style="padding: 12px">
             <p class="small">
@@ -420,17 +544,34 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
           </div>
         </div>
 
-        <div class="row">
-          <button class="btn primary" :disabled="!agentDirty || saving" @click="saveAgent">Save agent</button>
-          <button v-if="agentDirty" class="btn ghost" @click="resetAgent">Discard</button>
+        <p v-if="overrides.length" class="small faint">
+          Set here, not taken from {{ baseOf?.name }}:
+          <template v-for="(o, i) in overrides" :key="o.label">{{ i ? ' / ' : '' }}{{ o.label }} <button class="link-btn" @click="o.reset()">Reset</button></template>
+          <template v-if="overrides.length > 1"> / <button class="link-btn" @click="overrides.forEach((o) => o.reset())">Reset all</button></template>
+        </p>
+
+        <div class="row" style="flex-wrap: wrap">
+          <template v-if="isNew">
+            <button class="btn primary" :disabled="saving || draft.name.trim().length < 2" @click="createAgent">Create agent</button>
+            <button class="btn ghost" @click="selectedId = agents[0]?.id ?? ''">Discard</button>
+          </template>
+          <template v-else>
+            <button class="btn primary" :disabled="!agentDirty || saving" @click="saveAgent">Save agent</button>
+            <button v-if="agentDirty" class="btn ghost" @click="resetAgent">Discard</button>
+            <span class="grow" />
+            <button v-if="app.can('manage_agents') && selected.role !== 'use_case_planner' || app.can('manage_agents') && selected.custom" class="btn sm" @click="duplicateAgent">Duplicate</button>
+            <button v-if="app.can('manage_agents') && selected.custom" class="btn sm danger" @click="deleteAgent">Delete agent</button>
+          </template>
         </div>
       </div>
+    </div>
     </section>
 
-    <div v-if="(tab === 'general' && generalDirty) || (tab === 'agents' && agentDirty)" class="save-bar">
+    <div v-if="(tab === 'general' && generalDirty) || (tab === 'agents' && agentDirty && !isNew)" class="save-bar">
       <span>You have unsaved changes</span>
       <button class="btn ghost sm" @click="tab === 'general' ? resetGeneral() : resetAgent()">Discard</button>
       <button class="btn primary sm" :disabled="saving" @click="tab === 'general' ? saveGeneral() : saveAgent()">Save changes</button>
+    </div>
     </div>
   </div>
 </template>

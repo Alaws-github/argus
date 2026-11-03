@@ -1,5 +1,5 @@
 // Model providers: storage, key handling, connection tests and model discovery.
-import type { Provider, ProviderType } from '@gh/shared';
+import { serviceOf, type Provider, type ProviderType } from '@gh/shared';
 import type { Queryable } from './db.js';
 import { decrypt } from './crypto.js';
 import { DEFAULT_PRICES } from './agents/pricing.js';
@@ -29,9 +29,11 @@ const envKeyFor = (type: ProviderType) => (type === 'anthropic' ? process.env.AN
 export function toProvider(r: ProviderRow & { used_by?: number }): Provider {
   const fromEnv = !r.api_key_enc && !!envKeyFor(r.type);
   const prices = r.prices ?? {};
+  const models = keepChatModels(r.base_url, r.models ?? []);
   return {
     id: r.id,
     type: r.type,
+    service: serviceOf(r.type, r.base_url),
     name: r.name,
     baseUrl: r.base_url,
     enabled: r.enabled,
@@ -39,12 +41,12 @@ export function toProvider(r: ProviderRow & { used_by?: number }): Provider {
     status: r.status as Provider['status'],
     statusText: r.status_text,
     checkedAt: iso(r.checked_at),
-    models: r.models ?? [],
+    models,
     key: { set: !!r.api_key_enc || fromEnv, masked: r.key_last4 ? `••••${r.key_last4}` : fromEnv ? 'from ANTHROPIC_API_KEY' : null, fromEnv },
     billed: r.billed,
     maxConcurrent: r.max_concurrent,
     prices,
-    unpriced: r.billed ? (r.models ?? []).filter((m) => !prices[m] && !DEFAULT_PRICES[m]) : [],
+    unpriced: r.billed ? models.filter((m) => !prices[m] && !DEFAULT_PRICES[m]) : [],
     usedBy: Number(r.used_by ?? 0),
   };
 }
@@ -85,5 +87,16 @@ export async function discoverModels(type: ProviderType, baseUrl: string, apiKey
   const body: any = await res.json();
   const ids: string[] =
     type === 'ollama' ? (body.models ?? []).map((m: any) => m.name ?? m.model) : (body.data ?? []).map((m: any) => m.id);
-  return ids.filter(Boolean).sort();
+  return keepChatModels(baseUrl, ids.filter(Boolean)).sort();
+}
+
+// Some services list every model they have, including speech, image, video and
+// embedding models the agents can't use. Keep the ones that write text.
+const NOT_TEXT = /(tts|image|imagen|veo|audio|embedding|embed|live|computer-use|native|aqa|whisper|dall-e|moderation|transcribe|realtime|vision-only|learnlm)/i;
+export function keepChatModels(baseUrl: string, ids: string[]): string[] {
+  if (/generativelanguage\.googleapis\.com/.test(baseUrl)) {
+    return ids.filter((m) => /gemini|gemma/i.test(m) && !NOT_TEXT.test(m));
+  }
+  if (/api\.openai\.com/.test(baseUrl)) return ids.filter((m) => !NOT_TEXT.test(m) && !/^(babbage|davinci|text-|tts|sora)/.test(m));
+  return ids;
 }

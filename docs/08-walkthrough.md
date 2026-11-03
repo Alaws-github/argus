@@ -157,3 +157,21 @@ Every action, by a person or an agent, with when and from where. Each entry carr
 ![Models](images/walkthrough/22-models.png)
 
 Which AI the harness uses. It ships with the offline rules (free, no keys). Add a service from the presets (Anthropic, OpenAI, Azure OpenAI, Google Gemini, Mistral, local Ollama and others), set a monthly spending cap, and choose models for the agents, the assistant and the Verifier.
+
+## 18. New in v1.1: AI from the first step
+
+![Planning a use case with the Use Case Planner](images/walkthrough/38-plan.png)
+
+**+ Add use case** opens the Plan page. The Use Case Planner asks a few questions and fills the brief on the right; the person edits it and clicks **Add to Intake**. **Fill it in myself** does the same without the chat.
+
+![A second agent on Classify risk](images/walkthrough/34-agents.png)
+
+A lead can add agents to a stage and route cards between them: here a Chatbot classifier takes chatbots, and the Risk Classifier takes everything else.
+
+![Agent activity on the Overview](images/walkthrough/42-activity.png)
+
+The Overview charts agent runs or cost per day, by stage, agent or model.
+
+![Acting as a reviewer, after dragging AI-4 to Classify risk](images/walkthrough/43-act-as-drag.png)
+
+For demos, an admin can act as anyone (off by default). Dragging a card to the next column runs the same approval as the button, so the reviewer's permissions and segregation of duties still apply.

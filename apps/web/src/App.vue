@@ -5,14 +5,25 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useApp } from './stores/app';
 import { api } from './api';
-import NewUseCase from './components/NewUseCase.vue';
 import SignIn from './components/SignIn.vue';
 import AssistantPanel from './components/AssistantPanel.vue';
 
 const app = useApp();
 const route = useRoute();
 const router = useRouter();
-const showNew = ref(false);
+// Act as: the people an admin can switch to (only when the workspace allows it).
+const actAs = ref<{ actingAs: string | null; people: { id: string; name: string; email: string; role: string }[] } | null>(null);
+async function loadActAs() {
+  actAs.value = await api('/auth/act-as').catch(() => null);
+}
+async function actAsPerson(userId: string | null) {
+  try {
+    await api('/auth/act-as', { method: 'POST', body: { userId } });
+    window.location.reload();
+  } catch (e: any) {
+    app.toast(e.message, 'error');
+  }
+}
 const menu = ref<'' | 'more' | 'me' | 'eng'>('');
 const initials = computed(() =>
   (app.user?.name || '?')
@@ -28,8 +39,8 @@ const MORE = [
   { to: '/knowledge', label: 'Knowledge base' },
   { to: '/agent-testing/golden', label: 'Agent testing', match: '/agent-testing' },
   { to: '/runs', label: 'Runs' },
-  { to: '/settings/general', label: 'Settings', match: '/settings' },
-  { to: '/models', label: 'Models' },
+  { to: '/settings/general', label: 'Engagement settings', match: '/settings' },
+  { to: '/workspace/models', label: 'Workspace settings', match: '/workspace' },
 ];
 // Monitor, sun and moon, drawn inline so they take the text colour.
 const THEMES = [
@@ -62,6 +73,8 @@ async function start() {
 }
 watch(() => app.user?.id, (id) => id && void app.init().catch((e) => app.toast(e.message, 'error')));
 watch(() => route.fullPath, () => (menu.value = ''));
+watch(menu, (m) => m === 'me' && (app.user?.role === 'admin' || app.user?.realUser) && void loadActAs());
+
 
 async function signOut() {
   await api('/auth/logout', { method: 'POST' }).catch(() => {});
@@ -140,7 +153,7 @@ onBeforeUnmount(() => {
           {{ app.health.runtime === 'live' ? 'Live agents' : 'Dry run' }}
         </span>
         <button class="btn ask-ai ask-top" title="Ask the assistant about this page" aria-label="Ask the assistant about this page" @click="askAi"><span class="ai-mark" style="font-size: 10px; padding: 1px 4px">AI</span><span class="ask-label">Ask AI</span></button>
-        <button v-if="app.can('prepare')" class="btn primary" @click="showNew = true">+ Add use case</button>
+        <button v-if="app.can('prepare')" class="btn primary" @click="router.push({ path: '/plan', query: { new: String(Date.now()) } })">+ Add use case</button>
         <span class="menu-host">
           <button class="avatar" :title="app.user.name" :aria-expanded="menu === 'me'" @click="menu = menu === 'me' ? '' : 'me'">{{ initials }}</button>
           <div v-if="menu === 'me'" class="menu right account-menu" role="menu">
@@ -149,8 +162,16 @@ onBeforeUnmount(() => {
               <span class="small faint">{{ app.user.email }}</span>
             </div>
             <RouterLink to="/account" role="menuitem">Your account</RouterLink>
-            <RouterLink v-if="app.can('manage_users')" to="/users" role="menuitem">People and roles</RouterLink>
+            <RouterLink v-if="app.can('manage_users')" to="/workspace/people" role="menuitem">People and roles</RouterLink>
             <RouterLink to="/audit" role="menuitem">Audit log</RouterLink>
+            <template v-if="actAs">
+              <div class="menu-sep" />
+              <span class="label-caps menu-label">Act as</span>
+              <button v-for="p in actAs.people" :key="p.id" role="menuitemradio" :aria-checked="p.id === app.user.id" class="eng-item act-as-item" @click="actAsPerson(p.id === (app.user.realUser?.id ?? app.user.id) ? null : p.id)">
+                <span class="grow">{{ p.name }}<span class="small faint" style="display: block">{{ p.role }}{{ p.id === (app.user.realUser?.id ?? app.user.id) ? ' · you' : '' }}</span></span>
+                <span v-if="p.id === app.user.id" aria-hidden="true">✓</span>
+              </button>
+            </template>
             <div class="menu-sep" />
             <span class="label-caps menu-label">Theme</span>
             <div class="theme-pick" role="radiogroup" aria-label="Theme">
@@ -169,6 +190,11 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
+    <div v-if="app.user.realUser" class="archived-bar act-as-bar" role="status">
+      <strong>Acting as {{ app.user.name }} ({{ app.user.role }}).</strong>
+      <span>You are {{ app.user.realUser.name }}. Everything you do is recorded as {{ app.user.name }}, with your name beside it in the audit log.</span>
+      <button class="btn sm" @click="actAsPerson(null)">Stop acting</button>
+    </div>
     <div v-if="app.engagement?.archivedAt" class="archived-bar" role="status">
       <strong>{{ app.engagement.name }} is archived.</strong>
       <span>Read-only since {{ new Date(app.engagement.archivedAt).toLocaleDateString() }}, by {{ app.engagement.archivedBy }}<template v-if="app.engagement.archiveReason">: {{ app.engagement.archiveReason }}</template>.</span>
@@ -176,7 +202,6 @@ onBeforeUnmount(() => {
     </div>
     <RouterView :key="app.engagementId" />
 
-    <NewUseCase v-if="showNew" @close="showNew = false" />
     <AssistantPanel />
   </template>
 

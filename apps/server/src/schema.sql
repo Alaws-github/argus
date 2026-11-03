@@ -653,3 +653,34 @@ CREATE TABLE IF NOT EXISTS engagement_members (
 -- private in the audit log. Not part of the hash (added after the fact).
 ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS engagement_id uuid;
 ALTER TABLE judge_labels ADD COLUMN IF NOT EXISTS engagement_id uuid;
+
+-- ---------------------------------------------------------------------------
+-- v1.1: the Use Case Planner, more than one agent per stage, act as
+-- ---------------------------------------------------------------------------
+-- A stage can have several agents; cards are routed between them by kind,
+-- priority or tier. Agents a person added are "custom" and can be deleted.
+ALTER TABLE agents DROP CONSTRAINT IF EXISTS agents_engagement_id_role_key;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS custom boolean NOT NULL DEFAULT false;
+
+-- A use case being drafted before it reaches the board.
+CREATE TABLE IF NOT EXISTS plans (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  number         serial,
+  engagement_id  uuid NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  mode           text NOT NULL DEFAULT 'ai',
+  status         text NOT NULL DEFAULT 'draft',
+  brief          jsonb NOT NULL DEFAULT '{}',
+  edited         jsonb NOT NULL DEFAULT '[]',
+  messages       jsonb NOT NULL DEFAULT '[]',
+  card_id        uuid REFERENCES cards(id) ON DELETE SET NULL,
+  created_by     text NOT NULL,
+  created_by_id  uuid,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS plans_engagement ON plans (engagement_id, updated_at DESC);
+
+-- Act as: an admin works through the whole flow as another person without
+-- signing out. The audit log records both names.
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS acting_as uuid;
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS real_actor text;

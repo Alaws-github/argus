@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import type { NextFunction, Request, Response } from 'express';
 import { can, type Permission, type Role, type User } from '@gh/shared';
 import type { Db, Queryable } from './db.js';
+import { requestContext } from './context.js';
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 export const COOKIE = 'gh_session';
@@ -66,7 +67,7 @@ export function readCookie(header: string | undefined, name = COOKIE) {
 export async function userFromToken(q: Queryable, token: string | null): Promise<User | null> {
   if (!token) return null;
   const { rows } = await q.query(
-    `SELECT u.*, s.last_used_at FROM sessions s JOIN users u ON u.id = s.user_id
+    `SELECT u.*, s.last_used_at, s.acting_as FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.id = $1 AND s.expires_at > now() AND s.last_used_at > now() - ($2 || ' hours')::interval AND NOT u.disabled`,
     [tokenId(token), String(IDLE_HOURS)],
   );
@@ -74,7 +75,16 @@ export async function userFromToken(q: Queryable, token: string | null): Promise
   if (Date.now() - new Date(rows[0].last_used_at).getTime() > 60_000) {
     await q.query(`UPDATE sessions SET last_used_at = now() WHERE id = $1`, [tokenId(token)]);
   }
-  return toUser(rows[0]);
+  const real = toUser(rows[0]);
+  // Act as: only an admin, only while the workspace allows it, only as an active account.
+  if (rows[0].acting_as && real.role === 'admin') {
+    const { rows: s } = await q.query(`SELECT value FROM settings WHERE key = 'allowActAs'`);
+    if (s[0]?.value === true) {
+      const { rows: as } = await q.query(`SELECT * FROM users WHERE id = $1 AND NOT disabled`, [rows[0].acting_as]);
+      if (as[0]) return { ...toUser(as[0]), realUser: { id: real.id, name: real.name, email: real.email } };
+    }
+  }
+  return real;
 }
 
 export async function endSession(q: Queryable, token: string | null) {
@@ -97,7 +107,7 @@ const PUBLIC = new Set(['/health', '/auth/state', '/auth/login', '/auth/setup', 
 const RULES: [string, RegExp, Permission][] = [
   ['*', /^\/users/, 'manage_users'],
   ['*', /^\/sso\/config/, 'manage_users'],
-  ['*', /^\/auth\/(sessions|me)/, 'read'],
+  ['*', /^\/auth\/(sessions|me|act-as)/, 'read'],
   ['POST', /^\/engagements$/, 'manage_engagement'],
   ['POST', /^\/knowledge\/(reindex|embeddings)/, 'manage_models'],
   ['GET', /^\/agent-testing/, 'read'],
@@ -109,6 +119,8 @@ const RULES: [string, RegExp, Permission][] = [
   ['*', /^\/providers/, 'manage_models'],
   ['PUT', /^\/settings$/, 'manage_models'],
   ['PATCH', /^\/agents\//, 'manage_agents'],
+  ['DELETE', /^\/agents\//, 'manage_agents'],
+  ['POST', /^\/engagements\/[^/]+\/agents$/, 'manage_agents'],
   ['POST', /^\/agents\//, 'manage_agents'],
   ['PATCH', /^\/engagements\/[^/]+$/, 'manage_engagement'],
   ['PUT', /^\/engagements\/[^/]+\/soa/, 'manage_engagement'],
@@ -134,6 +146,10 @@ export function authMiddleware(db: Db) {
       const user = await userFromToken(db, readCookie(req.header('cookie')));
       if (!user) return res.status(401).json({ error: 'Sign in to continue' });
       req.user = user;
+      if (user.realUser) {
+        const store = requestContext.getStore();
+        if (store) { store.realActor = user.realUser.name; store.actingAs = user.name; }
+      }
       void db.query(`UPDATE users SET last_seen_at = now() WHERE id = $1 AND (last_seen_at IS NULL OR last_seen_at < now() - interval '1 minute')`, [user.id]);
       const rule = RULES.find(([m, re]) => (m === '*' || m === req.method) && re.test(req.path));
       const need: Permission = rule ? rule[2] : req.method === 'GET' ? 'read' : 'prepare';

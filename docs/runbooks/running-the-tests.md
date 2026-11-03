@@ -9,6 +9,8 @@
 5. Stop the app, reset again, start it, then `npm run test:grounding`: 31 checks of the knowledge base, citations, item-by-item decisions, meaning search and temperature 0.
 6. Stop the app, reset again, start it, then `npm run test:verifier`: 36 checks of the golden dataset, regressions, the Verifier's quote check, measuring it against people's labels, live checks and the spend cap.
 7. Stop the app, reset again, start it, then `npm run test:assistant`: 27 checks of the assistant (offline and live), dropped citations and suggestions, applying under the person's own role, discarding, the spend cap, and providers that refuse tool calls.
-8. Stop the app and reset once more before real use.
+8. Stop the app, reset again, start it, then `npm run test:operations`: 58 checks of evidence file reading, incidents, monitoring and drift, connectors, members-only access and single sign-on.
+9. Stop the app, reset again, start it, then `npm run test:v11`: 65 checks of the Use Case Planner (offline rules and a mock model), adding agents and routing cards between them, act as, provider service names and the Overview activity charts.
+10. Stop the app and reset once more before real use.
 
 Each test prints PASS or FAIL per check, and the accounts it created.

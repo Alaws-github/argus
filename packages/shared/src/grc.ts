@@ -56,6 +56,8 @@ export interface User {
   lastSeenAt: string | null;
   // Names this person used before; their past approvals carry those names.
   formerNames: string[];
+  /** Set while an admin is acting as this person: the admin who really is signed in. */
+  realUser?: { id: string; name: string; email: string } | null;
 }
 
 // ---------------------------------------------------------------------------

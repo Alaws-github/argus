@@ -23,6 +23,8 @@ An AI governance tool that uses AI should meet the standard it checks others aga
 | Members-only engagements | A lead can make an engagement visible only to its members (and admins). Everyone else gets "not found" for its records, its audit entries and its live updates |
 | Single sign-on | Optional sign-in through the firm's or client's identity provider (OpenID Connect). It only signs in people who already have an account; roles are still set here. Admins always keep a password, so a broken provider can't lock everyone out |
 | Evidence connectors | Read-only (they only ever read), credentials encrypted and never shown again, and by default unable to reach this machine or a private network |
+| People add use cases | The Use Case Planner drafts the intake brief, but only a person can add it to Intake, under their own name. The audit log records which fields the Planner drafted and which the person typed |
+| Act as | Off by default. While on, an admin can work as another person (for demos and testing); every action records the real admin beside the name, inside the hash chain. Segregation of duties can't stop one real person switching names, so keep it off on client work |
 
 ## What is not done yet
 

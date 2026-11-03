@@ -1,6 +1,6 @@
 # Governance Harness: User Manual
 
-Version 1.0 · November 2026
+Version 1.1 · November 2026
 
 This manual explains the whole Governance Harness: what it is for, how to set it up, and how a piece of work flows through it from the first request to the board report. It is written for assurance, risk and governance professionals, not for developers. Screenshots use the fictional demo engagement (Northshore Financial Group), which you can load yourself to follow along (section 4.4).
 
@@ -130,17 +130,17 @@ From left to right:
 
 - **Logo** (and the name on wide screens): back to the board.
 - **Engagement switcher**: the engagement you're working in. Admins and leads can **+ Add engagement** from here. Archived engagements are listed separately and are read-only.
-- **Navigation**: Overview, Board, Risks, Controls, Testing, Issues, Evals, Inventory, Report, and **More** (Knowledge base, Agent testing, Runs, Settings, Models).
+- **Navigation**: Overview, Board, Risks, Controls, Testing, Issues, Evals, Inventory, Report, and **More** (Knowledge base, Agent testing, Runs, Engagement settings, Workspace settings).
 - **Dry run / Live agents**: whether agents use the offline rules or a real model.
 - **Ask AI**: opens the assistant for the page you're on (section 30).
-- **+ Add use case**.
+- **+ Add use case**: opens the Plan page, where the Use Case Planner helps you write the brief (section 11).
 - **Your initials**: the account menu.
 
 ### 5.2 The account menu
 
 ![Account menu](images/walkthrough/37-account-menu.png)
 
-**Your account** (your name, email, password and active sessions), **People and roles** (admins), **Audit log**, the **theme** (system, light or dark), **desktop notifications** (a notice when something needs your approval while the tab is in the background) and **Sign out**.
+**Your account** (your name, email, password and active sessions), **People and roles** (admins), **Audit log**, **Act as** (admins, when it is turned on: section 8.1), the **theme** (system, light or dark), **desktop notifications** (a notice when something needs your approval while the tab is in the background) and **Sign out**.
 
 ![Your account](images/walkthrough/36-account.png)
 
@@ -150,7 +150,7 @@ The harness works without any AI model, using built-in rules that are deliberate
 
 ### 6.1 Choosing a provider
 
-Go to **More > Models > + Add provider** and pick a service. The address and billing are filled in for you.
+Go to **More > Workspace settings > Models & keys > + Add provider** and pick a service. The address and billing are filled in for you.
 
 ![Adding Google Gemini](images/walkthrough/35-add-gemini.png)
 
@@ -166,22 +166,24 @@ Go to **More > Models > + Add provider** and pick a service. The address and bil
 
 Keys are encrypted on the machine, shown only as their last four characters, and never given to the agents.
 
+Each provider card shows two things. **Service** is who the provider is: "Google Gemini API", "Anthropic API", "Azure OpenAI". **Connection** is the format the harness uses to talk to it. Many services, Google's Gemini among them, offer an address that speaks OpenAI's format, so the harness uses one well-tested connection for all of them; that is why a Gemini provider's connection reads "OpenAI-compatible format" while its service reads "Google Gemini API". Services that list every model they have, including speech, image, video and embedding models, are filtered so the card and the agents' model lists show only models that write text. Models without a price are summarised as a count; open it to see the list.
+
 ### 6.2 About free tiers (for example Google Gemini)
 
 Free tiers are fine for trying the harness and for demos with the fictional data. Do not use them on real client data: Google's terms for the unpaid Gemini tier allow prompts and responses to be used to improve its products and read by human reviewers, and tell you not to send confidential or personal information. For real work without paying, run a model locally with Ollama; otherwise use a paid key.
 
 ### 6.3 Pointing the harness at a model
 
-- **Agents**: **More > Settings > Agents**. For each agent, choose the provider, model, effort and an optional fallback, then **Save agent**. New engagements can start from defaults set on the Models page.
-- **The assistant**: Models page, **Assistant** card.
+- **Agents**: **More > Engagement settings > Agents**. For each agent, choose the provider, model, effort and an optional fallback, then **Save agent**. New engagements can start from defaults set under Workspace settings > Models & keys.
+- **The assistant**: Models & keys page, **Assistant** card.
 - **The Verifier**: **More > Agent testing > Verifier**. Pick a model from a different company than the drafting agents.
-- **Meaning-based search** (optional): Models page. An embedding model lets agents find passages that say the same thing in other words.
+- **Meaning-based search** (optional): Models & keys page. An embedding model lets agents find passages that say the same thing in other words.
 
 ![Agent settings](images/walkthrough/34-agents.png)
 
 ### 6.4 Spending limits
 
-On the Models page, set a **monthly cap** in US dollars, a warning level, and whether to **pause at the cap**. Paid model calls by agents, the assistant, the Verifier, agent testing and scheduled evaluations all count. Each agent also has a cost and time limit per run.
+On the Models & keys page, set a **monthly cap** in US dollars, a warning level, and whether to **pause at the cap**. Paid model calls by agents, the assistant, the Verifier, agent testing and scheduled evaluations all count. Each agent also has a cost and time limit per run.
 
 ---
 
@@ -195,35 +197,63 @@ Admins and leads open the engagement switcher and choose **+ Add engagement**.
 
 The wizard asks for the client, the engagement name and a short prefix for use case keys (for example "AI" gives AI-1, AI-2), the sector, the frameworks in scope, the risk appetite, which AI models the agents use, and whether to start the Statement of Applicability from the chosen frameworks. Whoever creates the engagement becomes its first member.
 
-### 7.1 Engagement settings
+### 7.1 Engagement settings and workspace settings
 
-**More > Settings** has three tabs:
+There are two levels of settings, as in GoldenEye's app and project settings:
 
-- **General**: name, client, prefix, frameworks, a description every agent reads with each use case (the client's sector, regulators and anything that changes how risk is judged), **Pause this engagement**, **Who can see this engagement** (section 7.2) and **Archive or delete**.
-- **Workflow and gates**: which stages stop for a person. Drafting stages (Collect evidence, Test controls, Validate, Board report) always stop.
-- **Agents**: each agent on or off, its model, effort, fallback, extra instructions for this engagement, the tools it may use, and its cost and time limits. New agents start switched off.
+- **Workspace settings** (More > Workspace settings, admins and leads): what applies to every engagement. **Models & keys** (providers, spending limit, defaults for new agents, the assistant's model, meaning-based search), **People & roles**, and **Sign-in & security** (single sign-on, act as, and whether connectors may reach private networks).
+- **Engagement settings** (More > Engagement settings): one engagement. The engagements are listed on the left, with **+ Add engagement**; pick one to see its five tabs:
+  - **General**: name, client, prefix, frameworks, a description every agent reads with each use case (the client's sector, regulators and anything that changes how risk is judged), **Pause this engagement** and **Archive or delete**.
+  - **Workflow & gates**: which stages stop for a person, and which agents work each stage. Drafting stages (Collect evidence, Test controls, Validate, Board report) always stop.
+  - **Integrations**: the evidence connectors that pull reports from the client's systems (section 14.2).
+  - **Agents**: every agent, grouped by stage (section 7.3).
+  - **Access**: who can see the engagement (section 7.2).
 
 ![Workflow and gates](images/walkthrough/33-workflow.png)
 
 ### 7.2 Who can see an engagement
 
-An engagement is either **open to everyone signed in**, or **members only**. Members-only engagements are visible only to their members and to admins: everyone else doesn't see them in the switcher, and their use cases, evidence, issues, incidents, audit entries and live updates answer "not found". Switch under **Settings > General > Who can see this engagement**; you are added as a member automatically, then add others. A members-only engagement keeps at least one member.
+An engagement is either **open to everyone signed in**, or **members only**. Members-only engagements are visible only to their members and to admins: everyone else doesn't see them in the switcher, and their use cases, evidence, issues, incidents, audit entries and live updates answer "not found". Switch under **Engagement settings > Access**; you are added as a member automatically, then add others. A members-only engagement keeps at least one member.
 
 ![Who can see this engagement](images/walkthrough/27-access.png)
 
-### 7.3 Archiving and deleting
+### 7.3 Agents, and adding your own
+
+![Agents in engagement settings](images/walkthrough/34-agents.png)
+
+**Engagement settings > Agents** lists each agent under its stage, with the stage's gate ("You triage", "You approve"). Select one to change it: on or off, its name, which cards it takes, its provider and model, effort, a fallback model for when the first fails or its provider is off, instructions added after the harness's own rules, the tools it may use, and its limits per run (maximum spend, timeout and how many run at once). The kill switch stops it at once.
+
+**+ New agent** adds a second agent to a stage, for example a classifier just for chatbots with instructions about prompt injection. It shows in the list as **Not saved yet** until you click **Create agent**, and **Discard** throws it away. A new agent does its stage's job (a new agent on Classify risk classifies) and starts from the stage agent's model, tools and limits; anything you change is listed as **Set here** with a **Reset** link. **Duplicate** copies an agent, switched off. **Delete agent** removes one you added; the built-in agent for a stage can only be turned off.
+
+![Adding an agent](images/walkthrough/40-new-agent.png)
+
+**Takes cards** decides which cards an agent picks up: all cards; high and prohibited tier only; everything but minimal tier; P1 urgent cards only; or one kind of AI (decision systems, chatbots, AI agents, generative AI, analytics). When several agents on a stage could take a card, the most specific one does: a kind or priority beats a tier, and a tier beats "all cards". If none takes it, the card waits for a person and says why.
+
+### 7.4 Archiving and deleting
 
 When an engagement is finished, a lead archives it with a reason. It becomes read-only and moves to the bottom of the switcher, with a banner saying so; a lead can restore it. Only an admin can delete it, only after archiving, and only by typing its name. **Export** downloads everything it holds as JSON before you delete it. The audit log keeps who deleted it and what was removed.
 
 ## 8. People and roles
 
-Admins go to the account menu, **People and roles**.
+Admins go to the account menu, **People and roles** (or **Workspace settings > People & roles**).
 
 ![People and roles](images/walkthrough/32-people.png)
 
 - **Add person**: name, email, role and a first password.
-- Change a role from the list. **Reset password** gives a new one. **Disable** stops someone signing in; people are never deleted, so their name stays on the approvals they made.
-- Single sign-on is set up at the bottom of this page (section 33.4).
+- **Change a role** with the role list on the person's row; it takes effect at once and the audit log records the change. You can't remove your own admin role. **Reset password** gives a new one. **Disable** stops someone signing in; people are never deleted, so their name stays on the approvals they made.
+- Single sign-on is set up under **Workspace settings > Sign-in & security** (section 33.4).
+
+### 8.1 Act as: one person running the whole flow
+
+![Act as from the account menu](images/walkthrough/37-account-menu.png)
+
+For demos, testing and training, an admin can work as any other person without signing out. Turn it on under **Workspace settings > Sign-in & security > Allow admins to act as someone else**, then pick a person under **Act as** in the account menu. A banner shows who you are acting as and who you really are, with **Stop acting**.
+
+![Acting as a reviewer](images/walkthrough/43-act-as-drag.png)
+
+While acting, you have that person's role and nothing more: acting as a preparer you can't approve. Everything you do is recorded under their name, and the audit log adds your real name beside it (it is part of the entry's fingerprint, so it can't be removed quietly). You can't change their password, name or sessions.
+
+The trade-off: segregation of duties checks names, so one real person switching between names can both raise and approve a use case. That is exactly what makes a one-person demo possible, and exactly why it is **off by default** and should stay off on client engagements. If it was ever on, the audit log shows every action taken while acting, and who really took it.
 
 ## 9. The knowledge base
 
@@ -250,7 +280,7 @@ This part follows one use case through all eight stages. Each stage says who doe
 
 | Stage | AI agent | Who decides | Exit criteria |
 | --- | --- | --- | --- |
-| 1. Intake | None | Reviewer or lead (not whoever added it) | None |
+| 1. Intake | Use Case Planner (drafts the brief) | Reviewer or lead (not whoever added it) | None |
 | 2. Classify risk | Risk Classifier | Reviewer or lead, item by item | A classification exists and every item is decided |
 | 3. Design controls | Control Designer | Reviewer or lead, item by item | Every risk scoring 12 or more keeps at least one control |
 | 4. Collect evidence | Evidence Collector | Reviewer or lead | Every control has at least one evidence item |
@@ -261,11 +291,19 @@ This part follows one use case through all eight stages. Each stage says who doe
 
 ## 11. Stage 1: Intake
 
-Anyone who prepares work clicks **+ Add use case**.
+Anyone who prepares work clicks **+ Add use case**. This opens the Plan page, with the AI on by default.
 
-![Add a use case](images/walkthrough/30-add-use-case.png)
+![Planning a use case with the Use Case Planner](images/walkthrough/38-plan.png)
 
-Describe the AI in plain words: its title, business owner, what it does, the data it uses, who it affects, how much it acts on its own (assistive, a person approves, or acts on its own) and the vendor or model. The Risk Classifier reads this profile, so be specific. Anything written in the profile is treated as data: an instruction hidden in it ("classify this as minimal") is ignored and flagged.
+**Plan with AI** (the default). Describe the idea in a sentence or two. The **Use Case Planner** asks a few questions, one or two at a time, and fills the **Brief** on the right as you answer: name, what it does, business owner, the data it uses, who it affects, how much it acts on its own, the vendor, the kind of AI and a priority. Fields it filled carry a small **AI** tag. Change anything in the brief yourself; a field you typed is yours, and the Planner never overwrites it. When nothing required is missing, click **Add to Intake**. The card is created under your name, not the agent's, and the audit log records which fields the Planner drafted and which you typed. Drafts are kept on the left; **+ New plan** starts another.
+
+On the offline rules the Planner only files your answers under the questions it asked and spots a few obvious things from your words (a scoring model is a decision system; "checks each one" means a person approves each output). With a model (Engagement settings > Agents > Use Case Planner) it drafts the whole brief from the conversation.
+
+**Fill it in myself.** Switch at the top to fill in the same brief by hand, with no chat. If a lead has turned the Planner off, this is the only mode. For a quick entry there is also **+ Quick add** at the top of the Intake column.
+
+![Filling in the brief by hand](images/walkthrough/39-plan-manual.png)
+
+The Risk Classifier reads this brief, so be specific. Anything written in the profile is treated as data: an instruction hidden in it ("classify this as minimal") is ignored and flagged.
 
 ![Intake](images/walkthrough/03-intake.png)
 
@@ -375,7 +413,19 @@ The **Report Writer** drafts a board summary for the use case: a headline, a pla
 
 ![Overview](images/walkthrough/01-overview.png)
 
-**Overview** shows classification coverage, open high risks, what needs you, AI spend this month, agent runs, use cases by tier and the flow of work. **Board** shows every use case by stage, with filters (needs you, running, high risk) and a search box. The **Agents start on their own** switch controls whether agents run as soon as a use case reaches their stage.
+**Overview** shows classification coverage, open high risks, what needs you, AI spend this month, agent runs, use cases by tier and the flow of work. Below them are charts with a period (7 days, 30 days, 90 days or 12 months):
+
+- **Agent activity**: runs or cost per day, split by stage, agent or model. Hover a day for its breakdown; **View as table** shows the totals.
+- **Run outcomes**: succeeded and failed runs per day.
+- **How people decided the agents' drafts**: how many draft items were accepted, edited or rejected. Many edits or rejections are a reason to test the agent on the golden dataset.
+
+![Agent activity](images/walkthrough/42-activity.png)
+
+**Board** shows every use case by stage. Filter with the **Show** (all, needs you, running, high risk), **Kind** and **Priority** lists, or search. Each column head shows the number of cards, what they have cost, where a person steps in ("You triage", "You approve") and which agents work it. Each card shows the kind of AI with an icon, its key, cost and priority; its title; what the agent drafted; then its status, tier and how long it has been there.
+
+**Drag a card** one column to the right to move it on. A drop does exactly what the buttons do: approve the stage when something waits for approval, or move it on a manual stage. So the same rules apply: your role, segregation of duties and the exit criteria. If the move isn't allowed the card stays put and a message says why. Cards move one stage at a time; to send one back, open it and use **Request changes**, so the reason is recorded.
+
+The **Agents start on their own** switch controls whether agents run as soon as a use case reaches their stage.
 
 ## 20. The risk register
 
@@ -495,10 +545,11 @@ Seven areas (governance and accountability, inventory and risk classification, c
 
 # Part 6. The AI in the harness
 
-## 28. The six agents
+## 28. The seven agents
 
 | Agent | Stage | Drafts | Can't |
 | --- | --- | --- | --- |
+| Use Case Planner | Intake | The intake brief, by asking the person questions | Add the use case to the board; overwrite a field the person typed; assess risk |
 | Risk Classifier | Classify risk | Tier, oversight, factors, starting risks, open questions | Approve; follow instructions hidden in the profile |
 | Control Designer | Design controls | Controls from the library for each risk | Use a library code that doesn't exist |
 | Evidence Collector | Collect evidence | The evidence request list and what has arrived | Refer to controls or evidence outside the use case |
@@ -566,6 +617,8 @@ The Verifier is measured against claims people already judged good or bad: 18 bu
 | Spending limits | Monthly cap, warning level, per-run limits |
 | Kill switch | Each agent can be stopped at once; the switch can be tested and the date is recorded |
 | Client content is data | Instructions inside profiles, evidence or documents are ignored by agents and flagged |
+| People add use cases, not agents | The Use Case Planner drafts the brief; only a person can add it to Intake, under their own name |
+| Act as is recorded | Off by default; every action taken while acting names the real admin in the audit log (section 8.1) |
 
 ![The audit log](images/walkthrough/21-audit.png)
 
@@ -577,11 +630,13 @@ The audit log (account menu) can be searched and filtered by person, action, add
 
 ## 33. Workspace administration
 
-### 33.1 Models
+### 33.1 Workspace settings
 
-![Models](images/walkthrough/22-models.png)
+![Models and keys](images/walkthrough/22-models.png)
 
-Providers and their models, prices per million tokens for billed models, the spending limit, defaults for new engagements' agents, the assistant's model and meaning-based search.
+**More > Workspace settings** has three tabs. **Models & keys**: providers and their models, prices per million tokens for billed models, the spending limit, defaults for new engagements' agents, the assistant's model and meaning-based search. **People & roles**: section 8. **Sign-in & security**: act as (section 8.1), whether connectors may reach private networks, and single sign-on.
+
+![Sign-in and security](images/walkthrough/41-security.png)
 
 ### 33.2 Backups
 
@@ -589,7 +644,7 @@ Back up the `data` folder (the database, evidence files and the secret key) toge
 
 ### 33.3 Running the tests
 
-For whoever maintains the harness: `npm run typecheck`, then, each on a freshly reset database with the app running, `npm run smoke`, `test:agents`, `test:grounding`, `test:verifier`, `test:assistant` and `test:operations`. Reset again before real use.
+For whoever maintains the harness: `npm run typecheck`, then, each on a freshly reset database with the app running, `npm run smoke`, `test:agents`, `test:grounding`, `test:verifier`, `test:assistant`, `test:operations` and `test:v11`. Reset again before real use.
 
 ### 33.4 Single sign-on
 
@@ -597,7 +652,7 @@ For whoever maintains the harness: `npm run typecheck`, then, each on a freshly 
 
 Admins can let people sign in through an identity provider that supports OpenID Connect (for example Microsoft Entra ID, Google Workspace or Okta):
 
-1. In **People and roles**, scroll to **Single sign-on** and copy the redirect URI shown. Register it with the provider.
+1. In **Workspace settings > Sign-in & security**, scroll to **Single sign-on** and copy the redirect URI shown. Register it with the provider.
 2. Enter the button label, issuer URL, client ID and client secret, and optionally limit sign-in to your email domains.
 3. Tick **Turn on single sign-on** and save.
 4. Make sure each person has an account here with the same email. Single sign-on never creates accounts or changes roles.
@@ -618,12 +673,15 @@ Serve it over HTTPS and set `COOKIE_SECURE=true`; keep `SECRET_KEY` in a secrets
 | Problem | What to do |
 | --- | --- |
 | Can't sign in after a reset | A reset removes all accounts. Create the first admin again, or load the demo data |
-| A use case stays on "Running" | Wait a few seconds. If it stays, open it and click **Retry**. Check the agent's model on the Models page |
+| A use case stays on "Running" | Wait a few seconds. If it stays, open it and click **Retry**. Check the agent's model on the Models & keys page |
 | An agent run failed | The card shows why. Fix the model or key, or switch the agent to the built-in rules, then **Retry** |
-| "Paused: billed AI spend reached the cap" | Raise the cap on the Models page, or move the agent to an unbilled model |
-| A connector says "private network" | The address is inside a private network. An admin can allow it on the Connectors tab |
+| "Paused: billed AI spend reached the cap" | Raise the cap on the Models & keys page, or move the agent to an unbilled model |
+| A connector says "private network" | The address is inside a private network. An admin can allow it under Workspace settings > Sign-in & security |
 | A PDF says "no text layer" | It's a scan. Add a note with what it shows |
-| Someone can't see an engagement | It may be members only. A lead adds them under Settings > General |
+| Someone can't see an engagement | It may be members only. A lead adds them under Engagement settings > Access |
+| A card waits on a stage with "None of the agents take this card" | Every agent on that stage is routed to other kinds of card. Change one's **Takes cards**, or move the card on by hand |
+| A dragged card goes back to its column | The move wasn't allowed; the message says why (for example, you added it, so someone else must approve it) |
+| The Planner says it is switched off | A lead turned it off for this engagement. Use **Fill it in myself**, or ask a lead to turn it on |
 | "Sign in with single sign-on instead" | An admin turned passwords off for non-admins; use the SSO button |
 
 ## B. What isn't built yet
@@ -634,6 +692,7 @@ Reading scanned documents (OCR); SAML, signing out at the identity provider and 
 
 | Term | Meaning |
 | --- | --- |
+| Act as | An admin working as another person, recorded under both names; off by default |
 | Agent | An AI helper that drafts one kind of work. It never decides |
 | Appetite | The highest residual risk score the client accepts without escalating |
 | Archive | Make an engagement read-only and move it out of the main list |
@@ -649,6 +708,8 @@ Reading scanned documents (OCR); SAML, signing out at the identity provider and 
 | Kappa | Agreement between two judges beyond chance; 0 is chance, 1 is perfect |
 | Members only | An engagement visible only to its members and admins |
 | Passage (K-number) | One piece of the knowledge base |
+| Plan | A use case being drafted on the Plan page, before it is added to Intake |
+| Routing | Which cards an agent takes (by kind, priority or tier) when a stage has more than one agent |
 | Regression | A golden case that passed before and fails now |
 | Residual risk | Risk left after controls |
 | Single sign-on | Signing in with an organisation's account through its identity provider |

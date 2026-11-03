@@ -5,7 +5,6 @@ import { onMounted, ref } from 'vue';
 import { ROLES, ROLE_HINTS, ROLE_LABELS, type Role, type User } from '@gh/shared';
 import { api, ago } from '../api';
 import { useApp } from '../stores/app';
-import SsoSettings from '../components/SsoSettings.vue';
 
 const app = useApp();
 const users = ref<User[]>([]);
@@ -53,7 +52,7 @@ async function add() {
     <div class="page-head">
       <div>
         <h1>People and roles</h1>
-        <p>Who can do what. Segregation of duties is enforced on top of roles: nobody approves a use case they added, reviews a test they prepared, or signs off a report they scored alone.</p>
+        <p>Who can do what. Change a person's role with the role list on their row. Segregation of duties is enforced on top of roles: nobody approves a use case they added, reviews a test they prepared, or signs off a report they scored alone.</p>
       </div>
       <button class="btn primary" @click="adding = true">Add person</button>
     </div>
@@ -103,6 +102,5 @@ async function add() {
         <div class="row"><button class="btn primary">Add person</button><button type="button" class="btn" @click="adding = false">Cancel</button></div>
       </form>
     </template>
-    <SsoSettings />
   </div>
 </template>

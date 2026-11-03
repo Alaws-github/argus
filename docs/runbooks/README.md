@@ -11,7 +11,10 @@ Step-by-step instructions for common jobs. Each one says who can do it and what 
 | [Set up meaning search](set-up-meaning-search.md) | Admins improving how agents find sources |
 | [People and access](people-and-access.md) | Admins adding people, changing roles, resetting passwords |
 | [Start a new engagement](new-engagement.md) | Leads setting up a client or project |
+| [Plan a use case with the AI](plan-a-use-case.md) | Anyone raising a new AI use case |
 | [Assess a use case end to end](assess-a-use-case.md) | The team doing the work |
+| [Add an agent to a stage](add-an-agent.md) | Leads routing some cards to a different agent |
+| [Run the whole flow as one person](act-as.md) | Admins giving demos or testing |
 | [Run an evaluation or red team](run-an-evaluation.md) | Preparers testing an AI system directly |
 | [Use the assistant](use-the-assistant.md) | Anyone preparing or reviewing work |
 | [Report and close an incident](report-an-incident.md) | Anyone, when a live AI system causes harm or leaks data |

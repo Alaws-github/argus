@@ -3,7 +3,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { NextFunction, Request, Response } from 'express';
 
-export const requestContext = new AsyncLocalStorage<{ ip: string | null; engagementId?: string | null }>();
+export const requestContext = new AsyncLocalStorage<{ ip: string | null; engagementId?: string | null; realActor?: string | null; actingAs?: string | null }>();
 
 export const clientIp = (req: Request) => (req.ip ? req.ip.replace(/^::ffff:/, '') : null);
 

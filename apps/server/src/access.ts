@@ -54,12 +54,13 @@ export function accessGuard(db: Db) {
 // For audit entries written outside a request (the engine, schedules): find
 // the engagement from the entity, for the common kinds.
 export async function engagementOfEntity(q: Queryable, entity: string): Promise<string | null> {
-  const m = /^(card|connector|incident|alert):(.+)$/.exec(entity);
+  const m = /^(card|connector|incident|alert|plan):(.+)$/.exec(entity);
   if (!m) return null;
   const sql = {
     card: `SELECT engagement_id FROM cards WHERE key = $1`,
     connector: `SELECT engagement_id FROM connectors WHERE 'CN-' || number = $1`,
     incident: `SELECT engagement_id FROM incidents WHERE 'INC-' || number = $1`,
+    plan: `SELECT engagement_id FROM plans WHERE 'P-' || number = $1`,
     alert: `SELECT engagement_id FROM monitor_alerts WHERE 'AL-' || number = $1`,
   }[m[1] as 'card'];
   const { rows } = await q.query(sql, [m[2]]).catch(() => ({ rows: [] as any[] }));

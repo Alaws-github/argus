@@ -97,6 +97,13 @@ http.createServer((req, res) => {
           { kind: 'approve_stage', title: 'Approve it for them', why: 'Mock.', cardId },
         ],
       };
+    } else if (tool === 'submit_plan') {
+      // Tries to overwrite every field, including ones the person typed; the harness must keep theirs.
+      out = {
+        reply: 'Thanks. Who is accountable for it, and what data does it use?',
+        brief: { title: 'Mock planned use case', description: 'Drafted by the mock planner.', businessOwner: 'Head of Mock', dataUsed: 'Mock data overwrite', affectedPeople: 'Mock customers', autonomy: 'human_on_loop', vendor: 'Mock vendor', category: 'agent', priority: 'p3' },
+        ready: true,
+      };
     } else out = {};
     if (!b.tools) return res.end(JSON.stringify({ choices: [{ message: { content: '```json\n' + JSON.stringify(out) + '\n```' } }], usage: { prompt_tokens: 900, completion_tokens: 300 } }));
     res.end(JSON.stringify({ choices: [{ message: { tool_calls: [{ function: { name: tool, arguments: JSON.stringify(out) } }] } }], usage: { prompt_tokens: 900, completion_tokens: 300 } }));

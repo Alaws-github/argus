@@ -37,7 +37,7 @@ Use the 15-minute script as the spine, and add these.
 
 **Part 1: Set the scene (0:00 to 3:00).** Overview and Board as above. Add the inventory: "Before you can govern AI you need to know what's in use." Open **Inventory**, point at the agent register: "An AI agent may act on its own only when all eight checks pass. The collections agent fails seven."
 
-**Part 2: A use case arrives (3:00 to 6:00).** Open **AI-4**, read the profile aloud, click **Send to classification**. Within a few seconds it moves to Classify risk with a draft. "The agent runs as soon as the gate opens. Here it's on the offline rules; on a real engagement you'd point it at Claude, GPT, Gemini or a model running on your own server."
+**Part 2: A use case arrives (3:00 to 6:00).** Click **+ Add use case**. "AI is in the work from the first step." Type one sentence about a new use case and answer two of the Use Case Planner's questions; point at the brief filling in with **AI** tags. "It drafts; I edit; and only I can add it to Intake, under my name." Then open **AI-4**, read the profile aloud, and drag it to Classify risk (or click **Send to classification**). Signed in as Andrew it's refused if Andrew added it; use **Act as** Riley from the account menu: "For a demo I can act as anyone. On client work this is off, and the audit log names me beside Riley either way." Within a few seconds it moves to Classify risk with a draft. "The agent runs as soon as the gate opens. Here it's on the offline rules; on a real engagement you'd point it at Claude, GPT, Gemini or a model running on your own server."
 
 **Part 3: Decide a draft (6:00 to 10:00).** AI-3 as in the 15-minute script. Then click **Ask about this** and pick "Which items look weakest, and why?" "The assistant can explain and suggest. Anything it suggests changes nothing until I click Apply, and then it runs under my name and my permissions. It can never approve, sign off or accept a risk."
 
@@ -72,6 +72,8 @@ Use the 15-minute script as the spine, and add these.
 **Which standards does it cover?** The EU AI Act, ISO/IEC 42001, the NIST AI RMF, the Jamaica Data Protection Act 2020 and the OWASP LLM Top 10, through a library of 31 controls. The library can be extended.
 
 **How do you prove the record hasn't been changed?** Every audit entry carries a fingerprint of the one before it; changing one breaks the chain, and anyone can verify it. Evidence files are fingerprinted when collected.
+
+**Can one person do everything?** Only with **Act as**, which is off by default. It exists for demos and training. Every action taken while acting records the real admin beside the name, inside the hash chain.
 
 **What isn't built yet?** Reading scanned documents (OCR), multi-factor sign-in inside the app (it relies on the identity provider's through single sign-on), SAML, and a limit on failed sign-ins. Evidence connectors read from systems that offer a report or export link over HTTPS; deeper integrations (for example a document management system's own API) would be added per client. Say so plainly; it's a working prototype.
 

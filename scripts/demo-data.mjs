@@ -231,13 +231,27 @@ step('Red-team suite monitored weekly; an incident on the chatbot, contained, wi
     title: 'Motor claims triage', businessOwner: 'Claims Manager',
     description: 'Reads new motor insurance claims and pays small claims under J$150,000 automatically. Larger or unusual claims go to an adjuster with the model\'s notes.',
     dataUsed: 'Claim forms, photos of damage, policy and claims history, police report numbers.',
-    affectedPeople: 'Motor policyholders making a claim, about 900 a month.', autonomy: 'autonomous', vendor: 'In-house model built on a third-party vision service',
+    affectedPeople: 'Motor policyholders making a claim, about 900 a month.', autonomy: 'autonomous', vendor: 'In-house model built on a third-party vision service', category: 'decision', priority: 'p1',
   });
   const { id } = await classifyAndDesign(nc.key);
   void id;
   step(`${nc.key} Motor claims triage: added by Sam, classified, control design waiting for decisions`);
 }
 // AI-4 Expense receipt categoriser stays at Intake, for a live demo.
+
+// ---- v1.1: a second classifier for chatbots, a plan in progress, act as on
+await andrew('POST', `/engagements/${E}/agents`, {
+  stage: 'classify', name: 'Chatbot classifier', route: 'cat_chatbot',
+  instructions: 'For chatbots, look hard at prompt injection, disclosure of personal data in answers, and whether customers are told they are talking to an AI.',
+});
+{
+  const p = await sam('POST', `/engagements/${E}/plans`, {});
+  await sam('POST', `/plans/${p.id}/messages`, { text: 'We want to use an AI agent that reads incoming broker emails and books renewal quotes in the policy system. An underwriter checks each quote before it is sent.' });
+  await sam('POST', `/plans/${p.id}/messages`, { text: 'Broker renewal quoting agent' });
+  await sam('POST', `/plans/${p.id}/messages`, { text: 'Head of Commercial Underwriting' });
+}
+await andrew('PUT', '/settings', { allowActAs: true });
+step('A Chatbot classifier routed chatbots, Sam\'s plan in progress with the Use Case Planner, and act as turned on for the demo');
 
 // ---- Maturity assessment (not signed: the lead signs during the demo)
 // Scored the way a cautious assessor would early on: never above 3 until a

@@ -24,8 +24,9 @@ function canon(v: unknown): string {
 
 // The address joins the hash only when there is one, so rows written before
 // addresses were recorded still verify.
-export function auditHash(prev: string, row: { at: string; actor: string; action: string; entity: string; detail: unknown; ip?: string | null }) {
-  return createHash('sha256').update(`${prev}|${row.at}|${row.actor}|${row.action}|${row.entity}|${canon(row.detail)}${row.ip ? `|${row.ip}` : ''}`).digest('hex');
+// Likewise the real person behind an "act as" entry joins only when present.
+export function auditHash(prev: string, row: { at: string; actor: string; action: string; entity: string; detail: unknown; ip?: string | null; realActor?: string | null }) {
+  return createHash('sha256').update(`${prev}|${row.at}|${row.actor}|${row.action}|${row.entity}|${canon(row.detail)}${row.ip ? `|${row.ip}` : ''}${row.realActor ? `|as:${row.realActor}` : ''}`).digest('hex');
 }
 
 // Call inside the change's own transaction so the change and its record
@@ -46,21 +47,24 @@ export async function logAudit(
   const ip = requestContext.getStore()?.ip ?? null;
   // Which engagement this belongs to, for members-only access. Kept outside the hash.
   const engagementId = requestContext.getStore()?.engagementId ?? (await engagementOfEntity(q, entity));
-  const hash = auditHash(prev, { at, actor, action, entity, detail: clean, ip });
+  // Acting as someone: the entry names the person acted as, and the admin really doing it.
+  const ctx = requestContext.getStore();
+  const realActor = ctx?.realActor && ctx.actingAs === actor ? ctx.realActor : null;
+  const hash = auditHash(prev, { at, actor, action, entity, detail: clean, ip, realActor });
   const { rows } = await q.query(
-    `INSERT INTO audit_log (at, actor, action, entity, detail, prev_hash, hash, ip, engagement_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-    [at, actor, action, entity, JSON.stringify(clean), prev, hash, ip, engagementId],
+    `INSERT INTO audit_log (at, actor, action, entity, detail, prev_hash, hash, ip, engagement_id, real_actor) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+    [at, actor, action, entity, JSON.stringify(clean), prev, hash, ip, engagementId, realActor],
   );
-  emit('audit', { id: rows[0].id, at, actor, action, entity, ip });
+  emit('audit', { id: rows[0].id, at, actor, action, entity, ip, realActor });
 }
 
 // Recompute the chain. Rows written before v0.3 have no hash and are skipped.
 export async function verifyAudit(q: Queryable) {
-  const { rows } = await q.query(`SELECT id, at, actor, action, entity, detail, prev_hash, hash, ip FROM audit_log WHERE hash IS NOT NULL ORDER BY id`);
+  const { rows } = await q.query(`SELECT id, at, actor, action, entity, detail, prev_hash, hash, ip, real_actor FROM audit_log WHERE hash IS NOT NULL ORDER BY id`);
   let prev = 'genesis';
   for (const r of rows) {
     const at = r.at instanceof Date ? r.at.toISOString() : new Date(r.at).toISOString();
-    const expect = auditHash(prev, { at, actor: r.actor, action: r.action, entity: r.entity, detail: r.detail, ip: r.ip });
+    const expect = auditHash(prev, { at, actor: r.actor, action: r.action, entity: r.entity, detail: r.detail, ip: r.ip, realActor: r.real_actor });
     if (r.prev_hash !== prev || r.hash !== expect) {
       return { ok: false, checked: rows.length, brokenAt: Number(r.id), message: `Row ${r.id} doesn't match the chain: it was changed, or a row before it was removed` };
     }

@@ -105,7 +105,7 @@ export function toRisk(r: any): Risk {
 }
 
 export function toAudit(r: any): AuditEntry {
-  return { id: Number(r.id), at: iso(r.at)!, actor: r.actor, action: r.action, entity: r.entity, detail: r.detail };
+  return { id: Number(r.id), at: iso(r.at)!, actor: r.actor, action: r.action, entity: r.entity, detail: r.detail, realActor: r.real_actor ?? null };
 }
 
 export async function getCard(q: Queryable, idOrKey: string): Promise<Card | null> {
@@ -154,6 +154,7 @@ export const SETTING_DEFAULTS: WorkspaceSettings = {
   assistantProviderId: null,
   assistantModel: '',
   connectorsAllowPrivate: false,
+  allowActAs: false,
 };
 
 export async function getSettings(q: Queryable): Promise<WorkspaceSettings> {
@@ -174,6 +175,7 @@ export function toAgent(r: any): AgentConfig {
     route: r.route,
     enabled: r.enabled,
     built: meta?.built ?? false,
+    custom: !!r.custom,
     providerId: r.provider_id,
     model: r.model,
     effort: r.effort,
@@ -199,7 +201,7 @@ export const AGENT_SELECT = `
 // Stages where a built, enabled agent will pick cards up.
 export async function agentStages(q: Queryable, engagementId: string): Promise<Stage[]> {
   const { rows } = await q.query(`SELECT role, stage FROM agents WHERE engagement_id = $1 AND enabled`, [engagementId]);
-  return rows.filter((r: any) => AGENT_ROLES[r.role as AgentRole]?.built).map((r: any) => r.stage);
+  return rows.filter((r: any) => AGENT_ROLES[r.role as AgentRole]?.built && r.role !== 'use_case_planner').map((r: any) => r.stage);
 }
 
 export const RUN_SELECT = `SELECT r.*, c.key AS card_key FROM runs r JOIN cards c ON c.id = r.card_id`;

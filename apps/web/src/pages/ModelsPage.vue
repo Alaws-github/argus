@@ -7,6 +7,18 @@ import { api, ago, money } from '../api';
 import { useApp } from '../stores/app';
 import ProviderForm from '../components/ProviderForm.vue';
 
+// Short mark for each provider card, by service rather than connection type.
+function iconFor(p: Provider) {
+  if (p.type === 'rules') return 'R';
+  const s = p.service;
+  if (s.startsWith('Google')) return 'G';
+  if (s.startsWith('Anthropic')) return 'A';
+  if (s.startsWith('Azure')) return 'Az';
+  if (s.startsWith('OpenAI')) return 'AI';
+  if (s.startsWith('Ollama')) return 'O';
+  return s.slice(0, 2);
+}
+
 const app = useApp();
 const providers = ref<Provider[]>([]);
 const settings = ref<(WorkspaceSettings & { monthSpendUsd: number }) | null>(null);
@@ -153,27 +165,28 @@ function onSaved() {
       <ProviderForm @saved="onSaved" @cancel="adding = false" />
     </div>
 
-    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); margin-bottom: 24px">
-      <article v-for="p in providers" :key="p.id" class="card" :style="{ opacity: p.enabled ? 1 : 0.65 }">
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); margin-bottom: 24px">
+      <article v-for="p in providers" :key="p.id" class="card provider-card" :style="{ opacity: p.enabled ? 1 : 0.65 }">
         <template v-if="editingId === p.id">
           <h2>Edit {{ p.name }}</h2>
           <ProviderForm :provider="p" @saved="onSaved" @cancel="editingId = null" />
         </template>
         <template v-else>
-          <div class="spread">
-            <div class="row">
-              <span class="provider-icon" :class="p.type">{{ p.type === 'rules' ? 'R' : p.type === 'ollama' ? 'O' : p.type === 'openai' ? 'AI' : 'API' }}</span>
-              <div>
-                <h2>{{ p.name }}</h2>
-                <span class="mono small faint">{{ p.baseUrl || 'Offline, inside the harness' }}</span>
+          <div class="spread" style="gap: 10px; flex-wrap: nowrap">
+            <div class="row" style="min-width: 0; flex-wrap: nowrap">
+              <span class="provider-icon" :class="p.type">{{ iconFor(p) }}</span>
+              <div class="clip">
+                <h2 class="clip">{{ p.name }}</h2>
+                <span class="mono small faint clip" style="display: block" :title="p.baseUrl">{{ p.baseUrl || 'Offline, inside the harness' }}</span>
               </div>
             </div>
-            <span class="pill" :class="!p.enabled ? '' : p.status === 'connected' ? 'green' : p.status === 'error' ? 'coral' : 'amber'">
+            <span class="pill" style="flex: none" :class="!p.enabled ? '' : p.status === 'connected' ? 'green' : p.status === 'error' ? 'coral' : 'amber'">
               <span class="dot" />{{ !p.enabled ? 'Off' : p.status === 'connected' ? 'Connected' : p.status === 'error' ? 'Error' : 'Not tested' }}
             </span>
           </div>
           <dl class="kv facts">
-            <dt>Type</dt><dd>{{ PROVIDER_TYPE_LABELS[p.type] }}</dd>
+            <dt>Service</dt><dd>{{ p.service }}</dd>
+            <dt>Connection</dt><dd>{{ PROVIDER_TYPE_LABELS[p.type] }}</dd>
             <template v-if="p.type !== 'rules'">
               <dt>Key</dt><dd class="mono">{{ p.key.masked ?? 'No key saved' }}</dd>
             </template>
@@ -183,11 +196,12 @@ function onSaved() {
             <dt>Status</dt><dd>{{ p.checkedAt ? `Checked ${ago(p.checkedAt)} ago` : 'Not checked yet' }}</dd>
           </dl>
           <p v-if="p.status === 'error' && p.statusText" class="small" style="color: var(--danger)">{{ p.statusText }}</p>
-          <div v-if="p.unpriced.length" class="notice warn small">
-            No price yet for {{ p.unpriced.join(', ') }}. Runs on {{ p.unpriced.length === 1 ? 'it' : 'them' }} are recorded at $0 until you add one.
-          </div>
+          <details v-if="p.unpriced.length" class="notice warn small">
+            <summary>No price yet for {{ p.unpriced.length === 1 ? p.unpriced[0] : `${p.unpriced.length} models` }}. Runs are recorded at $0 until you add one under Edit.</summary>
+            <p v-if="p.unpriced.length > 1" class="mono" style="margin: 6px 0 0; word-break: break-word">{{ p.unpriced.join(', ') }}</p>
+          </details>
           <div class="row" style="flex-wrap: wrap; gap: 6px">
-            <span v-for="m in p.models.slice(0, 12)" :key="m" class="chip" :title="p.prices[m] ? `$${p.prices[m].input} in / $${p.prices[m].output} out per million` : ''">{{ m }}</span>
+            <span v-for="m in p.models.slice(0, 12)" :key="m" class="chip clip" style="max-width: 100%" :title="p.prices[m] ? `$${p.prices[m].input} in / $${p.prices[m].output} out per million` : ''">{{ m }}</span>
             <span v-if="p.models.length > 12" class="small faint">and {{ p.models.length - 12 }} more</span>
             <span v-if="!p.models.length" class="small faint">No models yet. Test it, or add them under Edit.</span>
           </div>

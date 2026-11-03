@@ -7,6 +7,8 @@ import { Role } from '@gh/shared';
 import type { Db } from './db.js';
 import { logAudit } from './audit.js';
 import { passwordAllowed } from './sso.js';
+import { getSettings } from './store.js';
+import { requestContext } from './context.js';
 import { COOKIE, IDLE_HOURS, createSession, endSession, tokenId, hashPassword, readCookie, setCookie, toUser, userFromToken, verifyPassword } from './auth.js';
 
 type Wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => void;
@@ -60,6 +62,37 @@ export function authRoutes(r: Router, db: Db, wrap: Wrap) {
 
   r.get('/auth/me', wrap(async (req, res) => res.json(req.user)));
 
+  // Act as: an admin works as another person in the same browser, to run the
+  // whole flow without signing in and out. Every entry they make names both.
+  const realAdmin = async (req: Request) => {
+    const real = req.user!.realUser ? { ...req.user!.realUser, role: 'admin' } : req.user!;
+    if (real.role !== 'admin') throw httpError(403, 'Only an admin can act as someone else');
+    if (!(await getSettings(db)).allowActAs) throw httpError(403, 'Act as is turned off. An admin can turn it on under Settings > Sign-in & security.');
+    return real;
+  };
+  r.get('/auth/act-as', wrap(async (req, res) => {
+    await realAdmin(req);
+    const { rows } = await db.query(`SELECT id, name, email, role FROM users WHERE NOT disabled ORDER BY CASE role WHEN 'admin' THEN 0 WHEN 'lead' THEN 1 WHEN 'reviewer' THEN 2 WHEN 'preparer' THEN 3 ELSE 4 END, name`);
+    res.json({ actingAs: req.user!.realUser ? req.user!.id : null, people: rows });
+  }));
+  r.post('/auth/act-as', wrap(async (req, res) => {
+    const { userId } = z.object({ userId: z.string().uuid().nullable() }).parse(req.body);
+    const real = await realAdmin(req);
+    const token = readCookie(req.header('cookie'));
+    let target: any = null;
+    if (userId && userId !== real.id) {
+      const { rows } = await db.query(`SELECT id, name, email, role FROM users WHERE id = $1 AND NOT disabled`, [userId]);
+      if (!rows[0]) throw httpError(404, 'No active account with that id');
+      target = rows[0];
+    }
+    await db.query(`UPDATE sessions SET acting_as = $2 WHERE id = $1`, [tokenId(token!), target?.id ?? null]);
+    // Logged under the admin's own name, outside the act-as context.
+    const store = requestContext.getStore();
+    if (store) { store.realActor = null; store.actingAs = null; }
+    await logAudit(db, real.name, target ? 'auth.act_as.started' : 'auth.act_as.stopped', `user:${target?.email ?? real.email}`, target ? { as: target.name, role: target.role } : { was: req.user!.realUser ? req.user!.name : null });
+    res.json(await userFromToken(db, token));
+  }));
+
   // A name is how approvals are recorded, so it must not match anyone's current
   // or former name. The old name is kept so segregation of duties still holds.
   const nameTaken = async (name: string, exceptId: string | null = null) =>
@@ -71,6 +104,7 @@ export function authRoutes(r: Router, db: Db, wrap: Wrap) {
   r.patch('/auth/me', wrap(async (req, res) => {
     const body = z.object({ name: z.string().trim().min(2).max(80) }).parse(req.body);
     const me = req.user!;
+    if (me.realUser) throw httpError(409, 'Stop acting as someone else before changing a name');
     if (body.name === me.name) return res.json(me);
     if (await nameTaken(body.name, me.id)) throw httpError(409, 'Someone already uses that name, or used it before. Names are how approvals are recorded, so they must be unique.');
     await db.tx(async (q) => {
@@ -100,6 +134,7 @@ export function authRoutes(r: Router, db: Db, wrap: Wrap) {
   }));
 
   r.delete('/auth/sessions/:id', wrap(async (req, res) => {
+    if (req.user!.realUser) throw httpError(409, 'Stop acting as someone else first. This changes their account, not yours.');
     const id = String(req.params.id);
     if (!/^[0-9a-f]{16}$/.test(id)) throw httpError(404, 'Session not found');
     await db.tx(async (q) => {
@@ -111,6 +146,7 @@ export function authRoutes(r: Router, db: Db, wrap: Wrap) {
   }));
 
   r.post('/auth/sessions/end-all', wrap(async (req, res) => {
+    if (req.user!.realUser) throw httpError(409, 'Stop acting as someone else first. This changes their account, not yours.');
     await db.tx(async (q) => {
       const { rows } = await q.query(`DELETE FROM sessions WHERE user_id = $1 RETURNING id`, [req.user!.id]);
       await logAudit(q, req.user!.name, 'auth.signed_out_everywhere', `user:${req.user!.email}`, { sessions: rows.length });
@@ -120,6 +156,7 @@ export function authRoutes(r: Router, db: Db, wrap: Wrap) {
   }));
 
   r.post('/auth/password', wrap(async (req, res) => {
+    if (req.user!.realUser) throw httpError(409, 'Stop acting as someone else first. This changes their account, not yours.');
     const body = z.object({ current: z.string(), next: Password }).parse(req.body);
     const { rows } = await db.query(`SELECT * FROM users WHERE id = $1`, [req.user!.id]);
     if (!(await verifyPassword(body.current, rows[0].password_hash))) throw httpError(400, "The current password isn't right");

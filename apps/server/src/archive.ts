@@ -23,6 +23,7 @@ export const OWNERS: [RegExp, string][] = [
   [/^\/alerts\/([^/]+)/, `SELECT engagement_id AS id FROM monitor_alerts WHERE id = $1`],
   [/^\/incidents\/([^/]+)/, `SELECT engagement_id AS id FROM incidents WHERE id = $1`],
   [/^\/inventory\/([^/]+)/, `SELECT engagement_id AS id FROM inventory WHERE id = $1`],
+  [/^\/plans\/([^/]+)/, `SELECT engagement_id AS id FROM plans WHERE id::text = $1`],
   [/^\/agents\/([^/]+)/, `SELECT engagement_id AS id FROM agents WHERE id = $1`],
   [/^\/evals\/([^/]+)/, `SELECT engagement_id AS id FROM eval_suites WHERE id = $1`],
   [/^\/eval-cases\/([^/]+)/, `SELECT s.engagement_id AS id FROM eval_cases c JOIN eval_suites s ON s.id = c.suite_id WHERE c.id = $1`],

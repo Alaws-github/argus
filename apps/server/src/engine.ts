@@ -1,7 +1,7 @@
 // The gate engine: picks up queued cards in stages with a built, enabled agent,
 // runs that agent on its configured provider and model, records the run, then
 // stops at the stage's gate or moves the card on.
-import { AGENT_ROLES, DRAFT_STAGES, nextStage, riskRating, type AgentConfig, type AgentRole, type Card, type Stage } from '@gh/shared';
+import { AGENT_ROLES, DRAFT_STAGES, ROUTE_LABELS, routeSpecificity, routeTakes, nextStage, riskRating, type AgentConfig, type AgentRole, type Card, type Stage } from '@gh/shared';
 import type { Db, Queryable } from './db.js';
 import { emit } from './realtime.js';
 import { logAudit } from './audit.js';
@@ -38,10 +38,12 @@ export function startEngine(db: Db) {
   setInterval(() => void tick(db), TICK_MS);
 }
 
-function routeAllows(agent: AgentConfig, card: Card) {
-  if (agent.route === 'all' || !card.tier) return true;
-  if (agent.route === 'high_only') return card.tier === 'high' || card.tier === 'prohibited';
-  return card.tier !== 'minimal';
+// The agent that takes this card: the most specific enabled agent on the
+// stage whose routing takes it. Ties go to the older agent.
+export function pickAgent(agents: AgentConfig[], card: Card): AgentConfig | null {
+  return agents
+    .filter((a) => a.built && a.enabled && a.role !== 'use_case_planner' && routeTakes(a.route, card))
+    .sort((a, b) => routeSpecificity(b.route) - routeSpecificity(a.route))[0] ?? null;
 }
 
 async function tick(db: Db) {
@@ -62,20 +64,15 @@ async function tick(db: Db) {
       if (free <= 0) break;
       const card = toCard(row);
       const { rows: a } = await db.query(`${AGENT_SELECT} WHERE a.engagement_id = $1 AND a.stage = $2 AND a.enabled`, [card.engagementId, card.stage]);
-      const agent = a.map(toAgent).find((x) => x.built);
+      const all = a.map(toAgent).filter((x) => x.built && x.role !== 'use_case_planner');
+      const agent = pickAgent(all, card);
       if (!agent) {
         // Nobody to run it: hand the card to a person.
         await db.query(`UPDATE cards SET status='idle', status_note=$2, updated_at=now() WHERE id=$1`, [
           card.id,
-          'No enabled agent on this stage. Turn one on in Settings > Agents, or move it on by hand.',
-        ]);
-        await emitCard(db, card.id);
-        continue;
-      }
-      if (!routeAllows(agent, card)) {
-        await db.query(`UPDATE cards SET status='idle', status_note=$2, updated_at=now() WHERE id=$1`, [
-          card.id,
-          `${agent.name} only takes ${agent.route === 'high_only' ? 'high and prohibited' : 'non-minimal'} use cases. Move this one on by hand.`,
+          all.length
+            ? `None of the agents on this stage take this card (${all.map((x) => `${x.name}: ${ROUTE_LABELS[x.route].toLowerCase()}`).join('; ')}). Move it on by hand, or change their routing in Settings > Agents.`
+            : 'No enabled agent on this stage. Turn one on in Settings > Agents, or move it on by hand.',
         ]);
         await emitCard(db, card.id);
         continue;

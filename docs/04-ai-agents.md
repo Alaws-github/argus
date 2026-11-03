@@ -1,6 +1,6 @@
 # The AI agents
 
-Six agents do the drafting. Each works on one stage. None of them can approve anything, conclude a test, accept a risk, close an issue or sign off a report. A named person does all of those.
+Seven agents do the drafting. The Use Case Planner helps whoever raises a use case write its brief; six more draft each later stage. Each works on one stage, and a lead can add more agents to a stage and route cards between them. None of them can approve anything, conclude a test, accept a risk, close an issue or sign off a report. A named person does all of those.
 
 ![How a draft becomes a decision](images/guardrails.png)
 
@@ -36,7 +36,7 @@ The agent must cite the passages it relies on. The harness checks every citation
 
 Search works two ways: by **keyword**, which finds exact terms like "Article 14" and needs no setup, and by **meaning**, which finds passages that say the same thing in other words. Meaning search needs an embedding model: see [Set up meaning search](runbooks/set-up-meaning-search.md).
 
-## The six agents
+## The agents
 
 | Agent | Stage | What it drafts | On by default |
 | --- | --- | --- | --- |
@@ -59,6 +59,14 @@ The last four are switched off when an engagement starts. A lead turns them on i
 - **It runs within limits.** Each run has a time limit and a cost limit. The workspace has a monthly spending cap.
 
 ## Agent by agent
+
+### Use Case Planner
+
+The first agent a use case meets, on the Plan page (**+ Add use case**). It asks the person a few questions and drafts the intake brief: name, what it does, owner, data, people affected, autonomy, vendor, kind of AI and priority. The person edits the brief and adds it to Intake under their own name; the Planner can't. A field the person typed is never overwritten. It doesn't assess risk; that is the Risk Classifier's job after Intake. Offline, it files answers under the questions it asked and spots a few things from keywords. The person can always switch to **Fill it in myself**.
+
+### More than one agent on a stage
+
+**Engagement settings > Agents > + New agent** adds an agent to a stage. It does that stage's job under the same rules and output checks, with its own model, instructions and limits, and takes only the cards it is routed: one kind of AI, P1 cards, or a risk tier. A card goes to the most specific agent that takes it.
 
 ### Evidence Collector
 
@@ -120,7 +128,7 @@ The offline rules pass 7 of 10 classifier cases and fail the Verifier's trust ba
 
 ## The assistant
 
-Besides the six agents, there is an assistant you can talk to about a use case or a register (**Ask** in the top bar, or **Ask about this** on a use case). It explains drafts, points out what to check, and suggests changes. Every suggestion waits for a person to apply or discard it, and applying runs under that person's own permissions, so the assistant gets no power of its own. Like the agents, it works from the knowledge base and its citations are checked; anything that refers to a record it wasn't shown is removed before you see it. See [Using the app](03-using-the-app.md#the-assistant-ask).
+Besides the agents, there is an assistant you can talk to about a use case or a register (**Ask** in the top bar, or **Ask about this** on a use case). It explains drafts, points out what to check, and suggests changes. Every suggestion waits for a person to apply or discard it, and applying runs under that person's own permissions, so the assistant gets no power of its own. Like the agents, it works from the knowledge base and its citations are checked; anything that refers to a record it wasn't shown is removed before you see it. See [Using the app](03-using-the-app.md#the-assistant-ask).
 
 ## Which AI runs the agents
 

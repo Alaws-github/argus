@@ -36,16 +36,18 @@ export const STAGE_HINTS: Record<Stage, string> = {
   intake: 'New AI use cases. You decide which go forward.',
   classify: 'Risk Classifier · tier, oversight, starting risks',
   design: 'Control Designer · controls mapped to each risk',
-  evidence: 'Evidence Collector · read-only pulls from client systems',
-  test: 'Control Tester · design and operating effectiveness',
+  evidence: 'Evidence Collector · request list and gap check',
+  test: 'Control Tester · drafts results for a person to conclude',
   remediate: 'Control owner · fixes what failed testing',
-  validate: 'Independent reviewer · second line sign-off',
-  report: 'Report Writer · management and board summary',
+  validate: 'Review assistant drafts challenges · a person signs off',
+  report: 'Report Writer drafts the board summary · a person approves',
   closed: 'Governed and reported',
 };
 
 // Stages that have an agent wired up. The rest are moved by a person for now.
-export const AGENT_STAGES: Stage[] = ['classify', 'design'];
+export const AGENT_STAGES: Stage[] = ['classify', 'design', 'evidence', 'test', 'validate', 'report'];
+// Stages where an agent only drafts: the card always stops for a person, gate or no gate.
+export const DRAFT_STAGES: Stage[] = ['evidence', 'test', 'validate', 'report'];
 
 // Default gates: a person signs off before the card leaves these stages.
 export const DEFAULT_GATES: Record<Stage, boolean> = {
@@ -185,6 +187,7 @@ export interface Card {
   classification: Classification | null;
   design: import('./grc.js').ControlDesign | null;
   createdBy: string | null;
+  drafts: import('./grc.js').CardDrafts;
   latestRunId: string | null;
   costUsd: number;
   createdAt: string;
@@ -329,10 +332,10 @@ export type AgentRole = z.infer<typeof AgentRole>;
 export const AGENT_ROLES: Record<AgentRole, { name: string; stage: Stage; built: boolean; summary: string; tools: AgentTool[] }> = {
   risk_classifier: { name: 'Risk Classifier', stage: 'classify', built: true, summary: 'Tiers the use case, sets the oversight model, proposes starting risks', tools: ['read_profile', 'ask'] },
   control_designer: { name: 'Control Designer', stage: 'design', built: true, summary: 'Proposes controls for each approved risk from the control library', tools: ['read_profile', 'read_register', 'ask'] },
-  evidence_collector: { name: 'Evidence Collector', stage: 'evidence', built: false, summary: 'Pulls evidence read-only from connected client systems', tools: ['read_profile', 'read_register', 'read_evidence'] },
-  control_tester: { name: 'Control Tester', stage: 'test', built: false, summary: 'Tests design and operating effectiveness; can only flag failures', tools: ['read_register', 'read_evidence', 'ask'] },
-  independent_reviewer: { name: 'Independent reviewer', stage: 'validate', built: false, summary: 'Second-line challenge of the evidence pack before sign-off', tools: ['read_register', 'read_evidence', 'ask'] },
-  report_writer: { name: 'Report Writer', stage: 'report', built: false, summary: 'Drafts the management and board summary', tools: ['read_profile', 'read_register', 'read_evidence'] },
+  evidence_collector: { name: 'Evidence Collector', stage: 'evidence', built: true, summary: 'Drafts the evidence request list for each control and checks what has arrived', tools: ['read_profile', 'read_register', 'read_evidence'] },
+  control_tester: { name: 'Control Tester', stage: 'test', built: true, summary: 'Drafts test results from the attached evidence; a person concludes, someone else reviews', tools: ['read_register', 'read_evidence', 'ask'] },
+  independent_reviewer: { name: 'Review assistant', stage: 'validate', built: true, summary: 'Lists challenges to the evidence pack for the person who signs off; not itself a second-line review', tools: ['read_register', 'read_evidence', 'ask'] },
+  report_writer: { name: 'Report Writer', stage: 'report', built: true, summary: 'Drafts the board summary from the data, citing only figures it was given', tools: ['read_profile', 'read_register', 'read_evidence'] },
 };
 
 export const AGENT_TOOLS = ['read_profile', 'read_register', 'read_evidence', 'ask'] as const;

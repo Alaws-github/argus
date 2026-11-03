@@ -8,7 +8,7 @@ export const EXIT_CRITERIA: Partial<Record<Stage, string[]>> = {
   classify: ['A classification has been produced'],
   design: ['Every risk scoring 12 or more is treated by at least one control (applies once controls exist)'],
   evidence: ['Every control for this use case has at least one evidence item'],
-  test: ['Every test for this use case has a result (passed or failed)', 'Every concluded test has been reviewed by someone other than its preparer'],
+  test: ['Every test for this use case has a result (passed or failed)', 'Every concluded test has been reviewed by someone other than its preparer', 'Every failed test has an issue raised for it'],
   remediate: ['No critical or high issue for this use case is still open'],
 };
 
@@ -47,12 +47,14 @@ export async function exitCriteria(q: Queryable, card: Card): Promise<string[]> 
         `SELECT
            count(*) FILTER (WHERE t.status NOT IN ('passed','failed'))::int AS open,
            count(*) FILTER (WHERE t.status IN ('passed','failed') AND t.reviewed_by IS NULL)::int AS unreviewed,
+           count(*) FILTER (WHERE t.status = 'failed' AND NOT EXISTS (SELECT 1 FROM issues i WHERE i.test_id = t.id))::int AS untracked,
            count(*)::int AS total
          FROM tests t WHERE t.control_id IN (${controls})`,
         [card.id],
       );
       if (!rows[0].total) unmet.push('there are no tests for this use case');
       if (rows[0].open) unmet.push(`${rows[0].open} test${rows[0].open === 1 ? ' has' : 's have'} no result`);
+      if (rows[0].untracked) unmet.push(`${rows[0].untracked} failed test${rows[0].untracked === 1 ? ' has' : 's have'} no issue raised`);
       if (rows[0].unreviewed) unmet.push(`${rows[0].unreviewed} test${rows[0].unreviewed === 1 ? ' is' : 's are'} not reviewed`);
       break;
     }

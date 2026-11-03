@@ -164,6 +164,9 @@ async function startingModel(q: Queryable) {
   return { providerId: rules.id, model: 'rules-v1', effort: s.defaultEffort, fallback: null };
 }
 
+// Drafting agents ship switched off; a lead turns them on per engagement.
+const ON_BY_DEFAULT: AgentRole[] = ['risk_classifier', 'control_designer'];
+
 export async function ensureAgents(q: Queryable, engagementId: string) {
   const { rows } = await q.query(`SELECT role FROM agents WHERE engagement_id = $1`, [engagementId]);
   const have = new Set(rows.map((r: any) => r.role));
@@ -175,7 +178,7 @@ export async function ensureAgents(q: Queryable, engagementId: string) {
       `INSERT INTO agents (engagement_id, role, name, stage, enabled, provider_id, model, effort, fallback_provider_id, fallback_model, summary, tools, max_cost_usd, timeout_min, concurrency)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [
-        engagementId, role, meta.name, meta.stage, meta.built, start.providerId, start.model, start.effort,
+        engagementId, role, meta.name, meta.stage, meta.built && ON_BY_DEFAULT.includes(role), start.providerId, start.model, start.effort,
         start.fallback ? start.providerId : null, start.fallback, meta.summary, JSON.stringify(meta.tools),
         lim.maxCostUsd, lim.timeoutMin, lim.concurrency,
       ],

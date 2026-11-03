@@ -45,10 +45,21 @@ const pill: Record<string, string> = { not_started: '', in_progress: 'blue', pas
 
 const selected = ref<ControlTest | null>(null);
 const draft = ref({ procedure: '', population: '', sampleSize: null as number | null, expected: '', actual: '', exceptions: 0 });
+// Set when the preparer starts from the Control Tester's draft; recorded in the audit trail.
+const fromDraft = ref(false);
+function useDraft() {
+  const d = selected.value!.draft!;
+  draft.value.actual = d.actual;
+  draft.value.exceptions = d.exceptions;
+  fromDraft.value = true;
+  app.toast('Draft copied in. Check it against the evidence before you conclude.');
+}
+const PROPOSED: Record<string, string> = { pass: 'Pass', fail: 'Fail', cannot_assess: "Can't assess" };
 const busy = ref(false);
 const err = ref('');
 function select(t: ControlTest) {
   selected.value = t;
+  fromDraft.value = false;
   err.value = '';
   draft.value = { procedure: t.procedure, population: t.population, sampleSize: t.sampleSize, expected: t.expected, actual: t.actual, exceptions: t.exceptions };
 }
@@ -60,6 +71,7 @@ async function save(conclude?: 'passed' | 'failed' | 'in_progress') {
     const body: any = selected.value.reviewedBy ? {} : { ...draft.value };
     if (conclude) body.status = conclude;
     if (conclude === 'passed') body.exceptions = draft.value.exceptions || 0;
+    if ((conclude === 'passed' || conclude === 'failed') && fromDraft.value) body.fromDraft = true;
     selected.value = await api(`/tests/${selected.value.id}`, { method: 'PATCH', body });
     app.toast(conclude && conclude !== 'in_progress' ? `${selected.value!.key} ${conclude}. Someone else now reviews it.` : 'Saved');
     await load();
@@ -207,7 +219,7 @@ function exportTests() {
               <td class="mono faint">{{ t.key }}</td>
               <td style="min-width: 240px">{{ t.title }}<div class="small faint">{{ t.kind }}<template v-if="t.sampleSize"> · sample {{ t.sampleSize }}</template></div></td>
               <td class="small"><span class="mono">{{ t.controlKey }}</span> {{ t.controlTitle }}</td>
-              <td><span class="pill" :class="pill[t.status]"><span class="dot" />{{ TEST_STATUS_LABELS[t.status] }}</span></td>
+              <td><span class="pill" :class="pill[t.status]"><span class="dot" />{{ TEST_STATUS_LABELS[t.status] }}</span><span v-if="t.draft && !['passed', 'failed'].includes(t.status)" class="badge accent" style="margin-left: 4px" title="The Control Tester drafted a result">Draft</span></td>
               <td class="small">{{ t.preparedBy ?? '—' }}</td>
               <td class="small"><span v-if="t.reviewedBy">{{ t.reviewedBy }}</span><span v-else-if="needsReview(t)" class="badge warn">Waiting</span><span v-else class="faint">—</span></td>
               <td class="num">{{ t.evidence }}</td>
@@ -274,6 +286,19 @@ function exportTests() {
             <button v-if="selected.status === 'failed' && app.can('prepare')" class="btn" @click="retest">Add a retest</button>
           </div>
         </div>
+
+        <div v-if="selected.draft && !selected.reviewedBy && !['passed', 'failed'].includes(selected.status)" class="notice">
+          <div class="spread">
+            <h3>Control Tester's draft</h3>
+            <span class="pill" :class="{ pass: 'green', fail: 'coral', cannot_assess: '' }[selected.draft.proposed]">{{ PROPOSED[selected.draft.proposed] }}</span>
+          </div>
+          <p class="small faint">Drafted by an agent on {{ selected.draft.model }}. It isn't a result: you decide, and you're recorded as the preparer.</p>
+          <p v-if="selected.draft.actual" class="small"><strong>Actual:</strong> {{ selected.draft.actual }}</p>
+          <p class="small"><strong>Exceptions:</strong> {{ selected.draft.exceptions }} · <strong>Relied on:</strong> <span class="mono">{{ selected.draft.evidenceKeys.join(' ') || 'nothing' }}</span></p>
+          <p class="small muted">{{ selected.draft.reasoning }}</p>
+          <div v-if="app.can('prepare') && selected.draft.actual"><button class="btn sm" @click="useDraft">Start from this draft</button></div>
+        </div>
+        <p v-else-if="selected.draft?.used" class="small faint">The preparer started from the Control Tester's draft ({{ PROPOSED[selected.draft.proposed] }}). That's in the audit trail.</p>
 
         <section class="section">
           <span class="label-caps">Test design</span>

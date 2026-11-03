@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
-  OVERSIGHT_LABELS, STAGE_LABELS, TIER_LABELS, riskRating, riskScore,
+  AGENT_ROLES, DRAFT_STAGES, OVERSIGHT_LABELS, STAGE_LABELS, TIER_LABELS, riskRating, riskScore,
   type AuditEntry, type Card, type Risk, type Run,
 } from '@gh/shared';
 import { api, ago, money, socket } from '../api';
@@ -78,7 +78,11 @@ async function act(action: string, requireNote = false) {
   }
 }
 
-const agentName = computed(() => (card.value?.stage === 'design' ? 'Control Designer' : 'Risk Classifier'));
+const agentName = computed(() => Object.values(AGENT_ROLES).find((a) => a.stage === card.value?.stage)?.name ?? 'agent');
+const drafting = computed(() => !!card.value && DRAFT_STAGES.includes(card.value.stage) && mode.value === 'review');
+const draft = computed<any>(() => (card.value ? (card.value.drafts as any)?.[card.value.stage] : null));
+const DRAFT_TITLES: Record<string, string> = { evidence: 'Evidence request list', test: 'Draft test results', validate: 'Challenges before sign-off', report: 'Draft board summary' };
+const statusPill: Record<string, string> = { received: 'green', partial: 'amber', missing: 'coral' };
 const canApprove = computed(() => app.can('approve'));
 const ownCard = computed(() => !!card.value?.createdBy && card.value.createdBy === app.user?.name);
 
@@ -151,7 +155,70 @@ const actionLabel = (a: string) =>
         <p v-else class="small faint">A reviewer or lead approves this.</p>
       </div>
 
-      <div v-else-if="mode === 'review' && card.design" class="notice">
+      <div v-else-if="drafting && draft" class="notice">
+        <div class="spread">
+          <h3>{{ DRAFT_TITLES[card.stage] }}</h3>
+          <span class="badge">Drafted by {{ agentName }} · {{ draft.model }}</span>
+        </div>
+        <p class="small muted">An agent's draft. It doesn't conclude, review or approve anything; a named person decides.</p>
+
+        <template v-if="card.stage === 'evidence'">
+          <p class="small">{{ draft.summary }}</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Control</th><th>Ask for</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr v-for="(r, i) in draft.requests" :key="i">
+                  <td class="mono small">{{ r.controlKey }}</td>
+                  <td class="small">{{ r.item }}<div class="faint">From {{ r.askFrom }}. {{ r.why }}</div><div v-if="r.note" class="faint">{{ r.note }}</div></td>
+                  <td><span class="pill" :class="statusPill[r.status]">{{ r.status }}</span><div class="mono small faint">{{ r.evidenceKeys.join(' ') }}</div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <RouterLink class="small" to="/testing/evidence">Open the evidence vault</RouterLink>
+        </template>
+
+        <template v-else-if="card.stage === 'test'">
+          <p class="small">{{ draft.summary }}</p>
+          <div class="row" style="flex-wrap: wrap">
+            <span class="badge ok">{{ draft.proposed.pass }} pass</span><span class="badge danger">{{ draft.proposed.fail }} fail</span><span class="badge">{{ draft.proposed.cannot_assess }} can't assess</span>
+          </div>
+          <p class="small">Each draft sits on its test. A preparer concludes each test, starting from the draft if it holds up, and someone else reviews it.</p>
+          <RouterLink class="btn sm" to="/testing/tests" style="align-self: flex-start">Conclude the tests</RouterLink>
+        </template>
+
+        <template v-else-if="card.stage === 'validate'">
+          <div class="row"><span class="badge" :class="draft.readiness === 'ready' ? 'ok' : 'danger'">{{ draft.readiness === 'ready' ? 'Looks ready' : 'Not ready' }}</span><span class="small">{{ draft.summary }}</span></div>
+          <ul class="plain small" style="max-height: 280px; overflow: auto">
+            <li v-for="(c, i) in draft.challenges" :key="i"><span class="sev" :class="c.severity">{{ c.severity }}</span> {{ c.finding }}</li>
+          </ul>
+          <p class="small faint">The Review assistant isn't a second-line review. You sign off as the reviewer, having weighed these.</p>
+        </template>
+
+        <template v-else-if="card.stage === 'report'">
+          <strong>{{ draft.headline }}</strong>
+          <p v-for="(para, i) in draft.summary.split(/\n+/)" :key="i" class="small">{{ para }}</p>
+          <div v-if="draft.keyFigures.length" class="row" style="flex-wrap: wrap"><span v-for="k in draft.keyFigures" :key="k.label" class="badge">{{ k.label }}: {{ k.value }}</span></div>
+          <div v-if="draft.recommendations.length" class="small"><strong>Recommendations</strong><ul class="plain"><li v-for="r in draft.recommendations" :key="r">{{ r }}</li></ul></div>
+          <div v-if="draft.decisionsNeeded.length" class="small"><strong>Decisions for the board</strong><ul class="plain"><li v-for="r in draft.decisionsNeeded" :key="r">{{ r }}</li></ul></div>
+          <p class="small faint">Every figure was checked against the harness's data before you saw it.</p>
+        </template>
+
+        <div v-if="exit.required.length" class="small">
+          <strong>Exit criteria</strong>
+          <ul class="check-list" style="margin-top: 4px"><li v-for="r in exit.required" :key="r" :class="{ no: exit.unmet.length > 0 }">{{ r }}</li></ul>
+          <p v-if="exit.unmet.length" class="error" style="margin-top: 4px">Not met yet: {{ exit.unmet.join('; ') }}</p>
+        </div>
+        <textarea v-model="note" class="textarea" :placeholder="`Note for the record, or what the ${agentName} should look at again (needed to run it again)`" />
+        <div v-if="canApprove" class="row" style="flex-wrap: wrap">
+          <button class="btn primary" :disabled="busy || exit.unmet.length > 0" @click="act('approve')">{{ card.stage === 'validate' ? 'Sign off' : card.stage === 'report' ? 'Approve the summary' : 'Move on' }}</button>
+          <button class="btn" :disabled="busy" @click="act('request_changes', true)">Run it again</button>
+        </div>
+        <p v-else class="small faint">A reviewer or lead moves this on.</p>
+      </div>
+
+      <div v-else-if="mode === 'review' && card.stage === 'design' && card.design" class="notice">
         <h3>Review the proposed controls</h3>
         <p class="small">The Control Designer proposes {{ card.design.controls.length }} controls from the library. Approving adds them to the control register with a draft test each, linked to the risks they treat.</p>
         <div class="table-wrap">
@@ -254,6 +321,12 @@ const actionLabel = (a: string) =>
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section v-if="card.drafts?.report?.approvedBy" class="section">
+        <span class="label-caps">Board summary · approved by {{ card.drafts.report.approvedBy }}</span>
+        <strong>{{ card.drafts.report.headline }}</strong>
+        <p v-for="(para, i) in card.drafts.report.summary.split(/\n+/)" :key="i" class="small">{{ para }}</p>
       </section>
 
       <section v-if="controls.length" class="section">

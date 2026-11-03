@@ -423,3 +423,8 @@ CREATE INDEX IF NOT EXISTS audit_log_at ON audit_log (at);
 ALTER TABLE engagements ADD COLUMN IF NOT EXISTS archived_at timestamptz;
 ALTER TABLE engagements ADD COLUMN IF NOT EXISTS archived_by text;
 ALTER TABLE engagements ADD COLUMN IF NOT EXISTS archive_reason text;
+
+-- v0.5: drafting agents. Drafts never count as a preparer, reviewer or sign-off.
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS drafts jsonb NOT NULL DEFAULT '{}';
+ALTER TABLE tests ADD COLUMN IF NOT EXISTS draft jsonb;
+UPDATE agents SET name = 'Review assistant' WHERE role = 'independent_reviewer' AND name = 'Independent reviewer';

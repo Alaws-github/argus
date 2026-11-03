@@ -62,6 +62,7 @@ const toTest = (r: any) => ({
   controlTitle: r.control_title, kind: r.kind, title: r.title, procedure: r.procedure, population: r.population, sampleSize: r.sample_size,
   expected: r.expected, actual: r.actual, exceptions: r.exceptions, status: r.status, preparedBy: r.prepared_by, preparedAt: iso(r.prepared_at),
   reviewedBy: r.reviewed_by, reviewedAt: iso(r.reviewed_at), evidence: r.ev, createdAt: iso(r.created_at),
+  draft: r.draft ?? null,
 });
 
 const toEvidence = (r: any) => ({
@@ -422,6 +423,8 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
       status: TestStatus.optional(),
       actual: z.string().max(4000).optional(),
       exceptions: z.number().int().min(0).max(100000).optional(),
+      // The person concluding says whether they started from the agent's draft.
+      fromDraft: z.boolean().optional(),
     }).parse(req.body);
     const { rows: before } = await db.query(`SELECT * FROM tests WHERE id = $1`, [req.params.id]);
     if (!before[0]) throw httpError(404, 'Test not found');
@@ -438,7 +441,12 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
         `UPDATE tests SET ${[...keys.map((k, i) => `${map[k]} = $${i + 2}`), ...(concluding ? [`prepared_by = $${keys.length + 2}`, 'prepared_at = now()'] : [])].join(', ')} WHERE id = $1`,
         [before[0].id, ...keys.map((k) => (b as any)[k]), ...(concluding ? [actorOf(req)] : [])],
       );
-      await logAudit(q, actorOf(req), concluding ? 'test.concluded' : 'test.changed', `test:T-${before[0].number}`, Object.fromEntries(keys.map((k) => [k, { from: before[0][map[k]], to: (b as any)[k] }])));
+      const usedDraft = concluding && b.fromDraft && before[0].draft;
+      if (usedDraft) await q.query(`UPDATE tests SET draft = draft || '{"used": true}'::jsonb WHERE id = $1`, [before[0].id]);
+      await logAudit(q, actorOf(req), concluding ? 'test.concluded' : 'test.changed', `test:T-${before[0].number}`, {
+        ...Object.fromEntries(keys.map((k) => [k, { from: before[0][map[k]], to: (b as any)[k] }])),
+        ...(usedDraft ? { startedFromAgentDraft: { run: before[0].draft.runId, proposed: before[0].draft.proposed, model: before[0].draft.model } } : {}),
+      });
     });
     const { rows } = await db.query(`${TEST_SELECT} WHERE t.id = $1`, [before[0].id]);
     res.json(toTest(rows[0]));
@@ -801,7 +809,7 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
     const e = await getEngagement(db, id);
     if (!e) throw httpError(404, 'Engagement not found');
     const { rows: er } = await db.query(`SELECT report_signed_by, report_signed_at FROM engagements WHERE id = $1`, [id]);
-    const { rows: cards } = await db.query(`SELECT key, title, tier, stage FROM cards WHERE engagement_id = $1 AND NOT (stage = 'closed' AND tier IS NULL) ORDER BY number`, [id]);
+    const { rows: cards } = await db.query(`SELECT key, title, tier, stage, drafts FROM cards WHERE engagement_id = $1 AND NOT (stage = 'closed' AND tier IS NULL) ORDER BY number`, [id]);
     const { rows: risks } = await db.query(
       `SELECT r.number, r.title, r.likelihood, r.impact, r.residual_likelihood, r.residual_impact, r.status, r.treatment, r.owner, c.key AS card_key
        FROM risks r JOIN cards c ON c.id = r.card_id WHERE r.engagement_id = $1 ORDER BY r.likelihood * r.impact DESC LIMIT 10`, [id]);
@@ -817,7 +825,11 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
       generatedAt: new Date().toISOString(),
       signedBy: er[0]?.report_signed_by ?? null,
       signedAt: iso(er[0]?.report_signed_at),
-      useCases: cards.map((c: any) => ({ key: c.key, title: c.title, tier: c.tier, stage: c.stage })),
+      useCases: cards.map((c: any) => ({
+        key: c.key, title: c.title, tier: c.tier, stage: c.stage,
+        // Only a summary a person approved goes in the report.
+        summary: c.drafts?.report?.approvedBy ? { headline: c.drafts.report.headline, text: c.drafts.report.summary, approvedBy: c.drafts.report.approvedBy } : null,
+      })),
       topRisks: risks.map((r: any) => ({ key: `R-${r.number}`, title: r.title, cardKey: r.card_key, inherent: r.likelihood * r.impact, residual: r.residual_likelihood && r.residual_impact ? r.residual_likelihood * r.residual_impact : null, rating: riskRating(r.likelihood * r.impact), treatment: r.treatment, status: r.status, owner: r.owner })),
       controls: { total: controls.length, operating: controls.filter((c) => c.status === 'operating').length, failed: controls.filter((c) => c.status === 'failed').length, untested: controls.filter((c) => !c.tests.passed && !c.tests.failed).length },
       openIssues: iss.map(toIssue),

@@ -13,10 +13,11 @@ import { emit } from './realtime.js';
 import { RULES_VERSION as CLASSIFIER_RULES } from './agents/risk-classifier.js';
 import { RULES_VERSION as DESIGNER_RULES } from './agents/control-designer.js';
 import { ensureAgents } from './seed.js';
+import { DRAFTING_RULES_VERSIONS } from './agents/drafting.js';
 import { AGENT_SELECT, getEngagement, getSettings, monthSpend, toAgent, toEngagement } from './store.js';
 import { PROVIDER_SELECT, apiKeyOf, discoverModels, getProviderRow, toProvider } from './providers.js';
 
-const RULES_VERSIONS: Record<string, string> = { risk_classifier: CLASSIFIER_RULES, control_designer: DESIGNER_RULES };
+const RULES_VERSIONS: Record<string, string> = { risk_classifier: CLASSIFIER_RULES, control_designer: DESIGNER_RULES, ...DRAFTING_RULES_VERSIONS };
 
 type Wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => void;
 const httpError = (status: number, message: string) => Object.assign(new Error(message), { status });

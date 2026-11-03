@@ -66,6 +66,11 @@ function markdown() {
   for (const a of r.areas) L.push(`| ${a.name} | ${a.score ?? '–'} | ${a.score ? MATURITY[a.score] : '–'} | ${a.basis} | ${(a.rationale || '').replace(/\|/g, '/').replace(/\n/g, ' ')} |`);
   L.push('', '## Use cases in scope', '', '| Key | Use case | Tier | Stage |', '|---|---|---|---|');
   for (const u of r.useCases) L.push(`| ${u.key} | ${u.title} | ${u.tier ? TIER_LABELS[u.tier as keyof typeof TIER_LABELS] : 'Not classified'} | ${STAGE_LABELS[u.stage as keyof typeof STAGE_LABELS]} |`);
+  const sums = r.useCases.filter((u: any) => u.summary);
+  if (sums.length) {
+    L.push('', '## Use case summaries');
+    for (const u of sums) L.push('', `### ${u.key}: ${u.summary.headline}`, '', u.summary.text, '', `_Approved by ${u.summary.approvedBy}_`);
+  }
   L.push('', '## Top risks', '', '| Key | Risk | Use case | Inherent | Residual | Treatment | Owner |', '|---|---|---|---|---|---|---|');
   for (const k of r.topRisks) L.push(`| ${k.key} | ${k.title} | ${k.cardKey} | ${k.inherent} | ${k.residual ?? '–'} | ${k.treatment} | ${k.owner} |`);
   L.push('', '## Controls', '', `${r.controls.total} controls: ${r.controls.operating} operating effectively, ${r.controls.failed} failed testing, ${r.controls.untested} not yet tested.`);
@@ -157,6 +162,15 @@ function markdown() {
             </tbody>
           </table>
         </div>
+
+        <template v-if="report.useCases.some((u: any) => u.summary)">
+          <h2>Use case summaries</h2>
+          <div v-for="u in report.useCases.filter((x: any) => x.summary)" :key="u.key" class="stack" style="gap: 4px; margin-bottom: 12px">
+            <strong><span class="mono faint">{{ u.key }}</span> {{ u.summary.headline }}</strong>
+            <p v-for="(para, i) in u.summary.text.split(/\n+/)" :key="i" class="small">{{ para }}</p>
+            <span class="small faint">Approved by {{ u.summary.approvedBy }}</span>
+          </div>
+        </template>
 
         <h2>Top risks</h2>
         <div v-if="!report.topRisks.length" class="small muted">No risks registered yet.</div>

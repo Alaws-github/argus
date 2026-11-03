@@ -2,7 +2,9 @@
 
 An AI governance, risk and assurance workbench. AI use cases move across a board from Intake to Board report. Agents draft the work at each stage; a named person approves at each gate; every action lands in a hash-chained audit trail.
 
-v0.4 adds engagements you can add from the switcher (a five-step wizard modelled on GoldenEye's Add project), a GoldenEye-style account menu (Your account, People and roles, Audit log, theme, desktop notifications), a Your account page, and an audit log you can filter by person, action, address and date.
+v0.5 builds the four remaining agents (Evidence Collector, Control Tester, Review assistant, Report Writer) as drafting agents with guardrails; see **Drafting agents** below.
+
+v0.4 added engagements you can add from the switcher (a five-step wizard modelled on GoldenEye's Add project), a GoldenEye-style account menu (Your account, People and roles, Audit log, theme, desktop notifications), a Your account page, and an audit log you can filter by person, action, address and date.
 
 v0.3 added the assurance layer: sign-in with roles and segregation of duties, a control library mapped to public standards, a Statement of Applicability, a requirements traceability matrix, control testing with a reviewer sign-off, a hashed evidence vault, issues handled like defects, evaluation and red-team suites, an AI inventory with an agent register, residual risk against appetite, and a readiness report scored on a maturity scale.
 
@@ -57,6 +59,7 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run build` then `npm start` | Builds the web app and serves it from the API on port 4300 |
 | `npm run typecheck` | Type-checks server and web |
 | `npm run smoke` | API smoke test (66 checks) against a running server on a **fresh** database |
+| `npm run test:agents` | Drafting-agent tests (28 checks), including a mock model that tries to cheat the guardrails. Also needs a fresh database |
 
 To use a real Postgres instead of PGlite, set `DATABASE_URL` in `.env`.
 
@@ -107,11 +110,29 @@ Intake ─▶ Classify risk ─▶ Design controls ─▶ Collect evidence ─�
 - **Cards** are AI use cases. Each has a profile: owner, what it does, data used, people affected, autonomy, vendor.
 - **Gates** stop a card until a person signs off. Defaults: Intake (always), Classify, Design, Validate, Report. Change them in Settings > Workflow & gates.
 - **Agents** are configured per engagement, one per stage. The **Risk Classifier** and **Control Designer** are built; the others are listed with their planned role and can be set up ahead of time but not switched on.
-- **Exit criteria** are checks, not reminders. A card can't leave Design until every risk scoring 12+ has a control, Evidence until every control has evidence, Test until every test has a reviewed result, Remediate until no critical or high issue is open (`exit-criteria.ts`).
+- **Exit criteria** are checks, not reminders. A failed test also can't leave the Test stage until an issue is raised for it. A card can't leave Design until every risk scoring 12+ has a control, Evidence until every control has evidence, Test until every test has a reviewed result, Remediate until no critical or high issue is open (`exit-criteria.ts`).
 - **The engine** (`apps/server/src/engine.ts`) polls every 1.5 seconds and picks up queued cards in stages with an enabled agent. It respects each agent's **runs at once**, each provider's **requests at once** and 4 slots overall. It runs the agent on its provider and model, falls back to the fallback model if the first call fails or the provider is off, records the run and its cost, then stops at the gate or moves the card on.
 - **Risk Classifier** (`apps/server/src/agents/risk-classifier.ts`) returns a tier (prohibited, high, limited, minimal), an oversight model, the factors behind the tier, 2 to 6 starting risks, open questions and framework references. Every provider is asked for one structured answer that matches a JSON schema (`apps/server/src/llm.ts`); the server then validates it with Zod, and anything else fails the run.
 - **Control Designer** (`agents/control-designer.ts`) picks controls from the library for each approved risk, adds the baseline controls a tier needs, and writes a test approach for each. It may only cite library codes that exist.
 - **Approving** a classification writes its risks to the **risk register**; approving a design writes the controls, links them to the risks they treat and creates a draft test for each, all in one transaction. **Request changes** sends your note back to the agent.
+
+### Drafting agents
+
+Four agents draft and never decide. They ship **switched off**: a lead turns each one on per engagement in Settings > Agents.
+
+| Agent | Stage | Drafts | Guardrails |
+| --- | --- | --- | --- |
+| Evidence Collector | Collect evidence | An evidence request list per control, matched against what's uploaded | Only this use case's control and evidence keys are accepted |
+| Control Tester | Test controls | A suggested result on each open test, citing evidence | It never concludes a test or becomes the preparer. A person starts from the draft (recorded in the audit trail), concludes as preparer, and someone else reviews. Drafts proposing a pass with exceptions, a pass without evidence, or citing evidence not attached to that test are rejected. The offline rules never propose a pass |
+| Review assistant | Validate | Challenges for the person signing off: thin samples, notes-only evidence, failed tests with no issue, risks above appetite, the same person preparing and reviewing under different names | The rule-based checks always stand; a model can add findings but not remove them or call the pack ready while a high finding is open. It is not a second-line review |
+| Report Writer | Board report | A board summary for the use case | Every number must appear in the data it was given, or the draft is rejected. Only a summary a person approved goes in the readiness report |
+
+What applies to all four:
+
+- **They always stop for a person.** Their stages stop after the agent runs, whether or not the stage has a gate, and the exit criteria still apply.
+- **The output is checked before anyone sees it.** It must match a schema, and the server checks every key and figure it cites.
+- **Client material is treated as data.** Evidence contents are wrapped as data, and instructions inside them are ignored.
+- **The agents can't see everything.** They read notes and text files only, not PDFs, spreadsheets or links. When they can't see something, they say so.
 
 ### People, roles and segregation of duties
 
@@ -202,14 +223,11 @@ Realtime events: `card`, `run`, `run:event`, `risk`, `audit`, `usage`, `engageme
 
 ## Next to build
 
-Agents 1 to 4 can each start without client-system access: the Collector can draft the evidence request list for each control and check what's uploaded against it before connectors exist.
-
-1. **Evidence Collector** agent with read-only connectors (document stores, ticketing), filing hashed evidence against controls.
-2. **Control Tester** agent that drafts test results for a person to review; it can flag failures but never conclude a pass alone.
-3. **Report Writer** agent that drafts the board narrative from the signed-off assessment.
-4. **Monitoring**: scheduled eval runs with drift alerts, and incident records with regulator notification timelines.
-5. **Per-engagement membership**: today everyone signed in sees every engagement.
-6. **SSO** (OIDC) alongside passwords, and MFA for admins.
+1. **Connectors for the Evidence Collector**: read-only pulls from a client's document store or ticketing system, with credentials agreed per client.
+2. **Reading PDFs and spreadsheets** as evidence.
+3. **Monitoring**: scheduled eval runs with drift alerts, and incident records with regulator notification timelines.
+4. **Per-engagement membership**: today everyone signed in sees every engagement.
+5. **SSO** (OIDC) alongside passwords, and MFA for admins.
 
 ## Before you put it on a server
 

@@ -44,6 +44,7 @@ export function toCard(r: any): Card {
     classification: r.classification,
     design: r.design ?? null,
     createdBy: r.created_by ?? null,
+    drafts: r.drafts ?? {},
     latestRunId: r.latest_run_id,
     costUsd: num(r.cost_usd),
     createdAt: iso(r.created_at)!,

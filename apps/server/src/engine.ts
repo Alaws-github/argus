@@ -1,7 +1,7 @@
 // The gate engine: picks up queued cards in stages with a built, enabled agent,
 // runs that agent on its configured provider and model, records the run, then
 // stops at the stage's gate or moves the card on.
-import { AGENT_ROLES, nextStage, riskRating, type AgentConfig, type AgentRole, type Card, type Stage } from '@gh/shared';
+import { AGENT_ROLES, DRAFT_STAGES, nextStage, riskRating, type AgentConfig, type AgentRole, type Card, type Stage } from '@gh/shared';
 import type { Db, Queryable } from './db.js';
 import { emit } from './realtime.js';
 import { logAudit } from './audit.js';
@@ -11,6 +11,7 @@ import { costUsd, priceFor } from './agents/pricing.js';
 import { runRiskClassifier, RULES_VERSION as CLASSIFIER_RULES } from './agents/risk-classifier.js';
 import { runControlDesigner, RULES_VERSION as DESIGNER_RULES } from './agents/control-designer.js';
 import { exitCriteria } from './exit-criteria.js';
+import { DRAFTING_RULES_VERSIONS, runControlTester, runEvidenceCollector, runReportWriter, runReviewAssistant } from './agents/drafting.js';
 import type { AgentContext } from './agents/types.js';
 
 export const MAX_PARALLEL = 4;
@@ -141,7 +142,7 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
     const { rows } = await q.query(
       `INSERT INTO runs (card_id, stage, agent, agent_id, provider_id, model, runtime, billed, rules_version) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, number`,
       [card.id, card.stage, agent.name, agent.id, target.provider.id, target.model, target.provider.type === 'rules' ? 'dry-run' : 'live', target.provider.billed,
-        agent.role === 'control_designer' ? DESIGNER_RULES : CLASSIFIER_RULES],
+        agent.role === 'control_designer' ? DESIGNER_RULES : agent.role === 'risk_classifier' ? CLASSIFIER_RULES : DRAFTING_RULES_VERSIONS[agent.role]],
     );
     await q.query(`UPDATE cards SET status='running', status_note=NULL, latest_run_id=$2, updated_at=now() WHERE id=$1`, [card.id, rows[0].id]);
     await logAudit(q, agent.name, 'run.started', `card:${card.key}`, { run: `R-${rows[0].number}`, stage: card.stage, model: target.model, provider: target.provider.name });
@@ -172,6 +173,10 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
     };
     if ((agent.role as AgentRole) === 'risk_classifier') return runRiskClassifier(ctx, log);
     if ((agent.role as AgentRole) === 'control_designer') return runControlDesigner(ctx, db, log);
+    if ((agent.role as AgentRole) === 'evidence_collector') return runEvidenceCollector(ctx, db, log);
+    if ((agent.role as AgentRole) === 'control_tester') return runControlTester(ctx, db, log);
+    if ((agent.role as AgentRole) === 'independent_reviewer') return runReviewAssistant(ctx, db, log);
+    if ((agent.role as AgentRole) === 'report_writer') return runReportWriter(ctx, db, log);
     throw new Error(`${AGENT_ROLES[agent.role].name} isn't built yet`);
   };
 
@@ -200,15 +205,51 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
     }
 
     const engagement = await getEngagement(db, card.engagementId);
-    const gated = Boolean(engagement?.gates[card.stage as Stage]);
+    // Drafting stages always stop for a person: an agent's draft never moves work on.
+    const drafting = DRAFT_STAGES.includes(card.stage as Stage);
+    const gated = drafting || Boolean(engagement?.gates[card.stage as Stage]);
     const output: any = result.output;
     const isDesign = agent.role === 'control_designer';
     const stillRunning = await db.tx(async (q) => {
       // A kill switch may have ended this run while the model was answering.
-      const { rows: live } = await q.query(`UPDATE runs SET status='succeeded', tokens_in=$2, tokens_out=$3, cost_usd=$4, ended_at=now() WHERE id=$1 AND status='running' RETURNING id`, [
+      const { rows: live } = await q.query(`UPDATE runs SET status='succeeded', tokens_in=$2, tokens_out=$3, cost_usd=$4, ended_at=now() WHERE id=$1 AND status='running' RETURNING id, number`, [
         runId, result.tokensIn, result.tokensOut, cost,
       ]);
       if (!live.length) return false;
+      if (drafting) {
+        const meta = { runId, model: target.model, at: new Date().toISOString() };
+        let draft: any = { ...output, ...meta };
+        let note = '';
+        let detail: Record<string, unknown> = {};
+        if (agent.role === 'evidence_collector') {
+          const missing = output.requests.filter((r: any) => r.status !== 'received').length;
+          note = `Evidence request list drafted: ${output.requests.length} items, ${missing} missing or partial. Collect what's missing, then move on.`;
+          detail = { requests: output.requests.length, missing };
+        } else if (agent.role === 'control_tester') {
+          // Each draft sits on its test. It isn't a result: a person concludes the test.
+          for (const d of output.results) {
+            await q.query(`UPDATE tests SET draft = $2 WHERE id = $1 AND status NOT IN ('passed','failed')`, [output.byTest[d.testKey], JSON.stringify({ ...d, ...meta })]);
+          }
+          const proposed = { pass: 0, fail: 0, cannot_assess: 0 } as Record<string, number>;
+          for (const d of output.results) proposed[d.proposed]++;
+          draft = { summary: output.summary, count: output.results.length, proposed, ...meta };
+          note = `Draft results on ${output.results.length} tests (${proposed.pass} pass, ${proposed.fail} fail, ${proposed.cannot_assess} can't assess). A person concludes each one on the Testing page.`;
+          detail = { drafts: output.results.length, ...proposed };
+        } else if (agent.role === 'independent_reviewer') {
+          const high = output.challenges.filter((c: any) => c.severity === 'high').length;
+          note = `${output.challenges.length} challenges for the sign-off, ${high} high. ${output.readiness === 'ready' ? 'Looks ready.' : 'Not ready yet.'}`;
+          detail = { challenges: output.challenges.length, high, readiness: output.readiness };
+        } else {
+          note = `Board summary drafted: "${output.headline}". Edit if needed and approve.`;
+          detail = { headline: output.headline };
+        }
+        await q.query(
+          `UPDATE cards SET drafts = jsonb_set(drafts, $2, $3::jsonb, true), cost_usd = cost_usd + $4, status = 'needs_approval', status_note = $5, updated_at = now() WHERE id = $1`,
+          [card.id, `{${card.stage}}`, JSON.stringify(draft), cost, note],
+        );
+        await logAudit(q, agent.name, 'run.succeeded', `card:${card.key}`, { ...detail, draftOnly: true, costUsd: cost, model: target.model });
+        return true;
+      }
       const note = isDesign ? `Proposed ${output.controls.length} controls. Review and approve.` : `Proposed tier: ${output.tier}. Review and approve.`;
       if (isDesign) {
         await q.query(`UPDATE cards SET design=$2, cost_usd=cost_usd+$3, status=$4, status_note=$5, updated_at=now() WHERE id=$1`, [
@@ -257,6 +298,12 @@ export async function advance(db: Db, cardId: string, actor: string, note?: stri
     if (unmet.length) throw Object.assign(new Error(`Exit criteria not met: ${unmet.join('; ')}`), { status: 409, unmet });
 
     if (card.stage === 'design' && card.design) await applyDesign(q, card, actor);
+    // The approved board summary records who approved it; the agent never does.
+    if (card.stage === 'report' && card.drafts?.report) {
+      await q.query(`UPDATE cards SET drafts = jsonb_set(drafts, '{report}', drafts->'report' || $2::jsonb) WHERE id = $1`, [
+        card.id, JSON.stringify({ approvedBy: actor, approvedAt: new Date().toISOString() }),
+      ]);
+    }
 
     if (card.stage === 'classify' && card.classification) {
       for (const r of card.classification.risks) {

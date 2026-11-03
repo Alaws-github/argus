@@ -94,7 +94,7 @@ const agentName = computed(() => Object.values(AGENT_ROLES).find((a) => a.stage 
 const drafting = computed(() => !!card.value && DRAFT_STAGES.includes(card.value.stage) && mode.value === 'review');
 const draft = computed<any>(() => (card.value ? (card.value.drafts as any)?.[card.value.stage] : null));
 const DRAFT_ASK: Record<string, string> = {
-  evidence: 'collect what is still missing from the client, then move on. The list is a guide; the exit criteria decide when every control has evidence.',
+  evidence: 'collect what is still missing from the client, then move on. The list is a guide; the checks before it can move on decide when every control has evidence.',
   test: 'nothing here directly. A preparer concludes each test on the Testing page, starting from the draft if it holds up; someone else reviews it.',
   validate: 'weigh each challenge. Accept it if you agree and it has been dealt with; reject it if it does not apply, saying why. Then sign off.',
   report: 'whether this summary is right for the board. Edit it if needed; only a summary you approve goes into the readiness report.',
@@ -173,7 +173,7 @@ const actionLabel = (a: string) =>
     'run.succeeded': 'Run succeeded',
     'run.failed': 'Run failed',
     'run.retried': 'Retried',
-    'gate.blocked': 'Blocked by exit criteria',
+    'gate.blocked': 'Stopped: something was missing',
   })[a] ?? a;
 </script>
 
@@ -314,7 +314,7 @@ const actionLabel = (a: string) =>
         </template>
 
         <div v-if="exit.required.length" class="small">
-          <strong>Exit criteria</strong>
+          <strong>Before it can move on</strong>
           <ul class="check-list" style="margin-top: 4px"><li v-for="r in exit.required" :key="r" :class="{ no: exit.unmet.length > 0 }">{{ r }}</li></ul>
           <p v-if="exit.unmet.length" class="error" style="margin-top: 4px">Not met yet: {{ exit.unmet.join('; ') }}</p>
         </div>
@@ -382,7 +382,7 @@ const actionLabel = (a: string) =>
           {{ gated ? 'Moving it on records you as the approver.' : 'Move it on when the work is done.' }}
         </p>
         <div v-if="exit.required.length" class="small">
-          <strong>Exit criteria</strong>
+          <strong>Before it can move on</strong>
           <ul class="check-list" style="margin-top: 4px">
             <li v-for="r in exit.required" :key="r" :class="{ no: exit.unmet.length > 0 }">{{ r }}</li>
           </ul>

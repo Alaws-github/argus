@@ -1,10 +1,12 @@
-# Governance Harness
+# ARGUS
 
 > **New here, or not technical?** Start with the plain-language docs in [docs/](docs/README.md): what it is, how it works, a tour with screenshots, and step-by-step runbooks. This README is the developer reference. Context for Claude is in [CLAUDE.md](CLAUDE.md).
 
 An AI governance, risk and assurance workbench. AI use cases move across a board from Intake to Board report. Agents draft the work at each stage; a named person approves at each gate; every action lands in a hash-chained audit trail.
 
-v1.1 makes AI part of the work from the first step: the Use Case Planner talks a new use case through and drafts its brief (or fill it in yourself), cards can be dragged between stages under the same rules as the buttons, a lead can add agents to a stage and route cards by kind or priority, an admin can act as anyone to run the whole flow alone (off by default, recorded in the audit log), and the board, Overview charts and settings follow GoldenEye's layout.
+v1.2 renames the app **ARGUS** (Assurance, Risk & Governance Unified System), with a Great Argus pheasant logo, and makes it simpler: five steps on the board (the eight stages and all their checks are unchanged underneath), six places in the top bar with AI as one of them, optional modules per engagement, plainer wording, a responsive layout, blinking status dots for anything that needs a person, and file buttons for uploads. The demo is now five engagements for fictional clients facing real kinds of AI risk, built from one file each in `scripts/demo/engagements/` so you can add your own. Every release is a git tag; `npm run versions` goes back and forward.
+
+v1.1 made AI part of the work from the first step: the Use Case Planner talks a new use case through and drafts its brief (or fill it in yourself), cards can be dragged between stages under the same rules as the buttons, a lead can add agents to a stage and route cards by kind or priority, an admin can act as anyone to run the whole flow alone (off by default, recorded in the audit log), and the board, Overview charts and settings follow GoldenEye's layout.
 
 v1.0 closed the prototype's gaps: PDFs, Excel and Word files are read as evidence; incidents with EU AI Act and Jamaica DPA notification deadlines; scheduled monitoring with drift alerts; read-only evidence connectors; members-only engagements; and a single sign-on (OpenID Connect) scaffold. A full manual is in docs/manual.pdf.
 
@@ -77,6 +79,9 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run test:grounding` | Grounding tests (31 checks): knowledge base, citations, item-by-item decisions, meaning search, temperature 0. Fresh database |
 | `npm run test:assistant` | Assistant tests (27 checks): offline and live, dropped citations and suggestions, apply under the person's role, discard, spend cap, JSON fallback. Fresh database |
 | `npm run test:operations` | Operations tests (58 checks): file reading, incidents, monitoring and drift, connectors and the private-network guard, members-only access, SSO against a mock provider. Fresh database |
+| `npm run test:v12` | v1.2 tests: modules per engagement, and the five steps still running every stage check. Fresh database |
+| `npm run demo -- --list` | List the demo engagements; `--only=<name>` builds one (plus Northshore) |
+| `npm run versions` | List versions; `-- use v1.1` switches (backing up data); `-- latest` returns |
 | `npm run test:v11` | v1.1 tests (65 checks): the Use Case Planner on rules and a mock model, new agents and routing, act as, provider service names, Overview activity. Fresh database |
 | `npm run test:verifier` | Verifier and agent-testing tests (36 checks): golden runs and regressions, the quote check, calibration, live checks, spend cap. Fresh database |
 | `npm run test:agents` | Drafting-agent tests (30 checks), including a mock model that tries to cheat the guardrails. Also needs a fresh database |

@@ -32,6 +32,48 @@ export const STAGE_LABELS: Record<Stage, string> = {
   closed: 'Closed',
 };
 
+// Five steps a person sees. Underneath, the engine keeps its eight stages, so
+// every stage check, agent and test is unchanged; the board, Overview and
+// report group them like this. Remediate is part of Test; Validate and the
+// board report are one sign-off.
+export const PHASES = ['intake', 'assess', 'controls', 'test', 'signoff', 'closed'] as const;
+export type Phase = (typeof PHASES)[number];
+export const PHASE_LABELS: Record<Phase, string> = {
+  intake: 'Intake', assess: 'Assess risk', controls: 'Controls', test: 'Test', signoff: 'Sign-off & report', closed: 'Done',
+};
+export const PHASE_OF: Record<Stage, Phase> = {
+  intake: 'intake', classify: 'assess', design: 'controls', evidence: 'test', test: 'test', remediate: 'test', validate: 'signoff', report: 'signoff', closed: 'closed',
+};
+export const PHASE_HINTS: Record<Phase, string> = {
+  intake: 'New AI use cases. The AI helps write the brief; you decide which go forward.',
+  assess: 'The AI drafts the risk tier and starting risks; you decide each one.',
+  controls: 'The AI proposes controls for each risk; you decide each one.',
+  test: 'Evidence, tests and fixes. The AI drafts; a person concludes and someone else reviews.',
+  signoff: 'The AI challenges the evidence and drafts the board summary; a person signs off.',
+  closed: 'Governed and reported.',
+};
+// The step inside a phase, shown on the card when a phase has more than one.
+export const STEP_LABELS: Partial<Record<Stage, string>> = {
+  evidence: 'Collecting evidence', test: 'Testing', remediate: 'Fixing findings', validate: 'Final review', report: 'Board report',
+};
+
+// Optional parts of an engagement. The core flow is always on; these are
+// switched on per engagement under Engagement settings > General, so a new
+// engagement starts simple. They are hidden when off, not removed.
+export const MODULES = ['evals', 'incidents', 'inventory', 'connectors', 'soa', 'advanced_ai'] as const;
+export type Module = (typeof MODULES)[number];
+export const MODULE_INFO: Record<Module, { label: string; hint: string }> = {
+  evals: { label: 'AI testing and monitoring', hint: 'Evaluation suites, red teaming against the OWASP LLM Top 10, scheduled runs and drift alerts' },
+  incidents: { label: 'Incidents', hint: 'Record AI incidents with their regulatory notification deadlines' },
+  inventory: { label: 'AI inventory', hint: 'Every AI system and agent in use at the client, with the agent register checks' },
+  connectors: { label: 'Evidence connectors', hint: 'Pull reports and exports from the client\'s systems on a schedule' },
+  soa: { label: 'Statement of Applicability and traceability', hint: 'Which controls apply and why, and the chain from obligation to evidence' },
+  advanced_ai: { label: 'Advanced AI settings', hint: 'More than one agent per stage with routing, and testing the agents on the golden dataset' },
+};
+export type Modules = Record<Module, boolean>;
+export const NO_MODULES: Modules = { evals: false, incidents: false, inventory: false, connectors: false, soa: false, advanced_ai: false };
+export const ALL_MODULES: Modules = { evals: true, incidents: true, inventory: true, connectors: true, soa: true, advanced_ai: true };
+
 export const STAGE_HINTS: Record<Stage, string> = {
   intake: 'New AI use cases. You decide which go forward.',
   classify: 'Risk Classifier · tier, oversight, starting risks',
@@ -632,6 +674,8 @@ export interface Engagement {
   archiveReason: string | null;
   // 'open': everyone signed in can see it; 'members': its members and admins.
   access: 'open' | 'members';
+  /** Optional parts switched on for this engagement (see MODULES). */
+  modules: Modules;
 }
 
 // Risk appetite: the highest residual score the engagement accepts without
@@ -652,5 +696,6 @@ export const EngagementPatch = z.object({
   paused: z.boolean().optional(),
   gates: z.record(z.boolean()).optional(),
   appetite: RiskAppetite.optional(),
+  modules: z.object(Object.fromEntries(MODULES.map((m) => [m, z.boolean().optional()])) as Record<Module, z.ZodOptional<z.ZodBoolean>>).optional(),
 });
 export * from './grc.js';

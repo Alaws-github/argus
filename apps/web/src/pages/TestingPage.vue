@@ -132,6 +132,7 @@ function retest() {
 // ---------------------------------------------------------------- evidence
 const evForm = ref({ kind: 'file' as 'file' | 'link' | 'note', title: '', url: '', note: '', source: '' });
 const fileInput = ref<HTMLInputElement | null>(null);
+const fileName = ref('');
 const evFor = computed(() => evidence.value.filter((e) => e.testId === selected.value?.id));
 async function addEvidence() {
   const t = selected.value!;
@@ -152,6 +153,7 @@ async function addEvidence() {
     app.toast(`${e.key} stored, sha256 ${e.sha256.slice(0, 10)}…`);
     evForm.value = { kind: evForm.value.kind, title: '', url: '', note: '', source: '' };
     if (fileInput.value) fileInput.value.value = '';
+    fileName.value = '';
     await load();
   } catch (e: any) {
     app.toast(e.message, 'error');
@@ -192,7 +194,7 @@ function exportTests() {
     <nav class="tabs">
       <RouterLink to="/testing/tests" :class="{ active: tab === 'tests' }">Tests</RouterLink>
       <RouterLink to="/testing/evidence" :class="{ active: tab === 'evidence' }">Evidence vault</RouterLink>
-      <RouterLink to="/testing/connectors" :class="{ active: tab === 'connectors' }">Connectors</RouterLink>
+      <RouterLink v-if="app.mod('connectors') || tab === 'connectors'" to="/testing/connectors" :class="{ active: tab === 'connectors' }">Connectors</RouterLink>
     </nav>
     <div v-if="loading" class="muted">Loading…</div>
 
@@ -346,7 +348,7 @@ function exportTests() {
               <button type="button" :class="{ on: evForm.kind === 'link' }" @click="evForm.kind = 'link'">Link</button>
               <button type="button" :class="{ on: evForm.kind === 'note' }" @click="evForm.kind = 'note'">Note</button>
             </div>
-            <input v-if="evForm.kind === 'file'" ref="fileInput" type="file" class="input" aria-label="Evidence file" />
+            <span v-if="evForm.kind === 'file'" class="file-pick"><label class="btn"><input ref="fileInput" type="file" class="sr-only" aria-label="Evidence file" @change="fileName = fileInput?.files?.[0]?.name ?? ''" />Choose file</label><span class="small" :class="fileName ? '' : 'faint'">{{ fileName || 'No file chosen' }}</span></span>
             <span v-if="evForm.kind === 'file'" class="hint">PDF, Excel (.xlsx), Word (.docx) and text files are read so agents can use them. Scanned PDFs need a note saying what they show.</span>
             <input v-if="evForm.kind === 'link'" v-model="evForm.url" type="url" class="input" placeholder="https://…" aria-label="Evidence link" />
             <textarea v-if="evForm.kind === 'note'" v-model="evForm.note" class="textarea" placeholder="Walkthrough notes, inquiry responses…" aria-label="Evidence note" />

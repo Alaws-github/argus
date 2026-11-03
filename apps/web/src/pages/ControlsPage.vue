@@ -158,8 +158,8 @@ function exportTrace() {
       <RouterLink to="/controls/standards" :class="{ active: tab === 'standards' }">Standards</RouterLink>
       <RouterLink to="/controls/register" :class="{ active: tab === 'register' }">Our controls</RouterLink>
       <RouterLink to="/controls/library" :class="{ active: tab === 'library' }">Control library</RouterLink>
-      <RouterLink to="/controls/soa" :class="{ active: tab === 'soa' }">What applies</RouterLink>
-      <RouterLink to="/controls/traceability" :class="{ active: tab === 'traceability' }">Traceability</RouterLink>
+      <RouterLink v-if="app.mod('soa') || tab === 'soa'" to="/controls/soa" :class="{ active: tab === 'soa' }">What applies</RouterLink>
+      <RouterLink v-if="app.mod('soa') || tab === 'traceability'" to="/controls/traceability" :class="{ active: tab === 'traceability' }">Traceability</RouterLink>
     </nav>
 
     <div v-if="loading" class="muted">Loading…</div>

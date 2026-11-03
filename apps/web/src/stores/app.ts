@@ -1,7 +1,7 @@
 // Shared app state: who is signed in, the chosen engagement, the board's cards,
 // permissions, theme and desktop notifications.
 import { defineStore } from 'pinia';
-import { can, type Card, type Engagement, type Permission, type Stage, type User } from '@gh/shared';
+import { can, type Card, type Engagement, type Module, type Permission, type Stage, type User } from '@gh/shared';
 import { api, socket } from '../api';
 
 interface Toast { id: number; text: string; kind: 'info' | 'error' }
@@ -63,6 +63,8 @@ export const useApp = defineStore('app', {
       return can(s.user?.role, p);
     },
     canRaw: (s) => (p: Permission) => can(s.user?.role, p),
+    // Whether an optional module is switched on for the current engagement.
+    mod: (s) => (m: Module) => !!s.engagements.find((e) => e.id === s.engagementId)?.modules?.[m],
     active: (s) => s.engagements.filter((e) => !e.archivedAt),
     archived: (s) => s.engagements.filter((e) => e.archivedAt),
     needsYou: (s) => s.cards.filter((c) => c.status === 'needs_approval' || c.status === 'failed' || (c.stage === 'intake' && c.status === 'idle')),

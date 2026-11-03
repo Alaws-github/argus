@@ -67,7 +67,7 @@ async function fetchChecked(start: string, headers: Record<string, string>, allo
   let url = new URL(start);
   for (let hop = 0; hop < 4; hop++) {
     await checkAddress(url, allowPrivate);
-    const res = await fetch(url, { method: 'GET', headers: { accept: '*/*', 'user-agent': 'GovernanceHarness-EvidenceConnector', ...headers }, redirect: 'manual', signal: AbortSignal.timeout(30_000) });
+    const res = await fetch(url, { method: 'GET', headers: { accept: '*/*', 'user-agent': 'ARGUS-EvidenceConnector', ...headers }, redirect: 'manual', signal: AbortSignal.timeout(30_000) });
     if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
       url = new URL(res.headers.get('location')!, url);
       continue;

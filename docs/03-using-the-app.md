@@ -1,6 +1,8 @@
 # Using the app
 
-A tour of every page. The top bar shows the engagement switcher (left), the main pages, **+ Add use case**, and your account menu (your initials, right).
+A tour of every page. The top bar shows the ARGUS logo and the engagement switcher (left), six places (Overview, Use cases, Registers, AI, Report, Settings), **+ Add use case**, and your account menu (your initials, right). On a phone the places fold into the menu button.
+
+A new engagement starts simple. Pages for optional **modules** (AI testing and monitoring, incidents, the AI inventory, evidence connectors, the Statement of Applicability, advanced AI settings) appear only when a lead switches them on under Engagement settings > General > Modules.
 
 ## Adding a use case (the Plan page)
 
@@ -35,7 +37,7 @@ The engagement at a glance: how many use cases are classified, open high risks, 
 
 ## Board
 
-One column per stage, one card per use case. The **Show**, **Kind** and **Priority** lists filter the cards. Each column head shows its count, its cost, where a person steps in and which agents work it; each card shows the kind of AI, key, cost, priority, title, the agent's draft, status and tier. Drag a card one column to the right to move it on: the drop runs the same approve or move-on action as the buttons, so roles, segregation of duties and exit criteria still apply, and a refused move says why. Click a card to open its panel, which shows the decision it's waiting for:
+Five columns, one per step (Intake, Assess risk, Controls, Test, Sign-off & report), then Done; a card in a step with several stages says which one it is at. One card per use case. The **Show**, **Kind** and **Priority** lists filter the cards. Each column head shows its count, its cost, where a person steps in and which agents work it; each card shows the kind of AI, key, cost, priority, title, the agent's draft, status and tier. Drag a card one column to the right to move it on: the drop runs the same approve or move-on action as the buttons, so roles, segregation of duties and exit criteria still apply, and a refused move says why. Click a card to open its panel, which shows the decision it's waiting for:
 
 ![A classification draft, item by item](images/ai-draft-classification.png)
 

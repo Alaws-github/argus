@@ -1,7 +1,7 @@
 {
   "name": "governance-harness",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "AI governance, risk and assurance harness: a gated board where agents draft and people decide.",
   "workspaces": [
     "packages/*",
@@ -20,6 +20,8 @@
     "test:assistant": "node scripts/assistant-test.mjs",
     "test:operations": "node scripts/operations-test.mjs",
     "test:v11": "node scripts/v11-test.mjs",
+    "test:v12": "node scripts/v12-test.mjs",
+    "versions": "node scripts/version.mjs",
     "demo": "node scripts/demo-data.mjs",
     "manual": "node scripts/build-manual.mjs"
   },

@@ -2,7 +2,7 @@
 // Overview: the engagement at a glance (coverage, high risks, what needs you,
 // spend, recent runs).
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { STAGES, STAGE_LABELS, TIER_LABELS, type RiskTier, type Run } from '@gh/shared';
+import { PHASES, PHASE_LABELS, PHASE_OF, STAGES, STAGE_LABELS, TIER_LABELS, type Phase, type RiskTier, type Run } from '@gh/shared';
 import { useApp } from '../stores/app';
 import { api, ago, money, socket } from '../api';
 import StackedBars from '../components/StackedBars.vue';
@@ -46,7 +46,8 @@ onBeforeUnmount(() => socket.off('card', load));
 
 const tiers: RiskTier[] = ['prohibited', 'high', 'limited', 'minimal'];
 const capPct = computed(() => (o.value?.month.capUsd ? Math.min(100, (o.value.month.spendUsd / Math.max(o.value.month.capUsd, 0.01)) * 100) : 0));
-const maxStage = computed(() => Math.max(1, ...STAGES.map((s) => o.value?.byStage[s] ?? 0)));
+const byPhase = (p: Phase) => STAGES.filter((s) => PHASE_OF[s] === p).reduce((a, s) => a + (o.value?.byStage[s] ?? 0), 0);
+const maxStage = computed(() => Math.max(1, ...PHASES.map(byPhase)));
 </script>
 
 <template>
@@ -106,10 +107,10 @@ const maxStage = computed(() => Math.max(1, ...STAGES.map((s) => o.value?.byStag
         </div>
         <div class="card">
           <h2>Flow of work</h2>
-          <div v-for="s in STAGES" :key="s" class="spread small">
-            <span style="min-width: 120px">{{ STAGE_LABELS[s] }}</span>
-            <div class="meter grow"><i :style="{ width: `${(o.byStage[s] / maxStage) * 100}%`, background: 'var(--series-1)' }" /></div>
-            <span class="num" style="min-width: 24px">{{ o.byStage[s] }}</span>
+          <div v-for="s in PHASES" :key="s" class="spread small">
+            <span style="min-width: 120px">{{ PHASE_LABELS[s] }}</span>
+            <div class="meter grow"><i :style="{ width: `${(byPhase(s) / maxStage) * 100}%`, background: 'var(--series-1)' }" /></div>
+            <span class="num" style="min-width: 24px">{{ byPhase(s) }}</span>
           </div>
         </div>
       </div>

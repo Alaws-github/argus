@@ -178,7 +178,7 @@ function markdown() {
         <div v-if="!report.topRisks.length" class="small muted">No risks registered yet.</div>
         <div v-else class="table-wrap">
           <table>
-            <thead><tr><th>Key</th><th>Risk</th><th class="num">Inherent</th><th class="num">Residual</th><th>Treatment</th><th>Owner</th></tr></thead>
+            <thead><tr><th>Key</th><th>Risk</th><th class="num">Before controls</th><th class="num">After controls</th><th>Treatment</th><th>Owner</th></tr></thead>
             <tbody>
               <tr v-for="k in report.topRisks" :key="k.key">
                 <td class="mono faint">{{ k.key }}</td><td>{{ k.title }} <span class="mono faint small">{{ k.cardKey }}</span></td>

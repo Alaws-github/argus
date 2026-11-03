@@ -7,8 +7,8 @@ import { draftProgress, draftSummary } from '../lib/drafts';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
-  CATEGORY_LABELS, PRIORITY_LABELS, ROUTE_LABELS, STAGES, STAGE_HINTS, STAGE_LABELS, TIER_LABELS,
-  type AgentConfig, type Card, type Stage, type UseCaseCategory,
+  CATEGORY_LABELS, PHASES, PHASE_HINTS, PHASE_LABELS, PHASE_OF, PRIORITY_LABELS, ROUTE_LABELS, STAGES, STAGE_LABELS, STEP_LABELS, TIER_LABELS,
+  type AgentConfig, type Card, type Phase, type Stage, type UseCaseCategory,
 } from '@gh/shared';
 import { useApp } from '../stores/app';
 import { api, ago, money } from '../api';
@@ -48,8 +48,10 @@ const visible = computed(() =>
     return !q || c.title.toLowerCase().includes(q) || c.key.toLowerCase().includes(q);
   }),
 );
-const byStage = (s: Stage) => visible.value.filter((c) => c.stage === s);
-const stageCost = (s: Stage) => app.cards.filter((c) => c.stage === s).reduce((a, c) => a + c.costUsd, 0);
+// Five columns: each phase groups one or more of the engine's stages.
+const stagesOf = (p: Phase) => STAGES.filter((s) => PHASE_OF[s] === p);
+const byPhase = (p: Phase) => visible.value.filter((c) => PHASE_OF[c.stage] === p).sort((a, b) => STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage));
+const phaseCost = (p: Phase) => app.cards.filter((c) => PHASE_OF[c.stage] === p).reduce((a, c) => a + c.costUsd, 0);
 const counts = computed(() => ({
   all: app.cards.length,
   you: app.cards.filter(isYou).length,
@@ -58,14 +60,14 @@ const counts = computed(() => ({
 }));
 
 // Who works each column, and where a person steps in.
-const gateOf = (s: Stage) => (s === 'intake' ? 'You triage' : s === 'closed' ? '' : app.engagement?.gates[s] ? (s === 'validate' ? 'You sign off' : 'You approve') : '');
-const ownerOf = (s: Stage) => {
-  const on = agents.value.filter((a) => a.stage === s && a.enabled && a.built);
-  if (s === 'intake') return on.length ? `${on[0].name} drafts the brief · you add it` : 'You add use cases';
-  if (!on.length) return STAGE_HINTS[s].includes('·') ? 'A person · the agent is off' : STAGE_HINTS[s];
-  return on.map((a) => (a.route === 'all' ? a.name : `${a.name} (${ROUTE_LABELS[a.route].replace(/ only$/, '').toLowerCase()})`)).join(', ');
+const gateOf = (p: Phase) => (p === 'intake' ? 'You triage' : p === 'closed' ? '' : stagesOf(p).some((s) => app.engagement?.gates[s]) ? 'You decide' : '');
+const ownerOf = (p: Phase) => {
+  const on = agents.value.filter((a) => PHASE_OF[a.stage] === p && a.enabled && a.built);
+  if (p === 'closed') return PHASE_HINTS.closed;
+  if (!on.length) return 'A person does this step; its AI agent is off';
+  if (!app.mod('advanced_ai')) return PHASE_HINTS[p];
+  return 'AI: ' + on.map((a) => (a.route === 'all' ? a.name : `${a.name} (${ROUTE_LABELS[a.route].replace(/ only$/, '').toLowerCase()})`)).join(', ');
 };
-
 // Small line icons for the kind of AI, drawn inline so they take the text colour.
 const ICONS: Record<UseCaseCategory, string> = {
   decision: 'M12 3v18M5 7h14M5 7l-2.5 6a3 3 0 0 0 5 0zM19 7l-2.5 6a3 3 0 0 0 5 0zM8 21h8',
@@ -89,10 +91,10 @@ async function toggleAuto() {
 
 // ---------------------------------------------------------------- drag and drop
 const dragging = ref<Card | null>(null);
-const over = ref<Stage | ''>('');
+const over = ref<Phase | ''>('');
 const canDrag = computed(() => app.can('prepare') && !app.engagement?.archivedAt);
 const nextOf = (s: Stage) => STAGES[STAGES.indexOf(s) + 1];
-const dropOk = (s: Stage) => !!dragging.value && nextOf(dragging.value.stage) === s;
+const dropOk = (p: Phase) => !!dragging.value && dragging.value.stage !== 'closed' && PHASE_OF[nextOf(dragging.value.stage)] === p;
 function onDragStart(e: DragEvent, c: Card) {
   dragging.value = c;
   e.dataTransfer?.setData('text/plain', c.key);
@@ -102,19 +104,23 @@ function onDragEnd() {
   dragging.value = null;
   over.value = '';
 }
-async function onDrop(s: Stage) {
+async function onDrop(p: Phase) {
   const c = dragging.value;
   onDragEnd();
-  if (!c || c.stage === s) return;
-  if (STAGES.indexOf(s) < STAGES.indexOf(c.stage)) return app.toast(`To send ${c.key} back, open it and use Request changes, so the reason is recorded.`, 'error');
-  if (nextOf(c.stage) !== s) return app.toast(`${c.key} moves one stage at a time, so each gate gets its decision. Drop it on ${STAGE_LABELS[nextOf(c.stage)]}.`, 'error');
-  if (c.status === 'running' || c.status === 'queued') return app.toast(`${c.key} is with an agent right now. Wait for its draft.`, 'error');
+  if (!c || c.stage === 'closed') return;
+  const next = nextOf(c.stage);
+  if (PHASE_OF[next] !== p) {
+    if (PHASES.indexOf(p) < PHASES.indexOf(PHASE_OF[c.stage])) return app.toast(`To send ${c.key} back, open it and use Request changes, so the reason is recorded.`, 'error');
+    if (p === PHASE_OF[c.stage]) return;
+    return app.toast(`${c.key} moves one step at a time, so each decision gets made. Its next step is ${STAGE_LABELS[next]}, in ${PHASE_LABELS[PHASE_OF[next]]}.`, 'error');
+  }
+  if (c.status === 'running' || c.status === 'queued') return app.toast(`${c.key} is with an AI agent right now. Wait for its draft.`, 'error');
   const waiting = (c.stage === 'intake' && c.status === 'idle') || c.status === 'needs_approval';
   try {
     await api(`/cards/${c.id}/actions`, { method: 'POST', body: { action: waiting ? 'approve' : 'advance' } });
-    app.toast(`${c.key} moved to ${STAGE_LABELS[s]}`);
+    app.toast(`${c.key} moved to ${STAGE_LABELS[next]}`);
   } catch (e: any) {
-    app.toast(`${c.key} stays in ${STAGE_LABELS[c.stage]}: ${e.message}`, 'error');
+    app.toast(`${c.key} stays at ${STAGE_LABELS[c.stage]}: ${e.message}`, 'error');
   }
 }
 </script>
@@ -164,14 +170,14 @@ async function onDrop(s: Stage) {
     <div class="columns-scroll">
       <div class="columns">
         <section
-          v-for="s in STAGES" :key="s" class="column" :class="{ 'drop-ok': dropOk(s), 'drop-over': over === s && dropOk(s) }" :aria-label="STAGE_LABELS[s]"
+          v-for="s in PHASES" :key="s" class="column" :class="{ 'drop-ok': dropOk(s), 'drop-over': over === s && dropOk(s) }" :aria-label="PHASE_LABELS[s]"
           @dragover.prevent="over = s" @dragleave="over === s && (over = '')" @drop.prevent="onDrop(s)"
         >
           <div class="col-head">
             <div class="spread">
-              <h3>{{ STAGE_LABELS[s] }}<span class="col-count">{{ byStage(s).length }}</span></h3>
+              <h3>{{ PHASE_LABELS[s] }}<span class="col-count">{{ byPhase(s).length }}</span></h3>
               <span class="row" style="gap: 6px">
-                <span v-if="stageCost(s) > 0" class="col-cost"><i />{{ money(stageCost(s)) }}</span>
+                <span v-if="phaseCost(s) > 0" class="col-cost"><i />{{ money(phaseCost(s)) }}</span>
                 <span v-if="gateOf(s)" class="badge warn">{{ gateOf(s) }}</span>
               </span>
             </div>
@@ -181,7 +187,7 @@ async function onDrop(s: Stage) {
             <button class="quick-add" @click="quickAdd = true">+ Quick add</button>
           </template>
           <button
-            v-for="c in byStage(s)" :key="c.id" class="board-card" :class="{ selected: selected === c.key, dragging: dragging?.id === c.id }"
+            v-for="c in byPhase(s)" :key="c.id" class="board-card" :class="{ selected: selected === c.key, dragging: dragging?.id === c.id }"
             :draggable="canDrag" @dragstart="onDragStart($event, c)" @dragend="onDragEnd" @click="open(c)"
           >
             <span class="card-top small">
@@ -196,6 +202,7 @@ async function onDrop(s: Stage) {
               </span>
             </span>
             <span class="title">{{ c.title }}</span>
+            <span v-if="STEP_LABELS[c.stage] && stagesOf(s).length > 1" class="step-chip small">{{ STEP_LABELS[c.stage] }}</span>
             <span v-if="draftSummary(c)" class="ai-line" :title="'An AI agent drafted this. A person decides.'">
               <span class="ai-dot">AI</span><span class="grow">{{ draftSummary(c) }}</span>
               <span v-if="draftProgress(c).total" class="faint">{{ draftProgress(c).decided }}/{{ draftProgress(c).total }}</span>
@@ -206,7 +213,7 @@ async function onDrop(s: Stage) {
               <span class="faint end">{{ c.stage === 'intake' ? 'Added' : 'Here' }} {{ ago(c.stageEnteredAt) }} ago</span>
             </span>
           </button>
-          <div v-if="!byStage(s).length" class="empty-col">{{ dropOk(s) ? 'Drop here' : 'No use cases' }}</div>
+          <div v-if="!byPhase(s).length" class="empty-col">{{ dropOk(s) ? 'Drop here' : 'No use cases' }}</div>
         </section>
       </div>
     </div>

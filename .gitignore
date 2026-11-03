@@ -4,3 +4,7 @@ data/
 .env
 *.log
 .DS_Store
+*.tsbuildinfo
+docs/.manual.html
+data-backups/
+_to_delete/

@@ -1,5 +1,7 @@
 # What it is
 
+**ARGUS** is the Assurance, Risk & Governance Unified System: an AI-powered workbench for assurance teams. AI agents draft the work at every step, named people decide, and every action is recorded so it can be proven afterwards. It is named for Argus, the hundred-eyed watchman of Greek myth, and the Great Argus pheasant whose wing carries rows of eye-spots; the logo is the pheasant in display.
+
 ## The problem
 
 Organisations are putting AI to work in lending, customer service, claims, HR and back-office tasks. Boards, regulators and customers want to know that each use is understood, that its risks are managed, and that someone checked. Doing that well is a lot of careful, repetitive work:
@@ -15,7 +17,7 @@ Spreadsheets and email make that slow, and make it hard to show later who decide
 
 ## What the harness does
 
-The Governance Harness gives an assurance team one place to run that work for each client.
+The ARGUS gives an assurance team one place to run that work for each client.
 
 - **Every AI use case is a card on a board.** It moves through eight stages, from Intake to Board report.
 - **AI agents draft the routine work.** They propose a risk tier, suggest controls from a library, list the evidence to ask for, draft test results, list challenges and draft the board summary.

@@ -1,6 +1,6 @@
-# Governance Harness documentation
+# ARGUS documentation
 
-The Governance Harness is a workbench for assurance teams who review how organisations use AI. It keeps every AI use case, its risks, the controls that treat them, the tests and evidence that prove those controls work, and the issues that come out of testing in one place. AI agents draft the routine work. Named people make every decision.
+The ARGUS is a workbench for assurance teams who review how organisations use AI. It keeps every AI use case, its risks, the controls that treat them, the tests and evidence that prove those controls work, and the issues that come out of testing in one place. AI agents draft the routine work. Named people make every decision.
 
 ## Where to start
 

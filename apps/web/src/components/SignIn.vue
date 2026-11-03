@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ArgusLogo from './ArgusLogo.vue';
 // First run: create the first admin. After that: sign in.
 import { onMounted, ref } from 'vue';
 import { api } from '../api';
@@ -40,7 +41,7 @@ async function submit() {
 <template>
   <main class="signin">
     <form class="card signin-card" @submit.prevent="submit">
-      <div class="row"><span class="logo">G</span><strong>Governance Harness</strong></div>
+      <div class="row signin-brand"><ArgusLogo :size="34" /><div><strong>Sign in to ARGUS</strong><span class="small faint" style="display: block">Assurance, Risk &amp; Governance Unified System</span></div></div>
       <div>
         <h1 style="font-size: 19px">{{ app.needsSetup ? 'Create the first admin' : 'Sign in' }}</h1>
         <p class="small muted" style="margin-top: 4px">

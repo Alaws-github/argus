@@ -16,5 +16,5 @@ const view = computed(() => {
 </script>
 
 <template>
-  <span class="pill" :class="view.cls"><span class="dot" />{{ view.text }}</span>
+  <span class="pill" :class="[view.cls, { attention: ['amber', 'coral'].includes(view.cls ?? '') }]"><span class="dot" />{{ view.text }}</span>
 </template>

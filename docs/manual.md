@@ -1,16 +1,18 @@
-# Governance Harness: User Manual
+# ARGUS: User Manual
 
-Version 1.1 · November 2026
+Version 1.2 · November 2026
 
-This manual explains the whole Governance Harness: what it is for, how to set it up, and how a piece of work flows through it from the first request to the board report. It is written for assurance, risk and governance professionals, not for developers. Screenshots use the fictional demo engagement (Northshore Financial Group), which you can load yourself to follow along (section 4.4).
+This manual explains ARGUS, the Assurance, Risk & Governance Unified System: what it is for, how to set it up, and how a piece of work flows through it from the first request to the board report. It is written for assurance, risk and governance professionals, not for developers. Screenshots use the fictional demo engagement (Northshore Financial Group), which you can load yourself to follow along (section 4.4).
 
 ---
 
 # Part 1. Introduction
 
-## 1. What the harness is
+## 1. What ARGUS is
 
-Organisations are adopting AI faster than they can govern it. Boards and regulators ask four questions: which AI do we use, what could go wrong, what stops it going wrong, and can we prove it? The Governance Harness is a workbench that answers those questions for an assurance team running client engagements.
+Organisations are adopting AI faster than they can govern it. Boards and regulators ask four questions: which AI do we use, what could go wrong, what stops it going wrong, and can we prove it? ARGUS (Assurance, Risk & Governance Unified System) is an AI-powered workbench that answers those questions for an assurance team running client engagements. AI agents draft the work at every step, from writing up a new use case to the board summary; named people decide every item; and every action is recorded so it can be proven afterwards.
+
+The name comes from Argus, the hundred-eyed watchman of Greek myth, and the Great Argus pheasant, whose wing feathers carry rows of eye-spots. The logo is the pheasant in display.
 
 For each client engagement it keeps, in one place:
 
@@ -114,7 +116,19 @@ Stop the app with Ctrl+C in its terminal. To start again from an empty database,
 
 ### 4.4 Loading the demo data
 
-To explore with realistic data: stop the app, `npm run db:reset`, `npm run dev`, then in a second terminal `npm run demo`. It creates five fictional people (all with the password `correct-horse-9`) and a part-finished engagement. Sign in as andrew@example.com (admin), jordan@ (lead), riley@ (reviewer), sam@ (preparer) or dana@ (viewer), all @example.com.
+To explore with realistic data: stop the app, `npm run db:reset`, `npm run dev`, then in a second terminal `npm run demo`. It creates five fictional people (all with the password `correct-horse-9`) and five engagements for fictional clients facing real kinds of AI risk:
+
+| Client | Engagement | Highlights |
+| --- | --- | --- |
+| Northshore Financial Group (bank and insurer) | AI assurance 2026 | **Every feature switched on**: use cases at every step, a failed control and its issue, an incident, red teaming and monitoring, the inventory, a connector, a second classifier, golden runs and the Verifier |
+| Kestrel Bay Telecom | Customer AI readiness review | A WhatsApp refund agent that can credit bills, SIM-swap fraud scoring, churn offers, a voice-clone plan |
+| Palmcrest Health Network | Clinical AI governance | A sepsis alert, an ambient scribe pilot with an incident, no-show prediction. Members only |
+| Corallis Port Services | Operations and people AI review | Container inspection targeting, a crane scheduling agent, face matching at the gates, CV ranking |
+| National Social Support Agency | Public sector AI review | Benefit fraud scoring, a helpline chatbot, letter drafting. Members only |
+
+Sign in as andrew@example.com (admin) and use **Act as** in the account menu to work as the others, or sign in as jordan@ (lead), riley@ (reviewer), sam@ (preparer) or dana@ (viewer), all @example.com.
+
+**Build your own demo.** Each engagement is one file in `scripts/demo/engagements/`. Copy `_template.mjs`, fill in the client and its use cases with the helpers it lists, and run it alone with `npm run demo -- --only=<file name>`. See the runbook *Load the demo, and build your own*.
 
 ## 5. Signing in and finding your way
 
@@ -128,9 +142,17 @@ Sign in with your email and password. If an admin has set up single sign-on, a *
 
 From left to right:
 
-- **Logo** (and the name on wide screens): back to the board.
+- **Logo**, the ARGUS pheasant (and the name on wide screens): back to the board.
 - **Engagement switcher**: the engagement you're working in. Admins and leads can **+ Add engagement** from here. Archived engagements are listed separately and are read-only.
-- **Navigation**: Overview, Board, Risks, Controls, Testing, Issues, Evals, Inventory, Report, and **More** (Knowledge base, Agent testing, Runs, Engagement settings, Workspace settings).
+- **Navigation**, six places:
+  - **Overview**: the engagement at a glance, with charts.
+  - **Use cases**: the board.
+  - **Registers**: Risks, Controls, Tests and evidence, Issues (and Incidents and the AI inventory when those modules are on).
+  - **AI**: ask the assistant, the AI agents and their models, the knowledge base the AI may cite, AI runs, and (when the modules are on) AI testing and monitoring and Checking the AI.
+  - **Report**: the readiness assessment and board report.
+  - **Settings**: Engagement settings, Workspace settings and the Audit log.
+
+  On a phone or narrow window the navigation folds into the menu button at the left.
 - **Dry run / Live agents**: whether agents use the offline rules or a real model.
 - **Ask AI**: opens the assistant for the page you're on (section 30).
 - **+ Add use case**: opens the Plan page, where the Use Case Planner helps you write the brief (section 11).
@@ -203,13 +225,28 @@ There are two levels of settings, as in GoldenEye's app and project settings:
 
 - **Workspace settings** (More > Workspace settings, admins and leads): what applies to every engagement. **Models & keys** (providers, spending limit, defaults for new agents, the assistant's model, meaning-based search), **People & roles**, and **Sign-in & security** (single sign-on, act as, and whether connectors may reach private networks).
 - **Engagement settings** (More > Engagement settings): one engagement. The engagements are listed on the left, with **+ Add engagement**; pick one to see its five tabs:
-  - **General**: name, client, prefix, frameworks, a description every agent reads with each use case (the client's sector, regulators and anything that changes how risk is judged), **Pause this engagement** and **Archive or delete**.
+  - **General**: name, client, prefix, frameworks, a description every agent reads with each use case (the client's sector, regulators and anything that changes how risk is judged), **Modules** (below), **Pause this engagement** and **Archive or delete**.
   - **Workflow & gates**: which stages stop for a person, and which agents work each stage. Drafting stages (Collect evidence, Test controls, Validate, Board report) always stop.
   - **Integrations**: the evidence connectors that pull reports from the client's systems (section 14.2).
   - **Agents**: every agent, grouped by stage (section 7.3).
   - **Access**: who can see the engagement (section 7.2).
 
 ![Workflow and gates](images/walkthrough/33-workflow.png)
+
+**Modules.** A new engagement starts simple: the core flow (intake, risk, controls, testing, issues, sign-off and the report, with the AI drafting each step) is always on. Switch on more under **General > Modules** when the engagement needs them:
+
+| Module | Adds |
+| --- | --- |
+| AI testing and monitoring | Evaluation suites, red teaming against the OWASP LLM Top 10, scheduled runs and drift alerts |
+| Incidents | AI incidents with their regulatory notification deadlines |
+| AI inventory | Every AI system and agent at the client, with the agent register checks |
+| Evidence connectors | Scheduled pulls of reports and exports from the client's systems (the Integrations tab) |
+| Statement of Applicability and traceability | Which controls apply and why, and the chain from obligation to evidence |
+| Advanced AI settings | More than one agent per step with routing, and testing the agents on the golden dataset |
+
+Switching a module off hides it; nothing is deleted, and switching it back on shows everything again.
+
+![Modules](images/walkthrough/44-modules.png)
 
 ### 7.2 Who can see an engagement
 
@@ -276,7 +313,17 @@ AI **agents** (systems that act on their own) get a readiness checklist. An agen
 
 # Part 4. The full flow of a use case
 
-This part follows one use case through all eight stages. Each stage says who does what, what the AI drafts, what a person decides, and what must be true before the use case can move on.
+This part follows one use case all the way through. On the board a use case moves through **five steps**: Intake, Assess risk, Controls, Test, and Sign-off & report, then Done. Some steps have more than one stage inside them, shown on the card (for example "Collecting evidence" or "Fixing findings" inside Test), and each stage has its own AI agent, its own decision and its own checks before it can move on:
+
+| Step on the board | Stages inside it |
+| --- | --- |
+| Intake | Intake |
+| Assess risk | Classify risk |
+| Controls | Design controls |
+| Test | Collect evidence, Test controls, Remediate |
+| Sign-off & report | Validate, Board report |
+
+The rest of this part goes stage by stage. Each says who does what, what the AI drafts, what a person decides, and what must be true before the use case can move on.
 
 | Stage | AI agent | Who decides | Exit criteria |
 | --- | --- | --- | --- |
@@ -421,9 +468,9 @@ The **Report Writer** drafts a board summary for the use case: a headline, a pla
 
 ![Agent activity](images/walkthrough/42-activity.png)
 
-**Board** shows every use case by stage. Filter with the **Show** (all, needs you, running, high risk), **Kind** and **Priority** lists, or search. Each column head shows the number of cards, what they have cost, where a person steps in ("You triage", "You approve") and which agents work it. Each card shows the kind of AI with an icon, its key, cost and priority; its title; what the agent drafted; then its status, tier and how long it has been there.
+**Board** (Use cases) shows every use case in five columns, one per step (Part 4). When a step has more than one stage, the card says which (for example "Final review" inside Sign-off & report). The dot on a status that needs a person (Needs triage, Needs your approval, Run failed) blinks. Filter with the **Show** (all, needs you, running, high risk), **Kind** and **Priority** lists, or search. Each column head shows the number of cards, what they have cost, where a person steps in ("You triage", "You decide") and what the AI does there (with Advanced AI settings on, the agents by name). Each card shows the kind of AI with an icon, its key, cost and priority; its title; what the agent drafted; then its status, tier and how long it has been there.
 
-**Drag a card** one column to the right to move it on. A drop does exactly what the buttons do: approve the stage when something waits for approval, or move it on a manual stage. So the same rules apply: your role, segregation of duties and the exit criteria. If the move isn't allowed the card stays put and a message says why. Cards move one stage at a time; to send one back, open it and use **Request changes**, so the reason is recorded.
+**Drag a card** to move it on to its next stage, which may be in the same column or the next. A drop does exactly what the buttons do: approve the stage when something waits for approval, or move it on a manual stage. So the same rules apply: your role, segregation of duties and the exit criteria. If the move isn't allowed the card stays put and a message says why. Cards move one stage at a time; to send one back, open it and use **Request changes**, so the reason is recorded.
 
 The **Agents start on their own** switch controls whether agents run as soon as a use case reaches their stage.
 
@@ -660,7 +707,11 @@ Admins can let people sign in through an identity provider that supports OpenID 
 
 This is a first version: there is no SAML, and signing out here doesn't sign you out of the provider. Multi-factor sign-in comes from the provider.
 
-### 33.5 Before putting it on a server
+### 33.5 Versions, going back, and GitHub
+
+Every release is a version in git (v0.3 to v1.2). `npm run versions` lists them; `npm run versions -- use v1.1` switches to one (it backs up your data folder first) and `npm run versions -- latest` comes back. To put ARGUS on GitHub, connect the folder to the repository and push with your own GitHub sign-in: see the runbook *Versions, going back, and GitHub*.
+
+### 33.6 Before putting it on a server
 
 Serve it over HTTPS and set `COOKIE_SECURE=true`; keep `SECRET_KEY` in a secrets manager; put it behind a proxy that limits repeated failed sign-ins; set `PUBLIC_URL` so single sign-on returns to the right address; and back up the data folder.
 
@@ -680,6 +731,7 @@ Serve it over HTTPS and set `COOKIE_SECURE=true`; keep `SECRET_KEY` in a secrets
 | A PDF says "no text layer" | It's a scan. Add a note with what it shows |
 | Someone can't see an engagement | It may be members only. A lead adds them under Engagement settings > Access |
 | A card waits on a stage with "None of the agents take this card" | Every agent on that stage is routed to other kinds of card. Change one's **Takes cards**, or move the card on by hand |
+| A page or tab I used to see is missing (Evals, Incidents, Inventory, Connectors, What applies) | It belongs to a module that is off for this engagement. A lead switches it on under Engagement settings > General > Modules |
 | A dragged card goes back to its column | The move wasn't allowed; the message says why (for example, you added it, so someone else must approve it) |
 | The Planner says it is switched off | A lead turned it off for this engagement. Use **Fill it in myself**, or ask a lead to turn it on |
 | "Sign in with single sign-on instead" | An admin turned passwords off for non-admins; use the SSO button |

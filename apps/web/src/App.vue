@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useApp } from './stores/app';
 import { api } from './api';
 import SignIn from './components/SignIn.vue';
+import ArgusLogo from './components/ArgusLogo.vue';
 import AssistantPanel from './components/AssistantPanel.vue';
 
 const app = useApp();
@@ -24,7 +25,8 @@ async function actAsPerson(userId: string | null) {
     app.toast(e.message, 'error');
   }
 }
-const menu = ref<'' | 'more' | 'me' | 'eng'>('');
+const menu = ref<'' | 'reg' | 'ai' | 'set' | 'me' | 'eng'>('');
+const navOpen = ref(false);
 const initials = computed(() =>
   (app.user?.name || '?')
     .split(/\s+/)
@@ -34,14 +36,30 @@ const initials = computed(() =>
     .toUpperCase(),
 );
 
-// Assurance work first; workspace administration sits under More.
-const MORE = [
-  { to: '/knowledge', label: 'Knowledge base' },
-  { to: '/agent-testing/golden', label: 'Agent testing', match: '/agent-testing' },
-  { to: '/runs', label: 'Runs' },
-  { to: '/settings/general', label: 'Engagement settings', match: '/settings' },
+// Five places in the top bar: Overview, Use cases, Registers, AI, Report,
+// plus Settings. Optional modules appear only when switched on for the
+// engagement (Engagement settings > General > Modules).
+const REGISTERS = computed(() => [
+  { to: '/risks', label: 'Risks' },
+  { to: '/controls', label: 'Controls' },
+  { to: '/testing', label: 'Tests and evidence' },
+  { to: '/issues', label: app.mod('incidents') ? 'Issues and incidents' : 'Issues', match: ['/issues', '/incidents'] },
+  ...(app.mod('inventory') ? [{ to: '/inventory', label: 'AI inventory' }] : []),
+]);
+const AI_MENU = computed(() => [
+  { to: '/settings/agents', label: 'AI agents', hint: 'Who drafts each step, and on which model' },
+  { to: '/knowledge', label: 'Knowledge base', hint: 'Everything the AI may cite' },
+  { to: '/runs', label: 'AI runs', hint: 'Every run, its steps and cost' },
+  ...(app.mod('evals') ? [{ to: '/evals', label: 'AI testing and monitoring', hint: 'Evals, red teaming, drift alerts' }] : []),
+  ...(app.mod('advanced_ai') ? [{ to: '/agent-testing/golden', label: 'Checking the AI', hint: 'Golden dataset and the Verifier', match: '/agent-testing' }] : []),
+]);
+const SETTINGS = [
+  { to: '/settings/general', label: 'Engagement settings', match: '/settings/(general|workflow|integrations|access)' },
   { to: '/workspace/models', label: 'Workspace settings', match: '/workspace' },
+  { to: '/audit', label: 'Audit log' },
 ];
+const isOn = (items: { to: string; match?: string | string[] }[]) =>
+  items.some((m) => [m.match ?? m.to].flat().some((x) => new RegExp(`^${x}`).test(route.path)));
 // Monitor, sun and moon, drawn inline so they take the text colour.
 const THEMES = [
   { id: 'system', label: 'System', icon: 'M3 4h18v12H3zM8 20h8M12 16v4' },
@@ -55,7 +73,6 @@ async function pick(id: string) {
   // Pages that belong to one engagement reload; a run or suite page goes back to its list.
   if (/^\/(runs|evals)\/./.test(route.path)) router.push(route.path.startsWith('/runs') ? '/runs' : '/evals');
 }
-const moreActive = computed(() => MORE.some((m) => route.path.startsWith(m.match ?? m.to)));
 
 // The top-bar assistant follows the page you're on.
 function askAi() {
@@ -72,7 +89,7 @@ async function start() {
   }
 }
 watch(() => app.user?.id, (id) => id && void app.init().catch((e) => app.toast(e.message, 'error')));
-watch(() => route.fullPath, () => (menu.value = ''));
+watch(() => route.fullPath, () => { menu.value = ''; navOpen.value = false; });
 watch(menu, (m) => m === 'me' && (app.user?.role === 'admin' || app.user?.realUser) && void loadActAs());
 
 
@@ -102,7 +119,7 @@ onBeforeUnmount(() => {
   <template v-else>
     <header class="bar">
       <div class="bar-inner">
-        <RouterLink to="/" class="brand"><span class="logo">G</span><span class="brand-text">Governance Harness</span></RouterLink>
+        <RouterLink to="/" class="brand" aria-label="ARGUS home"><ArgusLogo /><span class="brand-text">ARGUS</span></RouterLink>
         <span v-if="app.engagement" class="menu-host">
           <button class="switcher" :aria-expanded="menu === 'eng'" aria-haspopup="menu" @click="menu = menu === 'eng' ? '' : 'eng'">
             <span class="swatch" :style="{ background: app.engagement.color }">{{ app.engagement.prefix[0] }}</span>
@@ -129,22 +146,30 @@ onBeforeUnmount(() => {
             </template>
           </div>
         </span>
-        <nav class="nav">
+        <button class="nav-toggle btn ghost sm" :aria-expanded="navOpen" aria-label="Menu" @click="navOpen = !navOpen">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path :d="navOpen ? 'M6 6l12 12M18 6L6 18' : 'M4 7h16M4 12h16M4 17h16'" /></svg>
+        </button>
+        <nav class="nav" :class="{ open: navOpen }" aria-label="Main">
           <RouterLink to="/overview">Overview</RouterLink>
-          <RouterLink to="/" exact-active-class="router-link-active" active-class="">Board</RouterLink>
-          <RouterLink to="/risks">Risks</RouterLink>
-          <RouterLink to="/controls" :class="{ 'router-link-active': $route.path.startsWith('/controls') }">Controls</RouterLink>
-          <RouterLink to="/testing" :class="{ 'router-link-active': $route.path.startsWith('/testing') }">Testing</RouterLink>
-          <RouterLink to="/issues" :class="{ 'router-link-active': $route.path.startsWith('/incidents') }">Issues</RouterLink>
-          <RouterLink to="/evals" :class="{ 'router-link-active': $route.path.startsWith('/evals') }">Evals</RouterLink>
-          <RouterLink to="/inventory">Inventory</RouterLink>
+          <RouterLink to="/" exact-active-class="router-link-active" active-class="">Use cases</RouterLink>
+          <span class="menu-host">
+            <button class="nav-more" :class="{ 'router-link-active': isOn(REGISTERS) }" :aria-expanded="menu === 'reg'" @click="menu = menu === 'reg' ? '' : 'reg'">Registers ▾</button>
+            <div v-if="menu === 'reg'" class="menu" role="menu">
+              <RouterLink v-for="m in REGISTERS" :key="m.to" :to="m.to" role="menuitem">{{ m.label }}</RouterLink>
+            </div>
+          </span>
+          <span class="menu-host">
+            <button class="nav-more" :class="{ 'router-link-active': isOn(AI_MENU) }" :aria-expanded="menu === 'ai'" @click="menu = menu === 'ai' ? '' : 'ai'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true" style="margin-right: 4px; vertical-align: -2px; color: var(--accent-text)"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" /></svg>AI ▾</button>
+            <div v-if="menu === 'ai'" class="menu" role="menu" style="min-width: 250px">
+              <button role="menuitem" class="menu-rich" @click="menu = ''; askAi()"><strong>Ask the assistant</strong><span class="small faint">About the page you're on</span></button>
+              <RouterLink v-for="m in AI_MENU" :key="m.to" :to="m.to" role="menuitem" class="menu-rich"><strong>{{ m.label }}</strong><span class="small faint">{{ m.hint }}</span></RouterLink>
+            </div>
+          </span>
           <RouterLink to="/report">Report</RouterLink>
           <span class="menu-host">
-            <button class="nav-more" :class="{ 'router-link-active': moreActive }" :aria-expanded="menu === 'more'" @click="menu = menu === 'more' ? '' : 'more'">More ▾</button>
-            <div v-if="menu === 'more'" class="menu" role="menu">
-              <template v-for="m in MORE" :key="m.to">
-                <RouterLink v-if="m.to !== '/users' || app.can('manage_users')" :to="m.to" role="menuitem">{{ m.label }}</RouterLink>
-              </template>
+            <button class="nav-more" :class="{ 'router-link-active': isOn(SETTINGS) }" :aria-expanded="menu === 'set'" @click="menu = menu === 'set' ? '' : 'set'">Settings ▾</button>
+            <div v-if="menu === 'set'" class="menu" role="menu">
+              <RouterLink v-for="m in SETTINGS" :key="m.to" :to="m.to" role="menuitem">{{ m.label }}</RouterLink>
             </div>
           </span>
         </nav>
@@ -153,7 +178,7 @@ onBeforeUnmount(() => {
           {{ app.health.runtime === 'live' ? 'Live agents' : 'Dry run' }}
         </span>
         <button class="btn ask-ai ask-top" title="Ask the assistant about this page" aria-label="Ask the assistant about this page" @click="askAi"><span class="ai-mark" style="font-size: 10px; padding: 1px 4px">AI</span><span class="ask-label">Ask AI</span></button>
-        <button v-if="app.can('prepare')" class="btn primary" @click="router.push({ path: '/plan', query: { new: String(Date.now()) } })">+ Add use case</button>
+        <button v-if="app.can('prepare')" class="btn primary" @click="router.push({ path: '/plan', query: { new: String(Date.now()) } })">+<span class="add-label"> Add use case</span></button>
         <span class="menu-host">
           <button class="avatar" :title="app.user.name" :aria-expanded="menu === 'me'" @click="menu = menu === 'me' ? '' : 'me'">{{ initials }}</button>
           <div v-if="menu === 'me'" class="menu right account-menu" role="menu">

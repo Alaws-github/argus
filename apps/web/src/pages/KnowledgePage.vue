@@ -51,6 +51,7 @@ async function find() {
 const adding = ref(false);
 const form = ref({ title: '', text: '' });
 const fileEl = ref<HTMLInputElement | null>(null);
+const fileName = ref('');
 async function upload() {
   try {
     const f = fileEl.value?.files?.[0];
@@ -140,7 +141,9 @@ const KIND: Record<string, string> = { framework: 'Framework', control: 'Library
         <div class="spread"><h2>Add a client document</h2><button type="button" class="btn ghost sm" aria-label="Close" @click="adding = false">✕</button></div>
         <p class="small muted">The client's AI policy, risk procedures, committee minutes. Agents will cite it in their drafts for this engagement only.</p>
         <label class="field"><span>Title</span><input v-model="form.title" class="input" required minlength="3" placeholder="e.g. Group AI Policy v2 (2026)" /></label>
-        <label class="field"><span>A PDF, Word, Excel, text or CSV file</span><input ref="fileEl" type="file" accept=".pdf,.docx,.xlsx,.txt,.md,.markdown,.csv,.json" class="input" /></label>
+        <div class="field"><span>A PDF, Word, Excel, text or CSV file</span>
+          <span class="file-pick"><label class="btn"><input ref="fileEl" type="file" accept=".pdf,.docx,.xlsx,.txt,.md,.markdown,.csv,.json" class="sr-only" @change="fileName = fileEl?.files?.[0]?.name ?? ''" />Choose file</label><span class="small" :class="fileName ? '' : 'faint'">{{ fileName || 'No file chosen' }}</span></span>
+        </div>
         <label class="field"><span>Or paste the text</span><textarea v-model="form.text" class="textarea" style="min-height: 140px" placeholder="Or paste text here, for example from a scanned document." /></label>
         <div class="row"><button class="btn primary">Add to knowledge base</button><button type="button" class="btn" @click="adding = false">Cancel</button></div>
       </form>

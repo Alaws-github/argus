@@ -4,13 +4,13 @@ Context for Claude working on this project. Read this first.
 
 ## What this is
 
-**Governance Harness** (v1.1): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report). Seven AI agents draft the work (the Use Case Planner drafts the intake brief, six more draft each later stage), and a lead can add more per stage; named people make every decision; everything is written to a hash-chained audit log.
+**ARGUS** (v1.2), the Assurance, Risk & Governance Unified System (formerly Governance Harness): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report), shown to people as five steps (`PHASES` / `PHASE_OF` in shared: Intake, Assess risk, Controls, Test, Sign-off & report). The engine, exit criteria, agents and tests all still work on the eight stages. Seven AI agents draft the work (the Use Case Planner drafts the intake brief, six more draft each later stage), and a lead can add more per stage; named people make every decision; everything is written to a hash-chained audit log.
 
 It was rebuilt from **GoldenEye**, the owner's AI delivery harness, keeping its board-and-gate engine, Models page, tabbed Settings, account menu and look. GoldenEye is a reference only: never change anything in it.
 
 Owner: Andrew Lawrence, a QA engineer (ISTQB Foundation, CT-AI, CT-GenAI). The QA framing is deliberate: tests have preparers and reviewers, issues have a defect-style lifecycle, and evaluations are test suites. Keep that framing.
 
-Plain-language docs for non-technical readers are in `docs/` (start at `docs/README.md`). The walkthrough (`docs/08-walkthrough.md`) and demo scripts (`docs/09-demo-script.md`) assume the demo data; if you change what `scripts/demo-data.mjs` produces, re-check the keys and numbers they quote (AI-1..AI-5, R-5, R-6, T-1, I-1, 3 of 8, 7 of 10) and retake `docs/images/walkthrough/`. The developer reference, with every API endpoint, is `README.md`.
+Plain-language docs for non-technical readers are in `docs/` (start at `docs/README.md`). The walkthrough (`docs/08-walkthrough.md`) and demo scripts (`docs/09-demo-script.md`) assume the demo data, built by `scripts/demo/run.mjs` from one file per engagement in `scripts/demo/engagements/` (helpers in `scripts/demo/lib.mjs`, `_template.mjs` to copy; `01-northshore-financial.mjs` is the full-feature engagement on the seeded Client Zero). If you change what the Northshore file produces, re-check the keys and numbers they quote (AI-1..AI-5, R-5, R-6, T-1, I-1, 3 of 8, 7 of 10) and retake `docs/images/walkthrough/`. The developer reference, with every API endpoint, is `README.md`.
 
 ## Rules that must not break
 
@@ -36,7 +36,8 @@ These are the product. Any change must keep them, and the tests check them.
 19. **The Use Case Planner drafts; a person adds** (`planner.ts`, `routes-plans.ts`). Only `POST /plans/:id/add` creates the card, as the person (`createCard` in `cards.ts`), with `draftedByPlanner` and `editedByPerson` in the audit detail. Fields in `plans.edited` are never overwritten by the Planner (`merge`). The Planner is excluded from board dispatch (`engine.ts` pickAgent, `agentStages`). Switched off, plans fall back to manual and the chat refuses with 409.
 20. **More than one agent per stage** (`roleForStage`, `routeTakes`, `routeSpecificity` in shared; `pickAgent` in engine). A new agent takes its stage's built-in role (same rules version, same output checks); routing picks the most specific enabled agent; a card no agent takes goes idle with the reason. Built-in agents can't be deleted, only turned off; custom agents (`agents.custom`) can.
 21. **Act as is off by default and always recorded** (`userFromToken` in `auth.ts`, `/auth/act-as` in `routes-auth.ts`). Only a real admin, only while `allowActAs` is on, only as an active account; the acting user's role applies, never the admin's. `audit_log.real_actor` joins the hash only when present (`auditHash`), set only when the entry's actor is the person acted as. Password, name and session changes are refused while acting. Drag and drop on the board calls the same `/cards/:id/actions` (approve or advance) as the buttons.
-11. **Generic names only.** No client firm's trademarked service or product names in the app or docs. Demo data is fictional ("Client Zero", "Northshore Financial Group (demo)").
+22. **Modules hide, they never remove** (`MODULES`, `engagements.modules`, `app.mod()` in the web store). New engagements start with every module off; engagements from before v1.2 were migrated with all on. Modules only change what the UI shows; the server routes and records are unchanged, so turning one off never loses data.
+11. **Generic names only.** No client firm's trademarked service or product names in the app or docs. Demo data is fictional ("Northshore Financial Group (demo)", "Kestrel Bay Telecom (demo)" and so on); scenarios may be modelled on public cases, described without naming the companies involved.
 
 ## Run it
 
@@ -51,6 +52,8 @@ npm run test:agents  # 30 drafting-agent checks incl. a cheating mock model
 npm run test:grounding # 31 checks: knowledge base, citations, decisions, meaning search, temperature
 npm run test:operations # 58 checks: PDF/Excel/Word reading, incidents, monitoring and drift, connectors, members-only access, SSO (mock IdP)
 npm run test:assistant # 27 checks: assistant offline/live, dropped citations and suggestions, apply under own role, discard, spend cap, JSON fallback
+npm run test:v12       # modules per engagement; five steps still run the stage checks
+npm run versions       # list git tags; -- use vX.Y (backs up data/), -- latest
 npm run test:v11       # 65 checks: Use Case Planner (rules and mock model), new agents and routing, act as, provider service names, activity charts
 npm run test:verifier  # 36 checks: golden runs, regressions, Verifier quote check, calibration, live checks, spend cap
 ```
@@ -118,6 +121,10 @@ data/             database, evidence files, secret.key (gitignored; back up toge
 - **Writing (UI text, docs, comments):** plain English, short sentences, active voice, no jargon a non-technical reader wouldn't know, no marketing language, and no em dashes. Say what a thing does and why.
 - **Comments:** each file starts with a short comment saying what it is for. Comment the why (a rule, a guardrail, a gotcha), not the obvious.
 - **Testing:** every behaviour change gets a check in `smoke.mjs` or `agents-test.mjs`, including the negative case (the thing that must be refused). Run typecheck, both suites and a browser pass before handing over.
+
+## Versions and GitHub
+
+The owner's working copy is a git repository with one commit and tag per release (v0.3 ... v1.2), rebuilt from the delivery archives. Remote: https://github.com/Alaws-github/argus (the owner pushes with his own sign-in; never ask for a token). Tag each release: `git tag -a vX.Y -m "vX.Y: ..."`. Runbook: `docs/runbooks/versions-and-github.md`.
 
 ## Delivering to the owner's computer
 

@@ -684,3 +684,11 @@ CREATE INDEX IF NOT EXISTS plans_engagement ON plans (engagement_id, updated_at 
 -- signing out. The audit log records both names.
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS acting_as uuid;
 ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS real_actor text;
+
+-- ---------------------------------------------------------------------------
+-- v1.2 (ARGUS): optional modules per engagement. Engagements that existed
+-- before keep everything on; new ones start with the core flow only.
+-- ---------------------------------------------------------------------------
+ALTER TABLE engagements ADD COLUMN IF NOT EXISTS modules jsonb;
+UPDATE engagements SET modules = '{"evals":true,"incidents":true,"inventory":true,"connectors":true,"soa":true,"advanced_ai":true}' WHERE modules IS NULL;
+ALTER TABLE engagements ALTER COLUMN modules SET DEFAULT '{"evals":false,"incidents":false,"inventory":false,"connectors":false,"soa":false,"advanced_ai":false}';

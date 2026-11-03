@@ -91,7 +91,7 @@ function exportCsv() {
           <h2>Heat map</h2>
           <div class="segmented">
             <button :class="{ on: view === 'inherent' }" @click="view = 'inherent'">Inherent</button>
-            <button :class="{ on: view === 'residual' }" @click="view = 'residual'">Residual</button>
+            <button :class="{ on: view === 'residual' }" @click="view = 'residual'">After controls</button>
           </div>
         </div>
         <div class="heat" role="table" :aria-label="`${view} risk heat map`">
@@ -128,7 +128,7 @@ function exportCsv() {
     <div v-else class="table-wrap">
       <table>
         <thead>
-          <tr><th>Key</th><th>Risk</th><th>Use case</th><th class="num">L</th><th class="num">I</th><th class="num">Inherent</th><th class="num">Controls</th><th class="num">Res. L</th><th class="num">Res. I</th><th class="num">Residual</th><th>Owner</th><th>Treatment</th><th>Accepted</th><th>Status</th></tr>
+          <tr><th>Key</th><th>Risk</th><th>Use case</th><th class="num" title="Likelihood">L</th><th class="num" title="Impact">I</th><th class="num">Score</th><th class="num">Controls</th><th class="num" title="Likelihood after controls">L after</th><th class="num" title="Impact after controls">I after</th><th class="num">After controls</th><th>Owner</th><th>Treatment</th><th>Accepted</th><th>Status</th></tr>
         </thead>
         <tbody>
           <tr v-for="r in shown" :key="r.id">

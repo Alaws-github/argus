@@ -1,5 +1,5 @@
 // Row mappers and shared queries.
-import { AGENT_ROLES } from '@gh/shared';
+import { AGENT_ROLES, NO_MODULES } from '@gh/shared';
 import type { AgentConfig, AgentRole, AuditEntry, Card, Engagement, Risk, Run, RunEvent, Stage, WorkspaceSettings } from '@gh/shared';
 import type { Queryable } from './db.js';
 
@@ -26,6 +26,7 @@ export function toEngagement(r: any): Engagement {
     archivedBy: r.archived_by ?? null,
     archiveReason: r.archive_reason ?? null,
     access: r.access ?? 'open',
+    modules: { ...NO_MODULES, ...(r.modules ?? {}) },
     createdAt: iso(r.created_at)!,
   };
 }

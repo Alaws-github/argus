@@ -8,6 +8,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   AGENT_ROLES, AGENT_TOOLS, AGENT_TOOL_INFO, EFFORTS, ROUTE_LABELS, STAGES, STAGE_LABELS,
+  MODULES, MODULE_INFO, type Module,
   type AgentConfig, type Provider, type Stage,
   type Engagement,
 } from '@gh/shared';
@@ -19,8 +20,23 @@ import { api } from '../api';
 const app = useApp();
 const route = useRoute();
 const router = useRouter();
-const TABS = { general: 'General', workflow: 'Workflow & gates', integrations: 'Integrations', agents: 'Agents', access: 'Access' } as const;
-const tab = computed(() => (String(route.params.tab) in TABS ? String(route.params.tab) : 'general'));
+const TABS = computed(() => ({
+  general: 'General', workflow: 'Workflow', agents: 'AI agents',
+  ...(app.mod('connectors') ? { integrations: 'Integrations' } : {}),
+  access: 'Access',
+}));
+const tab = computed(() => (['general', 'workflow', 'integrations', 'agents', 'access'].includes(String(route.params.tab)) ? String(route.params.tab) : 'general'));
+
+// Optional modules for this engagement. The core flow is always on.
+async function toggleModule(m: Module) {
+  try {
+    const e = await api<Engagement>(`/engagements/${app.engagementId}`, { method: 'PATCH', body: { modules: { [m]: !app.mod(m) } } });
+    Object.assign(app.engagement!, e);
+    app.toast(`${MODULE_INFO[m].label} ${e.modules[m] ? 'switched on' : 'switched off'}`);
+  } catch (e: any) {
+    app.toast(e.message, 'error');
+  }
+}
 async function openEngagement(id: string) {
   if (id === app.engagementId) return;
   await app.switchEngagement(id);
@@ -357,6 +373,16 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
       </fieldset>
     </section>
 
+    <section v-if="tab === 'general'" class="card">
+      <h2>Modules</h2>
+      <p class="small muted">The core flow (intake, risk, controls, testing, issues, sign-off and the report, with the AI drafting each step) is always on. Switch on more when this engagement needs them. Switching one off hides it; nothing is deleted.</p>
+      <div class="stack" style="gap: 8px">
+        <button v-for="m in MODULES" :key="m" class="switch" :class="{ on: app.mod(m) }" role="switch" :aria-checked="app.mod(m)" :disabled="!app.can('manage_engagement')" @click="toggleModule(m)">
+          <span class="track" /><span style="text-align: left"><strong style="color: var(--text)">{{ MODULE_INFO[m].label }}</strong> <span class="small muted">{{ MODULE_INFO[m].hint }}</span></span>
+        </button>
+      </div>
+    </section>
+
     <EngagementAccess v-if="tab === 'access'" />
     <template v-if="tab === 'integrations'">
       <p class="small muted">Evidence connectors pull reports and exports from the client's systems into the evidence vault on a schedule. Preparers can also run them from Testing &gt; Connectors.</p>
@@ -390,11 +416,11 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
 
     <!-- Workflow & gates -->
     <section v-else-if="tab === 'workflow'" class="card">
-      <div class="spread"><h2>Workflow &amp; gates</h2><RouterLink to="/settings/agents" class="small">Edit agents</RouterLink></div>
+      <div class="spread"><h2>Workflow</h2><RouterLink to="/settings/agents" class="small">Edit the AI agents</RouterLink></div>
       <p class="small muted">A gate means a named person acts before the use case leaves the stage. The agent drafts; it never approves.</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Stage</th><th>Agent</th><th>Gate</th><th>What you do</th></tr></thead>
+          <thead><tr><th>Stage</th><th>Agent</th><th>A person decides</th><th>What you do</th></tr></thead>
           <tbody>
             <tr v-for="s in STAGES.filter((x) => x !== 'closed')" :key="s">
               <td><strong>{{ STAGE_LABELS[s] }}</strong></td>
@@ -424,8 +450,8 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
     <!-- Agents -->
     <section v-else-if="tab === 'agents'" class="stack">
       <div class="spread" style="align-items: flex-start">
-        <p class="small muted" style="max-width: 640px; margin: 0">Each agent owns one stage. Add a second agent to a stage and route cards between them by kind, priority or tier; a card goes to the most specific agent that takes it. Instructions are added after the harness's own rules for that job.</p>
-        <button v-if="app.can('manage_agents')" class="btn primary" :disabled="isNew" @click="startNew">+ New agent</button>
+        <p class="small muted" style="max-width: 640px; margin: 0">The AI drafts each step; a person decides. Each agent does one step's work, on the model you choose; its instructions are added after the harness's own rules for that job.<template v-if="app.mod('advanced_ai')"> Add a second agent to a step and route cards between them by kind, priority or tier; a card goes to the most specific agent that takes it.</template><template v-else> To add more agents and route cards between them, switch on Advanced AI settings under General.</template></p>
+        <button v-if="app.can('manage_agents') && app.mod('advanced_ai')" class="btn primary" :disabled="isNew" @click="startNew">+ New agent</button>
       </div>
     <div class="two-pane">
       <aside class="pane-list">
@@ -468,7 +494,7 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
             <select v-if="isNew" v-model="newStage" class="select"><option v-for="s in agentStagesList" :key="s" :value="s">{{ STAGE_LABELS[s] }} · {{ Object.values(AGENT_ROLES).find((m) => m.stage === s)!.name }}'s job</option></select>
             <input v-else class="input" :value="STAGE_LABELS[selected.stage]" disabled />
           </label>
-          <label class="field">
+          <label v-if="app.mod('advanced_ai') || draft.route !== 'all'" class="field">
             <span>Takes cards</span>
             <select v-model="draft.route" class="select"><option v-for="(l, k) in ROUTE_LABELS" :key="k" :value="k">{{ l }}</option></select>
           </label>
@@ -559,7 +585,7 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
             <button class="btn primary" :disabled="!agentDirty || saving" @click="saveAgent">Save agent</button>
             <button v-if="agentDirty" class="btn ghost" @click="resetAgent">Discard</button>
             <span class="grow" />
-            <button v-if="app.can('manage_agents') && selected.role !== 'use_case_planner' || app.can('manage_agents') && selected.custom" class="btn sm" @click="duplicateAgent">Duplicate</button>
+            <button v-if="app.can('manage_agents') && app.mod('advanced_ai')" class="btn sm" @click="duplicateAgent">Duplicate</button>
             <button v-if="app.can('manage_agents') && selected.custom" class="btn sm danger" @click="deleteAgent">Delete agent</button>
           </template>
         </div>

@@ -46,6 +46,7 @@ export function toCard(r: any): Card {
     createdBy: r.created_by ?? null,
     drafts: r.drafts ?? {},
     decisions: r.decisions ?? {},
+    verification: r.verification ?? {},
     latestRunId: r.latest_run_id,
     costUsd: num(r.cost_usd),
     createdAt: iso(r.created_at)!,
@@ -125,8 +126,10 @@ export async function getSetting<T>(q: Queryable, key: string, fallback: T): Pro
 // Spend on billed providers since the start of this month in the workspace time zone.
 export async function monthSpend(q: Queryable, timeZone = 'UTC'): Promise<number> {
   const { rows } = await q.query(
-    `SELECT COALESCE(SUM(cost_usd),0) AS usd FROM runs
-     WHERE billed AND started_at >= (date_trunc('month', now() AT TIME ZONE $1) AT TIME ZONE $1)`,
+    `SELECT (SELECT COALESCE(SUM(cost_usd),0) FROM runs
+              WHERE billed AND started_at >= (date_trunc('month', now() AT TIME ZONE $1) AT TIME ZONE $1))
+          + (SELECT COALESCE(SUM(cost_usd),0) FROM ai_spend
+              WHERE at >= (date_trunc('month', now() AT TIME ZONE $1) AT TIME ZONE $1)) AS usd`,
     [timeZone],
   );
   return num(rows[0].usd);
@@ -144,6 +147,9 @@ export const SETTING_DEFAULTS: WorkspaceSettings = {
   defaultFallbackModel: null,
   embedProviderId: null,
   embedModel: '',
+  verifierProviderId: null,
+  verifierModel: '',
+  verifierLive: false,
 };
 
 export async function getSettings(q: Queryable): Promise<WorkspaceSettings> {

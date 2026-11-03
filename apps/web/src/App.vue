@@ -25,6 +25,7 @@ const initials = computed(() =>
 // Assurance work first; workspace administration sits under More.
 const MORE = [
   { to: '/knowledge', label: 'Knowledge base' },
+  { to: '/agent-testing/golden', label: 'Agent testing', match: '/agent-testing' },
   { to: '/runs', label: 'Runs' },
   { to: '/settings/general', label: 'Settings', match: '/settings' },
   { to: '/models', label: 'Models' },

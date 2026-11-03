@@ -40,7 +40,7 @@ const SCHEMA = {
 };
 
 interface Lib { code: string; title: string; objective: string; domain: string; type: string; test_procedure: string; risk_categories: string[] }
-interface Risk { title: string; category: string; likelihood: number; impact: number }
+export interface Risk { title: string; category: string; likelihood: number; impact: number }
 
 const OWNER_BY_DOMAIN: Record<string, string> = {
   governance: 'Chief Risk Officer',
@@ -50,9 +50,13 @@ const OWNER_BY_DOMAIN: Record<string, string> = {
   third_party: 'Head of Procurement',
 };
 
-export async function runControlDesigner(ctx: AgentContext, q: Queryable, log: Log): Promise<AgentResult<ControlDesign>> {
+// givenRisks lets agent testing supply a golden case's approved risks
+// instead of reading them from the register.
+export async function runControlDesigner(ctx: AgentContext, q: Queryable, log: Log, givenRisks?: Risk[]): Promise<AgentResult<ControlDesign>> {
   const { card, feedback } = ctx;
-  const { rows: risks } = await q.query<Risk>(`SELECT title, category, likelihood, impact FROM risks WHERE card_id = $1 ORDER BY likelihood * impact DESC`, [card.id]);
+  const risks = givenRisks
+    ? [...givenRisks].sort((a, b) => b.likelihood * b.impact - a.likelihood * a.impact)
+    : (await q.query<Risk>(`SELECT title, category, likelihood, impact FROM risks WHERE card_id = $1 ORDER BY likelihood * impact DESC`, [card.id])).rows;
   const { rows: lib } = await q.query<Lib>(`SELECT code, title, objective, domain, type, test_procedure, risk_categories FROM control_library ORDER BY code`);
   await log('step', `Read ${card.key}'s profile, its ${risks.length} approved risks and ${lib.length} library controls`);
   if (!risks.length) throw new Error('This use case has no approved risks yet. Approve its classification first.');

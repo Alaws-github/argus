@@ -14,6 +14,7 @@ import { exitCriteria } from './exit-criteria.js';
 import { decided } from './decisions.js';
 import { DRAFTING_RULES_VERSIONS, runControlTester, runEvidenceCollector, runReportWriter, runReviewAssistant } from './agents/drafting.js';
 import type { AgentContext } from './agents/types.js';
+import { verifyCard } from './verifier.js';
 
 export const MAX_PARALLEL = 4;
 const TICK_MS = 1500;
@@ -254,11 +255,11 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
       }
       const note = isDesign ? `Proposed ${output.controls.length} controls. Review and approve.` : `Proposed tier: ${output.tier}. Review and approve.`;
       if (isDesign) {
-        await q.query(`UPDATE cards SET design=$2, decisions = decisions - 'design', cost_usd=cost_usd+$3, status=$4, status_note=$5, updated_at=now() WHERE id=$1`, [
+        await q.query(`UPDATE cards SET design=$2, decisions = decisions - 'design', verification = verification - 'design', cost_usd=cost_usd+$3, status=$4, status_note=$5, updated_at=now() WHERE id=$1`, [
           card.id, JSON.stringify(output), cost, gated ? 'needs_approval' : 'idle', gated ? note : null,
         ]);
       } else {
-        await q.query(`UPDATE cards SET classification=$2, tier=$3, decisions = decisions - 'classify', cost_usd=cost_usd+$4, status=$5, status_note=$6, updated_at=now() WHERE id=$1`, [
+        await q.query(`UPDATE cards SET classification=$2, tier=$3, decisions = decisions - 'classify', verification = verification - 'classify', cost_usd=cost_usd+$4, status=$5, status_note=$6, updated_at=now() WHERE id=$1`, [
           card.id, JSON.stringify(output), output.tier, cost, gated ? 'needs_approval' : 'idle', gated ? note : null,
         ]);
       }
@@ -274,6 +275,13 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
     }
     emit('usage', { changed: true });
     if (!gated) await advance(db, card.id, agent.name);
+    // Live checks: the Verifier reads the new draft by itself when an admin
+    // turned this on. Advisory only; a failure here never touches the draft.
+    else if (!drafting && settings.verifierLive) {
+      void verifyCard(db, card.id, 'auto', 'Verifier')
+        .then(() => emitCard(db, card.id))
+        .catch((e) => console.warn(`[verifier] ${card.key}: ${e.message}`));
+    }
   } catch (e: any) {
     const message = String(e?.name === 'TimeoutError' ? `The run passed its ${agent.timeoutMin}-minute limit` : (e?.message ?? e)).slice(0, 1000);
     await log('error', message);

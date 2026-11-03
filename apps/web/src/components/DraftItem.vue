@@ -3,7 +3,7 @@
 // what the agent proposed, why, the sources it rests on, and the reviewer's
 // decision. Sources open in place so the reviewer reads exactly what the agent saw.
 import { computed, ref } from 'vue';
-import type { ItemDecision, SourcePassage } from '@gh/shared';
+import { VERDICT_LABELS, type ItemDecision, type ItemVerdict, type SourcePassage } from '@gh/shared';
 
 export interface EditField { key: string; label: string; type: 'text' | 'textarea' | 'number' | 'select'; options?: { value: string | number; label: string }[] }
 
@@ -18,6 +18,7 @@ const props = defineProps<{
   fields?: EditField[];
   values?: Record<string, unknown>;
   noReject?: boolean;
+  verdict?: ItemVerdict;
 }>();
 const emit = defineEmits<{ decide: [decision: 'accept' | 'edit' | 'reject', edit?: Record<string, unknown>, reason?: string] }>();
 
@@ -71,6 +72,12 @@ const LABEL: Record<string, string> = { open: 'To decide', accept: 'Accepted', e
       <div class="small faint">{{ KIND[passageOf(openSource)!.kind] ?? passageOf(openSource)!.kind }} · {{ openSource }} · {{ passageOf(openSource)!.title }}</div>
       <div class="small">{{ passageOf(openSource)!.text }}</div>
     </blockquote>
+
+    <div v-if="verdict" class="verdict" :class="verdict.verdict">
+      <span class="verdict-chip">Verifier · {{ VERDICT_LABELS[verdict.verdict] }}</span>
+      <span class="small">{{ verdict.reason }}</span>
+      <q v-if="verdict.quote && verdict.quoteFound" class="small faint">{{ verdict.quote }}</q>
+    </div>
 
     <p v-if="decision && decision.decision !== 'accept'" class="small decision-note">
       <strong>{{ decision.by }}</strong> {{ decision.decision === 'edit' ? 'changed' : 'rejected' }} this<template v-if="decision.edit">: {{ Object.entries(decision.edit).map(([k, v]) => `${k} → ${v}`).join(', ') }}</template><template v-if="decision.reason">. “{{ decision.reason }}”</template>

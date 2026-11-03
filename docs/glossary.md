@@ -12,6 +12,12 @@
 | Control library | 31 reusable controls mapped to standards, used as a starting point |
 | Draft | An agent's suggestion. It has no effect until a person acts on it. A person accepts, edits or rejects each item |
 | Embedding | A list of numbers representing what a passage means, used for meaning search |
+| Golden dataset | Use cases with known right answers, used to test the agents before a model or rules change |
+| Regression | A golden case that passed on the previous run and fails now |
+| Verifier | An AI that checks each item of a draft against the passages it cites. Advisory only. Also called LLM-as-a-judge |
+| Labelled example | A claim and its sources that a person judged good or bad, used to measure the Verifier |
+| Kappa | How far two judges (here the Verifier and people) agree beyond what chance would give. 0 is chance, 1 is perfect |
+| False pass | The Verifier calling a claim supported when a person judged it bad. The dangerous kind of mistake |
 | Grounding | Giving an agent trusted passages to work from, and making it cite them |
 | Knowledge base | The passages agents draw on: framework summaries, the control library, method guidance and the client's own material |
 | Passage (K-number) | One piece of the knowledge base, cited by agents as K-12 and so on |

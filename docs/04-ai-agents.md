@@ -86,6 +86,38 @@ Its built-in checks always stand: a model can add findings, but can't remove the
 
 Drafts a headline, three short paragraphs, key figures, recommendations and decisions for the board. Every number it writes must appear in the data it was given, or the draft is rejected. It must say plainly when something failed. Only a summary a person approved goes in the readiness report.
 
+## Checking the agents: the Verifier and agent testing
+
+Grounding makes agents cite their sources. Two more checks tell you whether you can rely on what they draft.
+
+### The Verifier
+
+The Verifier is a second AI that reads each item of a risk classification or control design next to the passages it cites, and gives a verdict:
+
+| Verdict | Meaning |
+| --- | --- |
+| Supported by its sources | The cited passages say what the item relies on |
+| Partly supported | Part of it rests on nothing cited |
+| Not supported by its sources | The passages are about something else, or nothing is cited |
+| Its sources say otherwise | The passages conflict with the item, for example the tier rules put this kind of use case in a different tier |
+
+A "supported" verdict must quote a cited passage word for word. The harness checks the quote, so if the Verifier invents support, the harness doesn't trust that verdict. The Verifier is **advisory**: it never accepts, rejects or approves anything, and its verdict never counts as a person's decision. If the same model wrote and checked a draft, the panel says so, because a model tends to approve its own work.
+
+![The Verifier's verdicts on a classification](images/verifier-draft.png)
+
+With no model set, the Verifier uses offline word-matching rules. These only catch items whose sources are off-topic. Choose a model on **More > Agent testing > Verifier**, ideally from a different company than the one that drafts. Live checks (checking every new draft automatically) are off by default; anyone preparing work can ask for a check from the use case panel.
+
+### Agent testing
+
+**More > Agent testing** tests the agents the way you'd regression-test software.
+
+- **Golden dataset.** 15 fictional use cases with known right answers: 10 for the Risk Classifier (including one with a hidden instruction it must ignore) and 5 for the Control Designer. Run an agent over all of them on any model and each case is scored, for example "tier is high", "raises a fairness risk", "every risk cites a source". Each run is compared with the previous one, and any case that passed before and fails now is shown as a **regression**. Run it before switching model or changing an agent's rules.
+- **Measuring the Verifier.** Before you trust the Verifier, it is measured against claims people have already judged good or bad: 18 built-in examples, plus any you add or take from reviewers' real accept and reject decisions. The page shows how often it agreed with people, its kappa score (agreement beyond chance), and its **false pass rate**: how often it called a bad claim supported. It is marked trusted only with at least 10 examples, kappa of 0.6 or more and false passes of 10% or less.
+
+![A golden run of the Risk Classifier](images/golden-run.png)
+
+The offline rules pass 7 of 10 classifier cases and fail the Verifier's trust bar (they pass about 4 in 10 bad claims), which is the point: they are a safety net for demos, not a judge. Every run, check and measurement is in the audit log and counts towards the monthly spend cap.
+
 ## Which AI runs the agents
 
 Each agent can run on a different model: Anthropic's Claude models, any OpenAI-compatible service (OpenAI, Azure OpenAI, OpenRouter, or a model on your own server), Ollama, or the **built-in rules**. The built-in rules run offline at no cost, using fixed logic instead of a model. They're useful for demos and dry runs, and deliberately cautious. See [Add a model provider](runbooks/add-a-model-provider.md).

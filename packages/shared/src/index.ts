@@ -194,6 +194,7 @@ export interface Card {
   createdBy: string | null;
   drafts: import('./grc.js').CardDrafts;
   decisions: import('./grc.js').CardDecisions;
+  verification: import('./grc.js').CardVerification;
   latestRunId: string | null;
   costUsd: number;
   createdAt: string;
@@ -419,6 +420,11 @@ export const WorkspaceSettings = z.object({
   // Meaning-based search: an OpenAI-compatible or Ollama provider and its embedding model.
   embedProviderId: z.string().uuid().nullable(),
   embedModel: z.string().max(120),
+  // The Verifier: which model judges drafts, and whether it checks every new
+  // classification and control design by itself. Off by default.
+  verifierProviderId: z.string().uuid().nullable(),
+  verifierModel: z.string().max(120),
+  verifierLive: z.boolean(),
 });
 export type WorkspaceSettings = z.infer<typeof WorkspaceSettings>;
 

@@ -418,3 +418,26 @@ button.switcher:hover { border-color: var(--line-hover); background: var(--hover
 .decision-note { color: var(--text-2); background: var(--sunken); border-radius: 6px; padding: 6px 8px; }
 .ai-line { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--accent-text); }
 .ai-line .ai-dot { width: 16px; height: 16px; border-radius: 5px; background: var(--accent-bg); border: 1px solid var(--accent-line); display: grid; place-items: center; font-size: 8.5px; font-weight: 700; flex: none; }
+
+/* v0.7: the Verifier (advisory) */
+.verifier-bar { display: flex; gap: 10px; align-items: flex-start; border: 1px dashed var(--line-strong); border-radius: var(--radius); padding: 10px 12px; font-size: 13px; flex-wrap: wrap; }
+.verifier-bar.good { border-color: var(--ok); }
+.verifier-bar.warn { border-color: var(--warn); background: var(--warn-bg); }
+.verifier-bar .grow { min-width: 200px; }
+.verifier-mark { font-size: 11px; font-weight: 700; padding: 3px 6px; border-radius: 6px; background: var(--hover); color: var(--muted); }
+.verdict { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; border-radius: 6px; background: var(--hover); }
+.verdict q { font-style: italic; }
+.verdict-chip { font-size: 11px; font-weight: 600; align-self: flex-start; }
+.verdict.supported .verdict-chip { color: var(--ok); }
+.verdict.partly .verdict-chip { color: var(--warn); }
+.verdict.unsupported, .verdict.contradicted { background: var(--danger-bg); }
+.verdict.unsupported .verdict-chip, .verdict.contradicted .verdict-chip { color: var(--danger); }
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.case-row.fail td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+.case-row.pass td:first-child { box-shadow: inset 3px 0 0 var(--ok); }
+.check-mini { display: inline-block; font-size: 12px; margin: 0 8px 2px 0; }
+.check-mini.no { color: var(--danger); }
+.matrix { border-collapse: collapse; font-size: 13px; }
+.matrix th, .matrix td { border: 1px solid var(--line); padding: 6px 10px; text-align: center; }
+.matrix td.hit { background: var(--ok-bg); }
+.matrix td.danger { background: var(--danger-bg); }

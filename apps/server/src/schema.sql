@@ -463,3 +463,76 @@ CREATE INDEX IF NOT EXISTS kb_chunks_eng ON kb_chunks (engagement_id);
 
 -- Per-item human decisions on agent drafts (accept, edit, reject).
 ALTER TABLE cards ADD COLUMN IF NOT EXISTS decisions jsonb NOT NULL DEFAULT '{}';
+
+-- v0.7: the Verifier (advisory LLM-as-a-judge) and agent testing.
+-- Verdicts sit beside the draft, keyed by stage, and are cleared with it.
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS verification jsonb NOT NULL DEFAULT '{}';
+-- Golden dataset: inputs with a known right answer. Shared by every engagement.
+CREATE SEQUENCE IF NOT EXISTS golden_seq;
+CREATE TABLE IF NOT EXISTS golden_cases (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  number      integer NOT NULL DEFAULT nextval('golden_seq'),
+  agent       text NOT NULL,
+  title       text NOT NULL,
+  use_case    jsonb NOT NULL,
+  tier        text,
+  risks       jsonb NOT NULL DEFAULT '[]',
+  expected    jsonb NOT NULL,
+  built_in    boolean NOT NULL DEFAULT false,
+  ref         text UNIQUE,
+  created_by  text NOT NULL DEFAULT 'system',
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE SEQUENCE IF NOT EXISTS golden_run_seq;
+CREATE TABLE IF NOT EXISTS golden_runs (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  number        integer NOT NULL DEFAULT nextval('golden_run_seq'),
+  agent         text NOT NULL,
+  provider      text NOT NULL,
+  model         text NOT NULL,
+  runtime       text NOT NULL,
+  rules_version text NOT NULL DEFAULT '',
+  with_verifier boolean NOT NULL DEFAULT false,
+  status        text NOT NULL DEFAULT 'running',
+  results       jsonb NOT NULL DEFAULT '[]',
+  summary       jsonb,
+  regressions   jsonb NOT NULL DEFAULT '[]',
+  previous      text,
+  started_by    text NOT NULL,
+  started_at    timestamptz NOT NULL DEFAULT now(),
+  ended_at      timestamptz
+);
+-- Judge labels: claims a person marked good or bad, used to measure the Verifier.
+CREATE SEQUENCE IF NOT EXISTS judge_label_seq;
+CREATE TABLE IF NOT EXISTS judge_labels (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  number      integer NOT NULL DEFAULT nextval('judge_label_seq'),
+  kind        text NOT NULL,
+  claim       text NOT NULL,
+  passages    jsonb NOT NULL DEFAULT '[]',
+  human       text NOT NULL,
+  note        text NOT NULL DEFAULT '',
+  origin      text NOT NULL DEFAULT 'manual',
+  ref         text UNIQUE,
+  created_by  text NOT NULL DEFAULT 'system',
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE SEQUENCE IF NOT EXISTS judge_cal_seq;
+CREATE TABLE IF NOT EXISTS judge_calibrations (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  number      integer NOT NULL DEFAULT nextval('judge_cal_seq'),
+  model       text NOT NULL,
+  runtime     text NOT NULL,
+  result      jsonb NOT NULL,
+  started_by  text NOT NULL,
+  at          timestamptz NOT NULL DEFAULT now()
+);
+-- Billed spend outside card runs (Verifier checks, golden runs, calibrations),
+-- so the monthly spend cap covers every model call the harness makes.
+CREATE TABLE IF NOT EXISTS ai_spend (
+  id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  source    text NOT NULL,
+  model     text NOT NULL,
+  cost_usd  numeric NOT NULL DEFAULT 0,
+  at        timestamptz NOT NULL DEFAULT now()
+);

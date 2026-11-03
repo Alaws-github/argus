@@ -6,6 +6,7 @@ import type { Db, Queryable } from './db.js';
 import { logAudit } from './audit.js';
 import { getSettings } from './store.js';
 import { ensureEngagementKnowledge, ensureKnowledge, scheduleEmbedding } from './kb.js';
+import { ensureGolden } from './golden.js';
 import { LIBRARY, OBLIGATIONS, QUALITY_CASES, RED_TEAM_CASES } from './library.js';
 
 const USE_CASES: UseCaseInput[] = [
@@ -196,6 +197,7 @@ export async function ensureBaseline(db: Db) {
     await ensureDemoAssurance(q);
     // Knowledge base: shared passages, then each engagement's own material.
     await ensureKnowledge(q);
+    await ensureGolden(q);
     for (const e of rows) await ensureEngagementKnowledge(q, e.id);
   });
   scheduleEmbedding(db);

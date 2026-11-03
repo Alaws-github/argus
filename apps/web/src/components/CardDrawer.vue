@@ -11,6 +11,7 @@ import { api, ago, money, socket } from '../api';
 import { useApp } from '../stores/app';
 import StatusPill from './StatusPill.vue';
 import DraftItem, { type EditField } from './DraftItem.vue';
+import VerifierBar from './VerifierBar.vue';
 import { draftProgress } from '../lib/drafts';
 
 const props = defineProps<{ cardKey: string }>();
@@ -144,6 +145,8 @@ const SUMMARY_FIELDS: EditField[] = [
   { key: 'headline', label: 'Headline', type: 'text' },
   { key: 'summary', label: 'Summary', type: 'textarea' },
 ];
+// The Verifier's verdict on one item of the current draft, if it has checked it.
+const verdictOf = (item: string) => (card.value?.verification as any)?.[card.value!.stage]?.items.find((v: any) => v.item === item);
 const editedOr = (item: string, base: Record<string, unknown>) => ({ ...base, ...(decisionsHere.value[item]?.edit ?? {}) });
 const ownCard = computed(() => !!card.value?.createdBy && card.value.createdBy === app.user?.name);
 
@@ -215,6 +218,7 @@ const actionLabel = (a: string) =>
           <div class="spread small"><span>{{ progress.decided }} of {{ progress.total }} decided</span><button v-if="canApprove && progress.decided < progress.total" class="btn sm ghost" @click="decide(null)">Accept the rest</button></div>
           <div class="progress"><i :style="{ width: `${progress.total ? (progress.decided / progress.total) * 100 : 0}%` }" /></div>
         </div>
+        <VerifierBar :card="card" @checked="load" />
 
         <span class="label-caps">Tier and oversight</span>
         <DraftItem
@@ -222,7 +226,7 @@ const actionLabel = (a: string) =>
           :meta="card.classification.factors.join(' · ')"
           :why="`${card.classification.tierRationale} ${card.classification.oversightRationale}`"
           :sources="card.classification.tierSources" :passages="passagesHere" :decision="decisionsHere.tier" :can-decide="canApprove"
-          :fields="TIER_FIELDS" :values="{ tier: card.classification.tier, oversight: card.classification.oversight }" no-reject
+          :fields="TIER_FIELDS" :values="{ tier: card.classification.tier, oversight: card.classification.oversight }" no-reject :verdict="verdictOf('tier')"
           @decide="(d, e, r) => decide('tier', d, e, r)"
         />
         <span class="label-caps">Risks for the register</span>
@@ -231,7 +235,7 @@ const actionLabel = (a: string) =>
           :title="String(editedOr(`risk:${i}`, r).title)"
           :meta="`${r.category.replace('_', ' ')} · likelihood ${editedOr(`risk:${i}`, r).likelihood} × impact ${editedOr(`risk:${i}`, r).impact} = ${Number(editedOr(`risk:${i}`, r).likelihood) * Number(editedOr(`risk:${i}`, r).impact)}`"
           :why="r.rationale" :sources="r.sources" :passages="passagesHere" :decision="decisionsHere[`risk:${i}`]" :can-decide="canApprove"
-          :fields="RISK_FIELDS" :values="{ title: r.title, likelihood: r.likelihood, impact: r.impact }"
+          :fields="RISK_FIELDS" :values="{ title: r.title, likelihood: r.likelihood, impact: r.impact }" :verdict="verdictOf(`risk:${i}`)"
           @decide="(d, e, rs) => decide(`risk:${i}`, d, e, rs)"
         />
         <div v-if="card.classification.openQuestions.length" class="small"><strong>Questions for the business owner</strong><ul class="plain"><li v-for="q in card.classification.openQuestions" :key="q">{{ q }}</li></ul></div>
@@ -328,12 +332,13 @@ const actionLabel = (a: string) =>
           <div class="spread small"><span>{{ progress.decided }} of {{ progress.total }} decided</span><button v-if="canApprove && progress.decided < progress.total" class="btn sm ghost" @click="decide(null)">Accept the rest</button></div>
           <div class="progress"><i :style="{ width: `${progress.total ? (progress.decided / progress.total) * 100 : 0}%` }" /></div>
         </div>
+        <VerifierBar :card="card" @checked="load" />
         <DraftItem
           v-for="(c, i) in card.design.controls" :key="i"
           :title="`${c.libraryCode ? c.libraryCode + ' · ' : ''}${editedOr(`control:${i}`, c).title}`"
           :meta="`Owner: ${editedOr(`control:${i}`, c).owner} · treats ${c.riskTitles.join('; ')}`"
           :why="String(editedOr(`control:${i}`, c).objective)" :sources="c.sources" :passages="passagesHere" :decision="decisionsHere[`control:${i}`]" :can-decide="canApprove"
-          :fields="CONTROL_FIELDS" :values="{ title: c.title, owner: c.owner, objective: c.objective }"
+          :fields="CONTROL_FIELDS" :values="{ title: c.title, owner: c.owner, objective: c.objective }" :verdict="verdictOf(`control:${i}`)"
           @decide="(d, e, r) => decide(`control:${i}`, d, e, r)"
         />
         <div v-if="card.design.gaps.length" class="small"><strong>Gaps the agent noted</strong><ul class="plain"><li v-for="g in card.design.gaps" :key="g">{{ g }}</li></ul></div>

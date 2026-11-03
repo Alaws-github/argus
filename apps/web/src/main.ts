@@ -35,6 +35,8 @@ const router = createRouter({
     { path: '/report', component: () => import('./pages/ReportPage.vue') },
     { path: '/users', component: () => import('./pages/UsersPage.vue') },
     { path: '/knowledge', component: () => import('./pages/KnowledgePage.vue') },
+    { path: '/agent-testing', redirect: '/agent-testing/golden' },
+    { path: '/agent-testing/:tab(golden|verifier|history)', component: () => import('./pages/AgentTestingPage.vue') },
     { path: '/account', component: () => import('./pages/AccountPage.vue') },
     { path: '/engagements/new', component: () => import('./pages/AddEngagementPage.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/' },

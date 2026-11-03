@@ -9,6 +9,7 @@ import { authRoutes } from './routes-auth.js';
 import { grcRoutes } from './routes-grc.js';
 import { archiveRoutes } from './archive.js';
 import { kbRoutes } from './routes-kb.js';
+import { testingRoutes } from './routes-testing.js';
 import { requireDifferentPerson, requirePerm } from './auth.js';
 import { MAX_PARALLEL } from './engine.js';
 import type { Db } from './db.js';
@@ -369,5 +370,6 @@ export function routes(db: Db) {
   grcRoutes(r, db, actorOf, wrap);
   archiveRoutes(r, db, actorOf, wrap);
   kbRoutes(r, db, actorOf, wrap);
+  testingRoutes(r, db, actorOf, wrap);
   return r;
 }

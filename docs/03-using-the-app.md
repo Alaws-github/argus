@@ -98,6 +98,14 @@ Score the seven assessment areas, then read, print, download (Markdown) and sign
 
 Everything the agents ground their drafts in: framework summaries, the control library, method guidance, and this engagement's own material. **Search as an agent would** shows which passages an agent would be given for a question. **Add a client document** uploads the client's policies and procedures (text, Markdown or CSV; paste the text of a PDF or Word file).
 
+## Agent testing (More)
+
+Tests for the AI agents themselves. **Golden dataset** runs an agent over use cases with known right answers and shows what it got right, what it got wrong, and any regressions since the last run. **Verifier** sets which model checks drafts and whether it checks every new draft automatically, and shows how far the Verifier agrees with people's judgement. **History** lists every run and measurement. Admins run tests; everyone can see the results. See [Test the agents](runbooks/test-the-agents.md).
+
+On a use case's classification or control design, the Verifier's line sits above the items, with **Check with the Verifier** to ask for a check. Each item then shows its verdict and the quote it rests on.
+
+![Agent testing: measuring the Verifier](images/verifier-trust.png)
+
 ## More: Runs, Settings, Models
 
 - **Runs**: every agent run, with the model used, cost and a step-by-step log.

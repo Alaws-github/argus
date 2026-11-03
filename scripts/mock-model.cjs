@@ -22,7 +22,7 @@ http.createServer((req, res) => {
   req.on('data', (c) => (body += c));
   req.on('end', () => {
     res.setHeader('content-type', 'application/json');
-    if (req.url === '/v1/models') return res.end(JSON.stringify({ data: [{ id: 'mock-good' }, { id: 'mock-bad' }, { id: 'mock-notemp' }, { id: 'mock-embed' }] }));
+    if (req.url === '/v1/models') return res.end(JSON.stringify({ data: [{ id: 'mock-good' }, { id: 'mock-bad' }, { id: 'mock-notemp' }, { id: 'mock-embed' }, { id: 'mock-judge' }, { id: 'mock-judge-liar' }] }));
     if (req.url === '/__seen') return res.end(JSON.stringify(seen));
     const b = JSON.parse(body);
     if (req.url === '/v1/embeddings') {
@@ -69,6 +69,19 @@ http.createServer((req, res) => {
       out = { requests: ctl.map((c) => ({ controlKey: bad ? 'C-999' : c, item: 'System export for the period', why: 'Shows it operates', askFrom: 'Owner', status: 'missing', evidenceKeys: [], note: '' })), summary: 'Mock plan.' };
     } else if (tool === 'submit_challenges') {
       out = { challenges: [{ severity: 'medium', area: 'evidence', finding: 'Mock: evidence is thin for the sample.', ref: '' }], readiness: 'ready', summary: 'Mock review.' };
+    } else if (tool === 'submit_verdicts') {
+      // 'mock-judge' quotes the first cited passage word for word; 'mock-judge-liar'
+      // calls everything supported with a quote that appears nowhere.
+      const texts = Object.fromEntries([...user.matchAll(/<source id="(K-\d+)"[^>]*>\n([\s\S]*?)\n<\/source>/g)].map((m) => [m[1], m[2]]));
+      const claims = [...user.matchAll(/<claim id="([^"]+)" cites="([^"]*)">/g)].map((m) => ({ id: m[1], cites: m[2].split(', ').filter(Boolean) }));
+      // Any other model gives no verdicts at all.
+      out = !b.model.startsWith('mock-judge') ? { summary: 'No verdicts.' } : {
+        verdicts: claims.map((c) => ({
+          item: c.id, reasoning: 'Mock reasoning.', verdict: 'supported',
+          quote: b.model === 'mock-judge-liar' ? 'This sentence was never in any passage at all.' : (texts[c.cites[0]] || '').split(/\s+/).slice(0, 12).join(' '),
+        })),
+        summary: 'Mock verdicts.',
+      };
     } else out = {};
     res.end(JSON.stringify({ choices: [{ message: { tool_calls: [{ function: { name: tool, arguments: JSON.stringify(out) } }] } }], usage: { prompt_tokens: 900, completion_tokens: 300 } }));
   });

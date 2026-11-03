@@ -28,10 +28,10 @@ if (!process.env.DATABASE_URL) {
 
 const db = await getDb();
 await db.exec(`
-  DROP TABLE IF EXISTS kb_chunks, kb_sources, assessments, eval_runs, eval_cases, eval_suites, issues, evidence, tests, inventory, soa, control_risks,
+  DROP TABLE IF EXISTS ai_spend, judge_calibrations, judge_labels, golden_runs, golden_cases, kb_chunks, kb_sources, assessments, eval_runs, eval_cases, eval_suites, issues, evidence, tests, inventory, soa, control_risks,
     obligations, run_events, runs, controls, control_library, risks, agents, cards, engagements, providers, audit_log, settings,
     sessions, users CASCADE;
-  DROP SEQUENCE IF EXISTS run_seq, risk_seq, control_seq, inventory_seq, test_seq, evidence_seq, issue_seq, suite_seq, kb_seq;
+  DROP SEQUENCE IF EXISTS run_seq, risk_seq, control_seq, inventory_seq, test_seq, evidence_seq, issue_seq, suite_seq, kb_seq, golden_seq, golden_run_seq, judge_label_seq, judge_cal_seq;
 `);
 await migrate(db);
 await seed(db);

@@ -4,13 +4,13 @@ Context for Claude working on this project. Read this first.
 
 ## What this is
 
-**Governance Harness** (v0.8): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report). Six AI agents draft the work; named people make every decision; everything is written to a hash-chained audit log.
+**Governance Harness** (v0.9): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report). Six AI agents draft the work; named people make every decision; everything is written to a hash-chained audit log.
 
 It was rebuilt from **GoldenEye**, the owner's AI delivery harness, keeping its board-and-gate engine, Models page, tabbed Settings, account menu and look. GoldenEye is a reference only: never change anything in it.
 
 Owner: Andrew Lawrence, a QA engineer (ISTQB Foundation, CT-AI, CT-GenAI). The QA framing is deliberate: tests have preparers and reviewers, issues have a defect-style lifecycle, and evaluations are test suites. Keep that framing.
 
-Plain-language docs for non-technical readers are in `docs/` (start at `docs/README.md`). The developer reference, with every API endpoint, is `README.md`.
+Plain-language docs for non-technical readers are in `docs/` (start at `docs/README.md`). The walkthrough (`docs/08-walkthrough.md`) and demo scripts (`docs/09-demo-script.md`) assume the demo data; if you change what `scripts/demo-data.mjs` produces, re-check the keys and numbers they quote (AI-1..AI-5, R-5, R-6, T-1, I-1, 3 of 8, 7 of 10) and retake `docs/images/walkthrough/`. The developer reference, with every API endpoint, is `README.md`.
 
 ## Rules that must not break
 
@@ -39,6 +39,7 @@ npm install
 npm run dev          # web http://localhost:5173, API http://localhost:4300
 npm run typecheck
 npm run db:reset     # STOP THE APP FIRST. Rebuilds data/pglite with the demo
+npm run demo         # on a FRESH db with the app running: realistic Client Zero engagement, 5 people (scripts/demo-data.mjs)
 npm run smoke        # 66 API checks; needs a fresh db and a running server
 npm run test:agents  # 30 drafting-agent checks incl. a cheating mock model
 npm run test:grounding # 31 checks: knowledge base, citations, decisions, meaning search, temperature
@@ -90,7 +91,7 @@ apps/web/src
   components/     AssistantPanel (Ask), StandardsTab (plain-English framework coverage), ProviderForm (presets), VerifierBar, DraftItem
   styles.css      GoldenEye design tokens (dark first, light via data-theme or system)
 docs/             plain-language docs, runbooks, diagrams (Mermaid source) and images
-scripts/          smoke.mjs, agents-test.mjs, grounding-test.mjs, verifier-test.mjs, assistant-test.mjs, mock-model.cjs
+scripts/          smoke.mjs, agents-test.mjs, grounding-test.mjs, verifier-test.mjs, assistant-test.mjs, mock-model.cjs, demo-data.mjs
 data/             database, evidence files, secret.key (gitignored; back up together)
 ```
 
@@ -113,4 +114,4 @@ The working copy lives in `~/Documents/Governance and Risk - AI/governance-harne
 
 ## Not built yet
 
-Verifier coverage of the four drafting agents (it checks classify and design only); the assistant streaming answers and acting on more record types; design refresh and demo walkthrough (round 4); connectors for the Evidence Collector; reading PDFs and spreadsheets as evidence; scheduled evals and drift monitoring; incident records; per-engagement membership; SSO and MFA; sign-in rate limiting.
+Verifier coverage of the four drafting agents (it checks classify and design only); the assistant streaming answers and acting on more record types; connectors for the Evidence Collector; reading PDFs and spreadsheets as evidence; scheduled evals and drift monitoring; incident records; per-engagement membership; SSO and MFA; sign-in rate limiting.

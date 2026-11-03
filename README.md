@@ -4,6 +4,8 @@
 
 An AI governance, risk and assurance workbench. AI use cases move across a board from Intake to Board report. Agents draft the work at each stage; a named person approves at each gate; every action lands in a hash-chained audit trail.
 
+v0.9 adds `npm run demo` (a realistic engagement built through the real API, for demos and learning), a walkthrough guide with screenshots, 15- and 30-minute demo scripts (docs/08-walkthrough.md, docs/09-demo-script.md) and a tidier top bar on laptop screens.
+
 v0.8 adds the assistant (Ask: explains and suggests; people apply or discard every suggestion, under their own permissions), a plain-English Standards tab with coverage per framework, and ready-made settings for 14 AI services. See docs/03-using-the-app.md.
 
 v0.7 adds agent testing: a golden dataset with regression tracking, and the Verifier, an advisory LLM-as-a-judge that checks each draft item against its cited sources and is measured against people's labels (agreement, kappa, false passes). See docs/04-ai-agents.md and docs/runbooks/test-the-agents.md.
@@ -66,6 +68,7 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run db:reset` | **Stop the app first.** Deletes every account and record and reseeds Client Zero; the next visit asks you to create the first admin. Also recovers a damaged embedded database. Keeps `data/secret.key` |
 | `npm run build` then `npm start` | Builds the web app and serves it from the API on port 4300 |
 | `npm run typecheck` | Type-checks server and web |
+| `npm run demo` | On a **fresh** database with the app running: builds the demo engagement as five fictional people (password `correct-horse-9`, or set `DEMO_PASSWORD`). See docs/runbooks/load-the-demo-data.md |
 | `npm run smoke` | API smoke test (66 checks) against a running server on a **fresh** database. It creates test accounts (password `correct-horse-9`), so reset afterwards before real use |
 | `npm run test:grounding` | Grounding tests (31 checks): knowledge base, citations, item-by-item decisions, meaning search, temperature 0. Fresh database |
 | `npm run test:assistant` | Assistant tests (27 checks): offline and live, dropped citations and suggestions, apply under the person's role, discard, spend cap, JSON fallback. Fresh database |

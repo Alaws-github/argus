@@ -295,7 +295,7 @@ const actionLabel = (a: string) =>
           <DraftItem
             v-for="(c, i) in draft.challenges" :key="i"
             :title="c.finding" :meta="`${c.severity} · ${c.area}${c.ref ? ` · ${c.ref}` : ''}`"
-            :sources="[]" :decision="decisionsHere[`challenge:${i}`]" :can-decide="canApprove"
+            :decision="decisionsHere[`challenge:${i}`]" :can-decide="canApprove"
             @decide="(d, e, r) => decide(`challenge:${i}`, d, e, r)"
           />
           <p class="small faint">Accept means you agree and it has been dealt with; reject means it doesn't apply, with your reason. The Review assistant isn't a second-line review; you are.</p>

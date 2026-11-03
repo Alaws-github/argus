@@ -482,5 +482,11 @@ button.switcher:hover { border-color: var(--line-hover); background: var(--hover
 .req-list li { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 3px; }
 .next-step { color: var(--accent); }
 .ask-top { padding-left: 8px; padding-right: 10px; }
-@media (max-width: 1440px) { .ask-top .ask-label { display: none; } .ask-top { padding-right: 8px; } }
+/* v0.9: keep the top bar on one line on laptop screens: the logo stands in
+   for the product name, so the assistant keeps its label. */
+@media (max-width: 1440px) { .brand-text { display: none; } }
+@media (max-width: 1100px) { .ask-top .ask-label { display: none; } .ask-top { padding-right: 8px; } }
 @media (max-width: 1440px) { .nav a, .nav-more { padding: 6px 7px; } }
+
+/* v0.9: record keys (AI-1, C-12, E-17) never break across lines */
+td.mono, td .mono, .mono.faint { white-space: nowrap; }

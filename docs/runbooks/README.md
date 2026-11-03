@@ -6,6 +6,7 @@ Step-by-step instructions for common jobs. Each one says who can do it and what 
 | --- | --- |
 | [Install and run](install-and-run.md) | Anyone setting the app up on a computer |
 | [First-time setup](first-time-setup.md) | The first admin, after installing |
+| [Load the demo data](load-the-demo-data.md) | Anyone giving a demo or learning the app |
 | [Add a model provider](add-a-model-provider.md) | Admins connecting an AI model |
 | [Set up meaning search](set-up-meaning-search.md) | Admins improving how agents find sources |
 | [People and access](people-and-access.md) | Admins adding people, changing roles, resetting passwords |

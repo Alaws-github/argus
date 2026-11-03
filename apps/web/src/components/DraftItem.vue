@@ -59,7 +59,7 @@ const LABEL: Record<string, string> = { open: 'To decide', accept: 'Accepted', e
 
     <p v-if="why" class="small draft-why"><span class="label-caps">Why</span> {{ why }}</p>
 
-    <div class="row source-row">
+    <div v-if="sources !== undefined" class="row source-row">
       <span class="label-caps">Sources</span>
       <template v-if="sources?.length">
         <button v-for="s in sources" :key="s" type="button" class="source-chip" :class="{ on: openSource === s }" :aria-expanded="openSource === s" @click="openSource = openSource === s ? null : s">

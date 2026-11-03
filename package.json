@@ -1,0 +1,24 @@
+{
+  "name": "governance-harness",
+  "private": true,
+  "version": "0.3.0",
+  "description": "AI governance, risk and assurance harness: a gated board where agents draft and people decide.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm run dev -w apps/server\" \"npm run dev -w apps/web\"",
+    "build": "npm run build -w apps/web",
+    "start": "npm run start -w apps/server",
+    "db:reset": "npm run db:reset -w apps/server",
+    "typecheck": "npm run typecheck -w apps/server && npm run typecheck -w apps/web",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20.12"
+  }
+}

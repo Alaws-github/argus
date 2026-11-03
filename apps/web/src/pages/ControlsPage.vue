@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Controls, four tabs: the register (controls per use case), the library
+// Controls, five tabs: standards in plain English (coverage per framework), the register (controls per use case), the library
 // (reusable controls mapped to standards), the Statement of Applicability, and
 // the traceability matrix from obligation to evidence.
 import { computed, onMounted, ref, watch } from 'vue';
@@ -10,10 +10,11 @@ import {
 } from '@gh/shared';
 import { api, csv, day, downloadText } from '../api';
 import { useApp } from '../stores/app';
+import StandardsTab from '../components/StandardsTab.vue';
 
 const app = useApp();
 const route = useRoute();
-const tab = computed(() => route.params.tab as 'register' | 'library' | 'soa' | 'traceability');
+const tab = computed(() => route.params.tab as 'standards' | 'register' | 'library' | 'soa' | 'traceability');
 
 const controls = ref<EngagementControl[]>([]);
 const library = ref<LibraryControl[]>([]);
@@ -149,20 +150,23 @@ function exportTrace() {
   <div class="page">
     <div class="page-head">
       <div>
-        <h1>Controls</h1>
-        <p>From requirement to proof: the obligations that apply, the library controls that meet them, the controls in place for each use case, and how they've been tested.</p>
+        <h1>Standards and controls</h1>
+        <p>What the laws and frameworks ask for, the controls that meet them, and how far this engagement can prove it. Start with Standards for the plain-English picture.</p>
       </div>
     </div>
     <nav class="tabs">
-      <RouterLink to="/controls/register" :class="{ active: tab === 'register' }">Register</RouterLink>
-      <RouterLink to="/controls/library" :class="{ active: tab === 'library' }">Library</RouterLink>
-      <RouterLink to="/controls/soa" :class="{ active: tab === 'soa' }">Statement of Applicability</RouterLink>
+      <RouterLink to="/controls/standards" :class="{ active: tab === 'standards' }">Standards</RouterLink>
+      <RouterLink to="/controls/register" :class="{ active: tab === 'register' }">Our controls</RouterLink>
+      <RouterLink to="/controls/library" :class="{ active: tab === 'library' }">Control library</RouterLink>
+      <RouterLink to="/controls/soa" :class="{ active: tab === 'soa' }">What applies</RouterLink>
       <RouterLink to="/controls/traceability" :class="{ active: tab === 'traceability' }">Traceability</RouterLink>
     </nav>
 
     <div v-if="loading" class="muted">Loading…</div>
 
     <!-- Register -->
+    <StandardsTab v-else-if="tab === 'standards'" :rows="trace" />
+
     <template v-else-if="tab === 'register'">
       <div class="toolbar">
         <div class="filters">

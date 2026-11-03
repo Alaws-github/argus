@@ -14,7 +14,8 @@ import { ensureBaseline, seed } from './seed.js';
 import { routes } from './routes.js';
 import { attach } from './realtime.js';
 import { startEngine } from './engine.js';
-import { withRequestContext } from './context.js';
+import { setInternalToken, withRequestContext } from './context.js';
+import { INTERNAL_TOKEN } from './assistant.js';
 import { archiveGuard } from './archive.js';
 import { authMiddleware, readCookie, userFromToken } from './auth.js';
 
@@ -31,6 +32,7 @@ const app = express();
 app.disable('x-powered-by');
 // Behind a reverse proxy, set TRUST_PROXY=true so audit entries record the client's address.
 if (process.env.TRUST_PROXY === 'true') app.set('trust proxy', true);
+setInternalToken(INTERNAL_TOKEN);
 app.use(withRequestContext);
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');

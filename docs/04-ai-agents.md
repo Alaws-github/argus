@@ -118,9 +118,13 @@ With no model set, the Verifier uses offline word-matching rules. These only cat
 
 The offline rules pass 7 of 10 classifier cases and fail the Verifier's trust bar (they pass about 4 in 10 bad claims), which is the point: they are a safety net for demos, not a judge. Every run, check and measurement is in the audit log and counts towards the monthly spend cap.
 
+## The assistant
+
+Besides the six agents, there is an assistant you can talk to about a use case or a register (**Ask** in the top bar, or **Ask about this** on a use case). It explains drafts, points out what to check, and suggests changes. Every suggestion waits for a person to apply or discard it, and applying runs under that person's own permissions, so the assistant gets no power of its own. Like the agents, it works from the knowledge base and its citations are checked; anything that refers to a record it wasn't shown is removed before you see it. See [Using the app](03-using-the-app.md#the-assistant-ask).
+
 ## Which AI runs the agents
 
-Each agent can run on a different model: Anthropic's Claude models, any OpenAI-compatible service (OpenAI, Azure OpenAI, OpenRouter, or a model on your own server), Ollama, or the **built-in rules**. The built-in rules run offline at no cost, using fixed logic instead of a model. They're useful for demos and dry runs, and deliberately cautious. See [Add a model provider](runbooks/add-a-model-provider.md).
+Each agent can run on a different model. The Models page has ready-made settings for Anthropic (Claude), OpenAI, Azure OpenAI, Google Gemini, Mistral, Groq, Together AI, OpenRouter, DeepSeek, xAI, Perplexity, Ollama (cloud or on your own computer) and LM Studio, plus any other OpenAI-compatible service, and the **built-in rules**. Services that don't support tool calls answer in JSON instead, checked the same way. The built-in rules run offline at no cost, using fixed logic instead of a model. They're useful for demos and dry runs, and deliberately cautious. See [Add a model provider](runbooks/add-a-model-provider.md).
 
 ## What the agents can't do yet
 

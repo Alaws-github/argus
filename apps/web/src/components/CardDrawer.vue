@@ -49,7 +49,13 @@ onMounted(() => {
   void load();
   socket.on('card', onCard);
 });
-onBeforeUnmount(() => socket.off('card', onCard));
+// Reload after the assistant applies a change to this card.
+const onApplied = () => void load();
+window.addEventListener('gh:assistant-applied', onApplied);
+onBeforeUnmount(() => {
+  socket.off('card', onCard);
+  window.removeEventListener('gh:assistant-applied', onApplied);
+});
 watch(() => props.cardKey, () => void load());
 
 const hasAgent = computed(() => !!card.value && app.agentStages.includes(card.value.stage));
@@ -182,7 +188,10 @@ const actionLabel = (a: string) =>
           <span v-if="card.tier" class="tier" :class="card.tier">{{ TIER_LABELS[card.tier] }}</span>
           <StatusPill :card="card" />
         </div>
-        <button class="btn ghost sm" aria-label="Close" @click="emit('close')">✕</button>
+        <div class="row" style="gap: 6px">
+          <button class="btn sm ask-ai" title="Ask the assistant about this use case" @click="app.openAssistant('card', card.id, `${card.key} ${card.title}`)"><span class="ai-mark" style="font-size: 10px; padding: 1px 4px">AI</span>Ask about this</button>
+          <button class="btn ghost sm" aria-label="Close" @click="emit('close')">✕</button>
+        </div>
       </div>
       <div>
         <h1 style="font-size: 19px">{{ card.title }}</h1>

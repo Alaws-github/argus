@@ -7,6 +7,7 @@ import { useApp } from './stores/app';
 import { api } from './api';
 import NewUseCase from './components/NewUseCase.vue';
 import SignIn from './components/SignIn.vue';
+import AssistantPanel from './components/AssistantPanel.vue';
 
 const app = useApp();
 const route = useRoute();
@@ -44,6 +45,12 @@ async function pick(id: string) {
   if (/^\/(runs|evals)\/./.test(route.path)) router.push(route.path.startsWith('/runs') ? '/runs' : '/evals');
 }
 const moreActive = computed(() => MORE.some((m) => route.path.startsWith(m.match ?? m.to)));
+
+// The top-bar assistant follows the page you're on.
+function askAi() {
+  const kind = route.path.startsWith('/risks') ? 'risks' : route.path.startsWith('/controls') ? 'controls' : route.path.startsWith('/issues') ? 'issues' : 'engagement';
+  app.openAssistant(kind);
+}
 
 async function start() {
   try {
@@ -132,6 +139,7 @@ onBeforeUnmount(() => {
         <span class="badge" :class="app.health.runtime === 'live' ? 'ok' : 'warn'" :title="app.health.runtime === 'live' ? app.health.model : 'Agents use the offline rules. Pick a model in Settings > Agents.'">
           {{ app.health.runtime === 'live' ? 'Live agents' : 'Dry run' }}
         </span>
+        <button class="btn ask-ai ask-top" title="Ask the assistant about this page" aria-label="Ask the assistant about this page" @click="askAi"><span class="ai-mark" style="font-size: 10px; padding: 1px 4px">AI</span><span class="ask-label">Ask</span></button>
         <button v-if="app.can('prepare')" class="btn primary" @click="showNew = true">+ Add use case</button>
         <span class="menu-host">
           <button class="avatar" :title="app.user.name" :aria-expanded="menu === 'me'" @click="menu = menu === 'me' ? '' : 'me'">{{ initials }}</button>
@@ -169,6 +177,7 @@ onBeforeUnmount(() => {
     <RouterView :key="app.engagementId" />
 
     <NewUseCase v-if="showNew" @close="showNew = false" />
+    <AssistantPanel />
   </template>
 
   <div class="toast-host" aria-live="polite">

@@ -279,6 +279,39 @@ export const PROVIDER_DEFAULT_URLS: Record<ProviderType, string> = {
   rules: '',
 };
 
+// Ready-made settings for popular AI services. Most speak the OpenAI API, so
+// they use the OpenAI-compatible connector with the right address filled in.
+// Prices change often, so presets carry none: enter them on the Models page.
+export interface ProviderPreset {
+  id: string;
+  label: string;
+  type: Exclude<ProviderType, 'rules'>;
+  name: string;
+  baseUrl: string;
+  billed: boolean;
+  keyFrom: string;
+  needsKey: boolean;
+  hint: string;
+  examples: string[];
+}
+export const PROVIDER_PRESETS: ProviderPreset[] = [
+  { id: 'anthropic', label: 'Anthropic (Claude)', type: 'anthropic', name: 'Anthropic', baseUrl: 'https://api.anthropic.com', billed: true, keyFrom: 'console.anthropic.com', needsKey: true, hint: 'Leave the address as is unless you use a gateway.', examples: ['claude-sonnet-5-5', 'claude-haiku-4-5'] },
+  { id: 'openai', label: 'OpenAI', type: 'openai', name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', billed: true, keyFrom: 'platform.openai.com/api-keys', needsKey: true, hint: 'Test finds every model on your account.', examples: [] },
+  { id: 'azure', label: 'Azure OpenAI', type: 'openai', name: 'Azure OpenAI', baseUrl: 'https://YOUR-RESOURCE.openai.azure.com/openai/v1', billed: true, keyFrom: 'the Azure portal, under your resource\'s Keys and Endpoint', needsKey: true, hint: 'Replace YOUR-RESOURCE with your resource name. Add your deployment names as models.', examples: [] },
+  { id: 'gemini', label: 'Google Gemini', type: 'openai', name: 'Google Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', billed: true, keyFrom: 'aistudio.google.com/apikey', needsKey: true, hint: 'Google\'s OpenAI-compatible address.', examples: [] },
+  { id: 'mistral', label: 'Mistral', type: 'openai', name: 'Mistral', baseUrl: 'https://api.mistral.ai/v1', billed: true, keyFrom: 'console.mistral.ai', needsKey: true, hint: 'EU-hosted models.', examples: [] },
+  { id: 'groq', label: 'Groq', type: 'openai', name: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', billed: true, keyFrom: 'console.groq.com/keys', needsKey: true, hint: 'Fast open-weight models.', examples: [] },
+  { id: 'together', label: 'Together AI', type: 'openai', name: 'Together AI', baseUrl: 'https://api.together.xyz/v1', billed: true, keyFrom: 'api.together.ai', needsKey: true, hint: 'Hosted open-weight models.', examples: [] },
+  { id: 'openrouter', label: 'OpenRouter', type: 'openai', name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', billed: true, keyFrom: 'openrouter.ai/keys', needsKey: true, hint: 'One key for models from many companies. Model names look like company/model.', examples: [] },
+  { id: 'deepseek', label: 'DeepSeek', type: 'openai', name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', billed: true, keyFrom: 'platform.deepseek.com', needsKey: true, hint: 'Check where client data is processed before using it on client work.', examples: [] },
+  { id: 'xai', label: 'xAI (Grok)', type: 'openai', name: 'xAI', baseUrl: 'https://api.x.ai/v1', billed: true, keyFrom: 'console.x.ai', needsKey: true, hint: '', examples: [] },
+  { id: 'perplexity', label: 'Perplexity', type: 'openai', name: 'Perplexity', baseUrl: 'https://api.perplexity.ai', billed: true, keyFrom: 'perplexity.ai/settings/api', needsKey: true, hint: 'Answers come back as JSON rather than tool calls; the harness handles that. Add model names by hand.', examples: ['sonar', 'sonar-pro'] },
+  { id: 'ollama-cloud', label: 'Ollama Cloud', type: 'ollama', name: 'Ollama Cloud', baseUrl: 'https://ollama.com', billed: true, keyFrom: 'ollama.com/settings/keys', needsKey: true, hint: 'No /v1 at the end.', examples: [] },
+  { id: 'ollama-local', label: 'Ollama on this computer', type: 'openai', name: 'Ollama (local)', baseUrl: 'http://localhost:11434/v1', billed: false, keyFrom: '', needsKey: false, hint: 'Free and private: nothing leaves the machine. Start Ollama and pull a model first.', examples: [] },
+  { id: 'lmstudio', label: 'LM Studio', type: 'openai', name: 'LM Studio', baseUrl: 'http://localhost:1234/v1', billed: false, keyFrom: '', needsKey: false, hint: 'Start the local server in LM Studio first.', examples: [] },
+  { id: 'custom', label: 'Other OpenAI-compatible', type: 'openai', name: 'Custom provider', baseUrl: 'http://localhost:8000/v1', billed: false, keyFrom: '', needsKey: false, hint: 'vLLM, llama.cpp, a company gateway or anything else that speaks the OpenAI API. Usually ends in /v1.', examples: [] },
+];
+
 // USD per million tokens.
 export const ModelPrice = z.object({
   input: z.number().min(0),
@@ -425,6 +458,9 @@ export const WorkspaceSettings = z.object({
   verifierProviderId: z.string().uuid().nullable(),
   verifierModel: z.string().max(120),
   verifierLive: z.boolean(),
+  // The assistant's model. None means the offline assistant.
+  assistantProviderId: z.string().uuid().nullable(),
+  assistantModel: z.string().max(120),
 });
 export type WorkspaceSettings = z.infer<typeof WorkspaceSettings>;
 

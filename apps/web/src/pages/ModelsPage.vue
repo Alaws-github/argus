@@ -17,6 +17,17 @@ const limit = ref({ cap: '', warnAtPct: 75, pauseAtCap: true, timeZone: '' });
 const defaults = ref({ providerId: '', model: '', effort: 'medium', fallback: '' });
 // Meaning-based search for the knowledge base.
 const embed = ref({ providerId: '', model: '' });
+// The assistant's model: any enabled model provider, or the offline assistant.
+const assist = ref({ providerId: '', model: '' });
+const assistProviders = computed(() => providers.value.filter((p) => p.enabled && p.type !== 'rules'));
+async function saveAssist() {
+  try {
+    await api('/settings', { method: 'PUT', body: { assistantProviderId: assist.value.providerId || null, assistantModel: assist.value.providerId ? assist.value.model : '' } });
+    app.toast(assist.value.providerId ? `The assistant now uses ${assist.value.model}` : 'The assistant is offline');
+  } catch (e: any) {
+    app.toast(e.message, 'error');
+  }
+}
 const embedNote = ref('');
 const embedProviders = computed(() => providers.value.filter((p) => p.enabled && (p.type === 'openai' || p.type === 'ollama')));
 const EMBED_HINTS: Record<string, string> = { ollama: 'nomic-embed-text', openai: 'text-embedding-3-small' };
@@ -48,6 +59,7 @@ async function load() {
   limit.value = { cap: s.spendCapUsd == null ? '' : String(s.spendCapUsd), warnAtPct: s.warnAtPct, pauseAtCap: s.pauseAtCap, timeZone: s.timeZone };
   defaults.value = { providerId: s.defaultProviderId ?? '', model: s.defaultModel, effort: s.defaultEffort, fallback: s.defaultFallbackModel ?? '' };
   embed.value = { providerId: s.embedProviderId ?? '', model: s.embedModel ?? '' };
+  assist.value = { providerId: s.assistantProviderId ?? '', model: s.assistantModel ?? '' };
 }
 onMounted(load);
 
@@ -251,6 +263,23 @@ function onSaved() {
           <span class="hint">Takes over when a run fails or its provider is off.</span>
         </label>
         <div><button class="btn primary" @click="saveDefaults">Save</button></div>
+      </div>
+
+      <div class="card">
+        <h2>Assistant</h2>
+        <p class="small muted">The model behind <strong>Ask</strong> in the top bar and on each use case. It explains and suggests; people apply or discard every suggestion. With no model it runs offline, reporting what the harness can check by itself.</p>
+        <div class="grid" style="grid-template-columns: 1fr 1fr">
+          <label class="field"><span>Provider</span>
+            <select v-model="assist.providerId" class="select" @change="assist.model = assistProviders.find((p) => p.id === assist.providerId)?.models[0] ?? ''">
+              <option value="">Offline assistant</option>
+              <option v-for="p in assistProviders" :key="p.id" :value="p.id">{{ p.name }}</option>
+            </select>
+          </label>
+          <label class="field"><span>Model</span>
+            <select v-model="assist.model" class="select" :disabled="!assist.providerId"><option v-for="m in assistProviders.find((p) => p.id === assist.providerId)?.models ?? []" :key="m" :value="m">{{ m }}</option></select>
+          </label>
+        </div>
+        <div><button class="btn primary" @click="saveAssist">Save</button></div>
       </div>
 
       <div class="card">

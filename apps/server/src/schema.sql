@@ -536,3 +536,24 @@ CREATE TABLE IF NOT EXISTS ai_spend (
   cost_usd  numeric NOT NULL DEFAULT 0,
   at        timestamptz NOT NULL DEFAULT now()
 );
+
+-- v0.8: the assistant. One conversation per person per context (a use case or
+-- a register); suggestions are applied or discarded by a person.
+CREATE TABLE IF NOT EXISTS assistant_messages (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  engagement_id  uuid NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  user_id        uuid NOT NULL,
+  context_kind   text NOT NULL,
+  context_id     text NOT NULL DEFAULT '',
+  role           text NOT NULL,
+  text           text NOT NULL,
+  citations      jsonb NOT NULL DEFAULT '[]',
+  passages       jsonb NOT NULL DEFAULT '[]',
+  suggestions    jsonb NOT NULL DEFAULT '[]',
+  dropped        jsonb NOT NULL DEFAULT '[]',
+  model          text,
+  runtime        text,
+  author         text NOT NULL,
+  created_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS assistant_thread ON assistant_messages (engagement_id, user_id, context_kind, context_id, created_at);

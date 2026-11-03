@@ -10,6 +10,7 @@ import { grcRoutes } from './routes-grc.js';
 import { archiveRoutes } from './archive.js';
 import { kbRoutes } from './routes-kb.js';
 import { testingRoutes } from './routes-testing.js';
+import { assistantRoutes } from './routes-assistant.js';
 import { requireDifferentPerson, requirePerm } from './auth.js';
 import { MAX_PARALLEL } from './engine.js';
 import type { Db } from './db.js';
@@ -371,5 +372,6 @@ export function routes(db: Db) {
   archiveRoutes(r, db, actorOf, wrap);
   kbRoutes(r, db, actorOf, wrap);
   testingRoutes(r, db, actorOf, wrap);
+  assistantRoutes(r, db, actorOf, wrap);
   return r;
 }

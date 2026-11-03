@@ -441,3 +441,46 @@ button.switcher:hover { border-color: var(--line-hover); background: var(--hover
 .matrix th, .matrix td { border: 1px solid var(--line); padding: 6px 10px; text-align: center; }
 .matrix td.hit { background: var(--ok-bg); }
 .matrix td.danger { background: var(--danger-bg); }
+
+/* v0.8: provider presets */
+.preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.preset { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--raised); color: var(--text); cursor: pointer; font: inherit; font-size: 13px; }
+.preset:hover { border-color: var(--line-strong); }
+.preset.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-bg); }
+
+/* v0.8: the assistant */
+.assistant-backdrop { position: fixed; inset: 0; background: transparent; z-index: 60; }
+.assistant-panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); background: var(--surface); border-left: 1px solid var(--line); box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12); z-index: 61; display: flex; flex-direction: column; }
+.assistant-head { display: flex; gap: 10px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.assistant-list { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.assistant-ask { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); align-items: flex-end; }
+.assistant-ask .textarea { min-height: 44px; resize: vertical; }
+.starter { text-align: left; justify-content: flex-start; }
+.msg { display: flex; flex-direction: column; gap: 6px; max-width: 100%; }
+.msg.me { align-self: flex-end; background: var(--accent-bg); padding: 8px 12px; border-radius: 12px 12px 2px 12px; max-width: 85%; }
+.msg.ai { align-self: stretch; }
+.msg-text { white-space: pre-wrap; font-size: 14px; line-height: 1.5; }
+.suggestion { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; background: var(--raised); }
+.suggestion.applied { border-left-color: var(--ok); opacity: 0.8; }
+.suggestion.discarded { border-left-color: var(--line-strong); opacity: 0.6; }
+.suggestion.failed { border-left-color: var(--danger); }
+.ask-ai { display: inline-flex; align-items: center; gap: 6px; }
+
+/* v0.8: standards in plain English */
+.flow-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+.flow-strip > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; font-size: 13px; background: var(--surface); border-right: 1px solid var(--line); }
+.flow-strip > div:last-child { border-right: 0; }
+.flow-strip span { color: var(--muted); font-size: 12px; }
+.framework-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+.framework { gap: 8px; }
+.framework.open { grid-column: 1 / -1; }
+.big-pct { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+.big-pct.ok { color: var(--ok); } .big-pct.warn { color: var(--warn); } .big-pct.danger { color: var(--danger); }
+.coverage-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--hover); }
+.coverage-bar i.ok { background: var(--ok); } .coverage-bar i.warn { background: var(--warn); } .coverage-bar i.danger { background: var(--danger); }
+.req-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.req-list li { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+.next-step { color: var(--accent); }
+.ask-top { padding-left: 8px; padding-right: 10px; }
+@media (max-width: 1440px) { .ask-top .ask-label { display: none; } .ask-top { padding-right: 8px; } }
+@media (max-width: 1440px) { .nav a, .nav-more { padding: 6px 7px; } }

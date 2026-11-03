@@ -12,6 +12,9 @@
 | Control library | 31 reusable controls mapped to standards, used as a starting point |
 | Draft | An agent's suggestion. It has no effect until a person acts on it. A person accepts, edits or rejects each item |
 | Embedding | A list of numbers representing what a passage means, used for meaning search |
+| Assistant | The AI you can ask about a use case or page. It explains and suggests; people apply or discard every suggestion |
+| Suggestion | A change the assistant proposes. Nothing happens until a person clicks Apply, and then it runs under their name and role |
+| Proven, In progress, Gap | How far a requirement is met: a control in place, tested, passing and evidenced; a control still missing a test or evidence; or no control yet |
 | Golden dataset | Use cases with known right answers, used to test the agents before a model or rules change |
 | Regression | A golden case that passed on the previous run and fails now |
 | Verifier | An AI that checks each item of a draft against the passages it cites. Advisory only. Also called LLM-as-a-judge |

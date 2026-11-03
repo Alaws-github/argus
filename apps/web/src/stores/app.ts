@@ -49,6 +49,9 @@ export const useApp = defineStore('app', {
     authChecked: false,
     theme: ((local.get('gh.theme') as Theme) || 'system') as Theme,
     notify: local.get('gh.notify') === 'on',
+    // The assistant panel: what it is about. A card drawer sets its card;
+    // otherwise it follows the page.
+    assistant: { open: false, kind: 'engagement' as 'card' | 'risks' | 'controls' | 'issues' | 'engagement', contextId: '', label: '' },
   }),
   getters: {
     engagement: (s) => s.engagements.find((e) => e.id === s.engagementId) ?? null,
@@ -65,6 +68,9 @@ export const useApp = defineStore('app', {
     needsYou: (s) => s.cards.filter((c) => c.status === 'needs_approval' || c.status === 'failed' || (c.stage === 'intake' && c.status === 'idle')),
   },
   actions: {
+    openAssistant(kind: 'card' | 'risks' | 'controls' | 'issues' | 'engagement', contextId = '', label = '') {
+      this.assistant = { open: true, kind, contextId, label };
+    },
     async checkAuth() {
       const st = await api('/auth/state');
       this.needsSetup = st.needsSetup;

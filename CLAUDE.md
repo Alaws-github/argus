@@ -4,7 +4,7 @@ Context for Claude working on this project. Read this first.
 
 ## What this is
 
-**Governance Harness** (v0.7): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report). Six AI agents draft the work; named people make every decision; everything is written to a hash-chained audit log.
+**Governance Harness** (v0.8): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report). Six AI agents draft the work; named people make every decision; everything is written to a hash-chained audit log.
 
 It was rebuilt from **GoldenEye**, the owner's AI delivery harness, keeping its board-and-gate engine, Models page, tabbed Settings, account menu and look. GoldenEye is a reference only: never change anything in it.
 
@@ -29,6 +29,7 @@ These are the product. Any change must keep them, and the tests check them.
 12. **Drafts are decided item by item** (`decisions.ts`): approving classify, design, validate or report needs a decision on every item; only kept items reach the registers; edits and rejections need a reason; the audit log keeps the AI's original. Undecided items count as accepted only when the engine auto-advances an ungated stage.
 13. **Agents are grounded** (`kb.ts`): they get knowledge-base passages, must cite them by K-id, and `strayCitations` rejects any id they weren't given. Cited passages are snapshotted onto the draft. Drafting calls use temperature 0 (`postDeterministic` in `llm.ts`).
 14. **The Verifier is advisory** (`verifier.ts`). Its verdicts sit in `cards.verification`, never in `decisions`, and never block or allow an approval. A "supported" or "partly" verdict must quote a cited passage word for word or it is downgraded. Live checks are off by default. Billed Verifier, golden and calibration calls go into `ai_spend`, which the spend cap counts.
+15. **The assistant only suggests** (`assistant.ts`, `routes-assistant.ts`). Suggestion kinds are a whitelist (`AssistantSuggestion` in shared): decide_item, update_risk, update_control, raise_issue, rerun_agent. No approve, sign-off, conclude, accept-risk or close kinds, ever. Suggestions must name ids from the context it was shown (`checkSuggestion`). Apply replays the change through the API with the person's own cookie (and their client IP via `INTERNAL_TOKEN`), so RULES, SoD, exit criteria and audit apply unchanged.
 11. **Generic names only.** No client firm's trademarked service or product names in the app or docs. Demo data is fictional ("Client Zero", "Northshore Financial Group (demo)").
 
 ## Run it
@@ -41,6 +42,7 @@ npm run db:reset     # STOP THE APP FIRST. Rebuilds data/pglite with the demo
 npm run smoke        # 66 API checks; needs a fresh db and a running server
 npm run test:agents  # 30 drafting-agent checks incl. a cheating mock model
 npm run test:grounding # 31 checks: knowledge base, citations, decisions, meaning search, temperature
+npm run test:assistant # 27 checks: assistant offline/live, dropped citations and suggestions, apply under own role, discard, spend cap, JSON fallback
 npm run test:verifier  # 36 checks: golden runs, regressions, Verifier quote check, calibration, live checks, spend cap
 ```
 
@@ -77,15 +79,18 @@ apps/server/src
   verifier.ts     the Verifier (LLM-as-a-judge): claims from a draft, rules or live judge, quote check, verifyCard
   golden.ts       golden dataset and judge labels (seeded), golden runner and scoring, calibration (kappa, false passes)
   routes-testing.ts agent testing API and POST /cards/:id/verify
+  assistant.ts    the assistant: context builder (ids it may refer to), suggestion whitelist and checks, rules and live answers
+  routes-assistant.ts conversation per person and context; apply (replayed through the API as the person) and discard
   schema.sql      idempotent schema; versions append ALTER TABLE ... IF NOT EXISTS at the end
   seed.ts         demo engagement, providers, agents, library, inventory and eval suites
 apps/web/src
   App.vue         shell, engagement switcher, account menu (theme, notifications), archived banner
   stores/app.ts   session, engagement, cards, permissions (can() is false for writes on archived engagements)
   pages/          one file per page; components/CardDrawer.vue is the use case side panel
+  components/     AssistantPanel (Ask), StandardsTab (plain-English framework coverage), ProviderForm (presets), VerifierBar, DraftItem
   styles.css      GoldenEye design tokens (dark first, light via data-theme or system)
 docs/             plain-language docs, runbooks, diagrams (Mermaid source) and images
-scripts/          smoke.mjs, agents-test.mjs, grounding-test.mjs, verifier-test.mjs, mock-model.cjs
+scripts/          smoke.mjs, agents-test.mjs, grounding-test.mjs, verifier-test.mjs, assistant-test.mjs, mock-model.cjs
 data/             database, evidence files, secret.key (gitignored; back up together)
 ```
 
@@ -108,4 +113,4 @@ The working copy lives in `~/Documents/Governance and Risk - AI/governance-harne
 
 ## Not built yet
 
-Verifier coverage of the four drafting agents (it checks classify and design only); the AI assistant panel, Standards redesign and more provider presets (round 3); design refresh and demo walkthrough (round 4); connectors for the Evidence Collector; reading PDFs and spreadsheets as evidence; scheduled evals and drift monitoring; incident records; per-engagement membership; SSO and MFA; sign-in rate limiting.
+Verifier coverage of the four drafting agents (it checks classify and design only); the assistant streaming answers and acting on more record types; design refresh and demo walkthrough (round 4); connectors for the Evidence Collector; reading PDFs and spreadsheets as evidence; scheduled evals and drift monitoring; incident records; per-engagement membership; SSO and MFA; sign-in rate limiting.

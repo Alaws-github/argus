@@ -4,6 +4,8 @@
 
 An AI governance, risk and assurance workbench. AI use cases move across a board from Intake to Board report. Agents draft the work at each stage; a named person approves at each gate; every action lands in a hash-chained audit trail.
 
+v0.8 adds the assistant (Ask: explains and suggests; people apply or discard every suggestion, under their own permissions), a plain-English Standards tab with coverage per framework, and ready-made settings for 14 AI services. See docs/03-using-the-app.md.
+
 v0.7 adds agent testing: a golden dataset with regression tracking, and the Verifier, an advisory LLM-as-a-judge that checks each draft item against its cited sources and is measured against people's labels (agreement, kappa, false passes). See docs/04-ai-agents.md and docs/runbooks/test-the-agents.md.
 
 v0.6 grounds the agents in a knowledge base (keyword and meaning search, cited sources checked by the server), runs drafting at temperature 0, and lets reviewers accept, edit or reject each item of a draft. See docs/04-ai-agents.md.
@@ -66,6 +68,7 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run typecheck` | Type-checks server and web |
 | `npm run smoke` | API smoke test (66 checks) against a running server on a **fresh** database. It creates test accounts (password `correct-horse-9`), so reset afterwards before real use |
 | `npm run test:grounding` | Grounding tests (31 checks): knowledge base, citations, item-by-item decisions, meaning search, temperature 0. Fresh database |
+| `npm run test:assistant` | Assistant tests (27 checks): offline and live, dropped citations and suggestions, apply under the person's role, discard, spend cap, JSON fallback. Fresh database |
 | `npm run test:verifier` | Verifier and agent-testing tests (36 checks): golden runs and regressions, the quote check, calibration, live checks, spend cap. Fresh database |
 | `npm run test:agents` | Drafting-agent tests (30 checks), including a mock model that tries to cheat the guardrails. Also needs a fresh database |
 
@@ -226,10 +229,11 @@ scripts/smoke.mjs          API smoke test
 | Assessment and report | `GET /api/engagements/:id/assessment`, `PUT /api/engagements/:id/assessment/:area`, `GET /api/engagements/:id/report`, `POST /api/engagements/:id/report/sign` |
 | Knowledge base | `GET /api/engagements/:id/knowledge`, `GET /api/engagements/:id/knowledge/search?q=`, `POST /api/engagements/:id/knowledge`, `GET /api/knowledge/passages/:kid`, `DELETE /api/knowledge/:id`, `POST /api/knowledge/reindex`, `POST /api/knowledge/embeddings/test`, `POST /api/cards/:id/decisions` |
 | Agent testing | `GET /api/agent-testing`, `GET/POST /api/agent-testing/runs`, `GET /api/agent-testing/runs/:id`, `POST /api/agent-testing/cases`, `DELETE /api/agent-testing/cases/:id`, `POST /api/agent-testing/labels`, `POST /api/agent-testing/labels/import`, `DELETE /api/agent-testing/labels/:id`, `POST /api/agent-testing/calibrate`, `POST /api/cards/:id/verify` |
+| Assistant | `GET/POST /api/engagements/:id/assistant` (`kind`: card, risks, controls, issues, engagement; `contextId`), `POST /api/engagements/:id/assistant/:messageId/suggestions/:id/apply`, `.../discard` |
 | Agents and audit | `POST /api/agents/:id/kill` (`{ test: true }` to test), `GET /api/audit/verify` |
 | Health | `GET /api/health` |
 
-Realtime events: `card`, `run`, `run:event`, `risk`, `audit`, `usage`, `engagement`, `issue`, `eval`, `golden`. The socket needs a signed-in session.
+Realtime events: `card`, `run`, `run:event`, `risk`, `audit`, `usage`, `engagement`, `issue`, `eval`, `golden`, `assistant`. The socket needs a signed-in session.
 
 ## Next to build
 

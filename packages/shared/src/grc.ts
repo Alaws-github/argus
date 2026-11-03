@@ -748,3 +748,41 @@ export interface Calibration {
 
 // The bar for trusting the Verifier, shown on the page and used in the verdict.
 export const JUDGE_TRUST = { kappa: 0.6, falsePass: 0.1, minLabels: 10 } as const;
+
+// ---------------------------------------------------------------------------
+// The assistant
+// ---------------------------------------------------------------------------
+// A change the assistant proposes. Nothing happens until a person clicks
+// Apply; then it runs through the normal API under that person's name.
+const sBase = { title: z.string().trim().min(3).max(160), why: z.string().max(600).default('') };
+const level = z.number().int().min(1).max(5);
+export const AssistantSuggestion = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('decide_item'), ...sBase, cardId: z.string().uuid(), item: z.string().regex(/^(tier|summary|risk:\d+|control:\d+|challenge:\d+)$/), decision: z.enum(['accept', 'edit', 'reject']), edit: z.record(z.any()).optional(), reason: z.string().max(600).optional() }),
+  z.object({ kind: z.literal('update_risk'), ...sBase, riskId: z.string().uuid(), owner: z.string().max(120).optional(), treatment: z.enum(['mitigate', 'transfer', 'avoid', 'accept']).optional(), likelihood: level.optional(), impact: level.optional(), residual_likelihood: level.optional(), residual_impact: level.optional() }),
+  z.object({ kind: z.literal('update_control'), ...sBase, controlId: z.string().uuid(), newTitle: z.string().trim().min(3).max(200).optional(), owner: z.string().max(120).optional(), objective: z.string().max(2000).optional() }),
+  z.object({ kind: z.literal('raise_issue'), ...sBase, issueTitle: z.string().trim().min(3).max(200), description: z.string().max(4000).default(''), severity: z.enum(['critical', 'high', 'medium', 'low']).default('medium'), controlId: z.string().uuid().nullable().optional(), cardId: z.string().uuid().nullable().optional() }),
+  z.object({ kind: z.literal('rerun_agent'), ...sBase, cardId: z.string().uuid(), note: z.string().trim().min(3).max(2000) }),
+]);
+export type AssistantSuggestion = z.infer<typeof AssistantSuggestion> & {
+  id: string;
+  status: 'open' | 'applied' | 'discarded' | 'failed';
+  by?: string;
+  at?: string;
+  error?: string;
+};
+
+export interface AssistantMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  citations: string[];
+  passages: SourcePassage[];
+  suggestions: AssistantSuggestion[];
+  // What the harness threw away from the answer, and why (for example an id
+  // that isn't in the record), so nothing is dropped silently.
+  dropped: string[];
+  model: string | null;
+  runtime: 'rules' | 'live' | null;
+  author: string;
+  at: string;
+}

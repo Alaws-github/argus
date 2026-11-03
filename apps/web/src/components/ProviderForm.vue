@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Add or edit a model provider. Keys are write-only: the server never sends one back.
 import { computed, reactive, ref } from 'vue';
-import { PROVIDER_DEFAULT_URLS, PROVIDER_TYPE_LABELS, type ModelPrice, type Provider, type ProviderType } from '@gh/shared';
+import { PROVIDER_PRESETS, type ModelPrice, type Provider, type ProviderType } from '@gh/shared';
 import { api } from '../api';
 
 const props = defineProps<{ provider?: Provider }>();
@@ -11,7 +11,7 @@ const editing = !!props.provider;
 const form = reactive({
   type: (props.provider?.type ?? 'anthropic') as Exclude<ProviderType, 'rules'>,
   name: props.provider?.name ?? 'Anthropic',
-  baseUrl: props.provider?.baseUrl ?? PROVIDER_DEFAULT_URLS.anthropic,
+  baseUrl: props.provider?.baseUrl ?? PROVIDER_PRESETS[0].baseUrl,
   apiKey: '',
   showKey: false,
   billed: props.provider?.billed ?? true,
@@ -24,21 +24,22 @@ const busy = ref(false);
 const error = ref('');
 const test = ref<{ ok: boolean; message: string } | null>(null);
 
-const hints: Record<string, string> = {
-  anthropic: 'Leave as is unless you use a gateway.',
-  ollama: 'Leave as is for Ollama Cloud. No /v1 at the end.',
-  openai: 'Usually ends in /v1. LM Studio, vLLM, llama.cpp, OpenRouter, Azure OpenAI and others.',
-};
-const keyHint = computed(() =>
-  form.type === 'ollama' ? 'From ollama.com/settings/keys' : form.type === 'openai' ? 'Optional for local servers' : 'From console.anthropic.com',
-);
+// Presets fill in the connector, address and billing for a known service.
+const preset = ref(editing ? '' : 'anthropic');
+const current = computed(() => PROVIDER_PRESETS.find((p) => p.id === preset.value) ?? null);
+const keyHint = computed(() => (current.value?.keyFrom ? `From ${current.value.keyFrom}` : form.type === 'openai' ? 'Optional for local servers' : 'Paste the key'));
+const hint = computed(() => current.value?.hint ?? '');
 
-function pickType(t: Exclude<ProviderType, 'rules'>) {
-  form.type = t;
-  form.baseUrl = PROVIDER_DEFAULT_URLS[t];
-  form.name = { anthropic: 'Anthropic', ollama: 'Ollama Cloud', openai: 'Local models' }[t];
-  if (t === 'openai') form.billed = false;
-  else form.billed = true;
+function pickPreset(id: string) {
+  const p = PROVIDER_PRESETS.find((x) => x.id === id);
+  if (!p) return;
+  preset.value = id;
+  form.type = p.type;
+  form.name = p.name;
+  form.baseUrl = p.baseUrl;
+  form.billed = p.billed;
+  form.models = [...p.examples];
+  test.value = null;
 }
 
 function addModel() {
@@ -107,10 +108,10 @@ async function save() {
 <template>
   <form class="stack" @submit.prevent="save">
     <div v-if="!editing" class="field">
-      <span>Type</span>
-      <div class="segmented">
-        <button v-for="t in (['anthropic', 'ollama', 'openai'] as const)" :key="t" type="button" :class="{ on: form.type === t }" @click="pickType(t)">
-          {{ PROVIDER_TYPE_LABELS[t] }}
+      <span>Service</span>
+      <div class="preset-grid" role="radiogroup" aria-label="AI service">
+        <button v-for="p in PROVIDER_PRESETS" :key="p.id" type="button" role="radio" :aria-checked="preset === p.id" class="preset" :class="{ on: preset === p.id }" @click="pickPreset(p.id)">
+          <strong>{{ p.label }}</strong><span class="small faint">{{ p.id === 'custom' ? 'Your own server or gateway' : p.billed ? 'Paid, per use' : 'Free, runs locally' }}</span>
         </button>
       </div>
     </div>
@@ -124,10 +125,10 @@ async function save() {
     <label class="field">
       <span>Base URL</span>
       <input v-model="form.baseUrl" class="input mono" required />
-      <span class="hint">{{ hints[form.type] }}</span>
+      <span class="hint">{{ hint }}</span>
     </label>
     <label class="field">
-      <span>API key{{ form.type === 'openai' ? ' (optional)' : '' }}</span>
+      <span>API key{{ current && !current.needsKey ? ' (optional)' : '' }}</span>
       <div class="row">
         <input v-model="form.apiKey" class="input mono" :type="form.showKey ? 'text' : 'password'" autocomplete="off"
           :placeholder="provider?.key.set ? `Saved (${provider.key.masked}). Leave empty to keep it.` : 'Paste the key'" />

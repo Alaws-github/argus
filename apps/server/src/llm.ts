@@ -124,21 +124,36 @@ export async function callStructured(c: StructuredCall): Promise<StructuredResul
   }
 
   if (c.type === 'openai') {
-    const r = await postDeterministic(
-      `${base}/chat/completions`,
-      c.apiKey ? { authorization: `Bearer ${c.apiKey}` } : {},
-      {
+    const url = `${base}/chat/completions`;
+    const headers: Record<string, string> = c.apiKey ? { authorization: `Bearer ${c.apiKey}` } : {};
+    const messages = [
+      { role: 'system', content: c.system },
+      { role: 'user', content: c.user },
+    ];
+    let r: any;
+    try {
+      r = await postDeterministic(url, headers, {
         model: c.model,
         max_tokens: max,
-        messages: [
-          { role: 'system', content: c.system },
-          { role: 'user', content: c.user },
-        ],
+        messages,
         tools: [{ type: 'function', function: { name: c.toolName, description: c.toolDescription, parameters: c.schema } }],
         tool_choice: { type: 'function', function: { name: c.toolName } },
-      },
-      c.timeoutMs,
-    );
+      }, c.timeoutMs);
+    } catch (e: any) {
+      // Some services (Perplexity, some gateways) don't take tool calls. Ask for
+      // JSON matching the schema instead; the answer is validated the same way.
+      if (!/^400 /.test(e.message) || !/tool|function/i.test(e.message)) throw e;
+      const jsonMessages = [{ role: 'system', content: `${c.system}\n\nAnswer with one JSON object only, matching this schema:\n${JSON.stringify(c.schema)}` }, messages[1]];
+      try {
+        r = await postDeterministic(url, headers, {
+          model: c.model, max_tokens: max, messages: jsonMessages,
+          response_format: { type: 'json_schema', json_schema: { name: c.toolName, schema: c.schema } },
+        }, c.timeoutMs);
+      } catch (e2: any) {
+        if (!/^400 /.test(e2.message)) throw e2;
+        r = await postDeterministic(url, headers, { model: c.model, max_tokens: max, messages: jsonMessages }, c.timeoutMs);
+      }
+    }
     const msg = r.choices?.[0]?.message ?? {};
     const call = msg.tool_calls?.[0]?.function?.arguments;
     // Some local servers ignore tool_choice and answer in plain text; accept JSON there too.

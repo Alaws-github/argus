@@ -41,14 +41,17 @@ Each item of an AI draft has its reasons, its sources and Accept, Edit and Rejec
 
 The risk register with heat maps (inherent and residual), the risk appetite, and each risk's owner, treatment, residual score and acceptance. Download it as CSV.
 
-## Controls
+## Standards and controls (Controls in the top bar)
 
-Four tabs:
+The chain from a requirement to proof has five links: a **standard** asks for something, a **library control** is a reusable way to meet it, **our control** is that control in place for a use case with an owner, a **test** checks it worked on a sample, and **evidence** proves it. The page has five tabs:
 
-- **Register**: the controls in place for each use case, their owner, status, tests, evidence and open issues.
-- **Library**: 31 reusable controls, each mapped to the standards it helps meet.
-- **Statement of Applicability**: for each library control, whether it applies to this engagement and why.
-- **Traceability**: from each obligation to the evidence that it's met, with gaps marked.
+- **Standards**: start here. One card per framework (EU AI Act, ISO/IEC 42001, NIST AI RMF, Jamaica DPA, OWASP LLM Top 10) saying in plain English what it is and why it matters, with a coverage bar: how many of its requirements are **Proven** (a control in place, tested, passing and evidenced), **In progress**, a **Gap** (no control yet) or **Not applicable**. Open a card to see each requirement and the next step to close it.
+- **Our controls**: the controls in place for each use case, their owner, status, tests, evidence and open issues.
+- **Control library**: 31 reusable controls, each mapped to the standards it helps meet.
+- **What applies**: the Statement of Applicability. For each library control, whether it applies to this engagement and why.
+- **Traceability**: the detailed matrix from each obligation to the evidence that it's met.
+
+![Standards in plain English](images/standards.png)
 
 ![Statement of Applicability](images/statement-of-applicability.png)
 
@@ -97,6 +100,16 @@ Score the seven assessment areas, then read, print, download (Markdown) and sign
 ## Knowledge base (More)
 
 Everything the agents ground their drafts in: framework summaries, the control library, method guidance, and this engagement's own material. **Search as an agent would** shows which passages an agent would be given for a question. **Add a client document** uploads the client's policies and procedures (text, Markdown or CSV; paste the text of a PDF or Word file).
+
+## The assistant (Ask)
+
+**Ask** in the top bar opens the assistant about the page you're on (a register, or the engagement as a whole). **Ask about this** on a use case opens it about that use case and its draft. It answers in plain English from the record and the knowledge base, shows the passages it used, and may suggest changes: a decision on a draft item, a change to a risk or control, a new issue, or sending a draft back to its agent.
+
+A suggestion changes nothing until you click **Apply**. Applying runs it under your own name and role, exactly as if you had made the change by hand: a preparer can't apply a decision only a reviewer may make, and the change gets its normal audit entry plus a note that the assistant proposed it. **Discard** sets it aside. The assistant can never approve a stage, sign off, conclude a test, accept a risk or close an issue. Anything it gets wrong (a passage it wasn't given, a record it wasn't shown) is removed and listed under "things the harness removed".
+
+Each person has their own conversation per use case or page. With no model chosen, the offline assistant reports what the harness can check by itself. Choose its model on the Models page.
+
+![The assistant on a use case](images/assistant-card.png)
 
 ## Agent testing (More)
 

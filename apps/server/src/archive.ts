@@ -81,6 +81,7 @@ const TABLES: [string, string][] = [
   ['agents', `SELECT id, role, name, stage, enabled, provider_id, model, effort, instructions, max_cost_usd, timeout_min, killed_at, kill_tested_at FROM agents WHERE engagement_id = $1`],
   ['runs', `SELECT r.* FROM runs r JOIN cards c ON c.id = r.card_id WHERE c.engagement_id = $1 ORDER BY r.started_at`],
   ['runEvents', `SELECT ev.* FROM run_events ev JOIN runs r ON r.id = ev.run_id JOIN cards c ON c.id = r.card_id WHERE c.engagement_id = $1 ORDER BY ev.id`],
+  ['assistantMessages', `SELECT * FROM assistant_messages WHERE engagement_id = $1 ORDER BY created_at`],
 ];
 
 export function archiveRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {

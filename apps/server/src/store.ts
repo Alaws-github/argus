@@ -150,6 +150,8 @@ export const SETTING_DEFAULTS: WorkspaceSettings = {
   verifierProviderId: null,
   verifierModel: '',
   verifierLive: false,
+  assistantProviderId: null,
+  assistantModel: '',
 };
 
 export async function getSettings(q: Queryable): Promise<WorkspaceSettings> {

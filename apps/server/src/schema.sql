@@ -418,3 +418,8 @@ ALTER TABLE users       ADD COLUMN IF NOT EXISTS former_names jsonb NOT NULL DEF
 ALTER TABLE engagements ADD COLUMN IF NOT EXISTS sector text NOT NULL DEFAULT '';
 ALTER TABLE engagements ADD COLUMN IF NOT EXISTS created_by text;
 CREATE INDEX IF NOT EXISTS audit_log_at ON audit_log (at);
+
+-- v0.4.1: archive (read-only, kept) and delete (admin, after archiving)
+ALTER TABLE engagements ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+ALTER TABLE engagements ADD COLUMN IF NOT EXISTS archived_by text;
+ALTER TABLE engagements ADD COLUMN IF NOT EXISTS archive_reason text;

@@ -50,7 +50,16 @@ export const useApp = defineStore('app', {
   }),
   getters: {
     engagement: (s) => s.engagements.find((e) => e.id === s.engagementId) ?? null,
-    can: (s) => (p: Permission) => can(s.user?.role, p),
+    // An archived engagement is read-only, so its working permissions switch off.
+    // Workspace-wide permissions (people, models) are unaffected.
+    can: (s) => (p: Permission) => {
+      const archived = !!s.engagements.find((e) => e.id === s.engagementId)?.archivedAt;
+      if (archived && !['read', 'manage_users', 'manage_models'].includes(p)) return false;
+      return can(s.user?.role, p);
+    },
+    canRaw: (s) => (p: Permission) => can(s.user?.role, p),
+    active: (s) => s.engagements.filter((e) => !e.archivedAt),
+    archived: (s) => s.engagements.filter((e) => e.archivedAt),
     needsYou: (s) => s.cards.filter((c) => c.status === 'needs_approval' || c.status === 'failed' || (c.stage === 'intake' && c.status === 'idle')),
   },
   actions: {
@@ -79,7 +88,7 @@ export const useApp = defineStore('app', {
     async load() {
       this.engagements = await api('/engagements');
       const saved = local.get('gh.engagement');
-      this.engagementId = this.engagements.find((e) => e.id === saved)?.id ?? this.engagements[0]?.id ?? '';
+      this.engagementId = this.engagements.find((e) => e.id === saved)?.id ?? this.engagements.find((e) => !e.archivedAt)?.id ?? this.engagements[0]?.id ?? '';
       this.health = await api('/health');
       await this.loadBoard();
       if (wired) {
@@ -104,6 +113,10 @@ export const useApp = defineStore('app', {
         const i = this.engagements.findIndex((x) => x.id === e.id);
         if (i >= 0) this.engagements.splice(i, 1, e);
         else this.engagements.push(e);
+      });
+      socket.on('engagement:deleted', ({ id }: { id: string }) => {
+        this.engagements = this.engagements.filter((e) => e.id !== id);
+        if (this.engagementId === id) void this.switchEngagement(this.engagements.find((e) => !e.archivedAt)?.id ?? '').catch(() => {});
       });
       this.loaded = true;
     },

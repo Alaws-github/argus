@@ -56,7 +56,7 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run db:reset` | Drops everything and reseeds Client Zero (keeps `data/secret.key`) |
 | `npm run build` then `npm start` | Builds the web app and serves it from the API on port 4300 |
 | `npm run typecheck` | Type-checks server and web |
-| `npm run smoke` | API smoke test (50 checks) against a running server on a **fresh** database |
+| `npm run smoke` | API smoke test (66 checks) against a running server on a **fresh** database |
 
 To use a real Postgres instead of PGlite, set `DATABASE_URL` in `.env`.
 
@@ -69,6 +69,12 @@ Open the engagement switcher next to the logo and choose **+ Add engagement** (a
 3. **Gates**: where a reviewer or lead signs off. Intake is always gated.
 4. **Models**: Claude for every agent, the workspace default, or the built-in rules, then adjust per agent.
 5. **Review**: check, then add. You land on the new engagement's board.
+
+### Archiving and deleting
+
+In **Settings > General**, a lead can **archive** an engagement: it becomes read-only (the server refuses every change to it, and agents stop picking up its work), moves to an Archived section of the switcher, and can be **restored** at any time. Nothing is removed. **Download the full record** gives a JSON file of everything in it, including its audit entries.
+
+Once it's archived, an admin can **delete** it permanently by typing its name. That removes its use cases, risks, controls, tests, evidence (and evidence files no other engagement uses), issues, evaluations and runs. The audit log keeps every entry about it, plus who deleted it and counts of what went. The last active engagement can't be archived.
 
 Every page belongs to the engagement chosen in the switcher; the choice is remembered per browser. Settings changes the engagement later.
 
@@ -177,7 +183,7 @@ scripts/smoke.mjs          API smoke test
 
 | Area | Endpoints |
 | --- | --- |
-| Board | `GET /api/engagements`, `POST /api/engagements`, `GET /api/engagements/:id/board`, `POST /api/engagements/:id/cards`, `GET /api/cards/:key`, `POST /api/cards/:id/actions` (`approve`, `request_changes`, `retry`, `advance`, `reject`) |
+| Board | `GET /api/engagements`, `POST /api/engagements`, `POST /api/engagements/:id/archive`, `POST /api/engagements/:id/restore`, `GET /api/engagements/:id/export`, `DELETE /api/engagements/:id`, `GET /api/engagements/:id/board`, `POST /api/engagements/:id/cards`, `GET /api/cards/:key`, `POST /api/cards/:id/actions` (`approve`, `request_changes`, `retry`, `advance`, `reject`) |
 | Runs, risks, audit | `GET /api/runs`, `GET /api/runs/:id`, `GET /api/engagements/:id/risks`, `PATCH /api/risks/:id`, `GET /api/engagements/:id/overview`, `GET /api/audit` (`q`, `actor`, `action`, `ip`, `from`, `to`, `page`, `pageSize`) |
 | Settings | `GET /api/settings`, `PUT /api/settings`, `PATCH /api/engagements/:id` |
 | Providers | `GET /api/providers`, `POST /api/providers`, `PATCH /api/providers/:id`, `DELETE /api/providers/:id`, `POST /api/providers/:id/test`, `POST /api/providers/test` |
@@ -196,11 +202,13 @@ Realtime events: `card`, `run`, `run:event`, `risk`, `audit`, `usage`, `engageme
 
 ## Next to build
 
+Agents 1 to 4 can each start without client-system access: the Collector can draft the evidence request list for each control and check what's uploaded against it before connectors exist.
+
 1. **Evidence Collector** agent with read-only connectors (document stores, ticketing), filing hashed evidence against controls.
 2. **Control Tester** agent that drafts test results for a person to review; it can flag failures but never conclude a pass alone.
 3. **Report Writer** agent that drafts the board narrative from the signed-off assessment.
 4. **Monitoring**: scheduled eval runs with drift alerts, and incident records with regulator notification timelines.
-5. **Per-engagement membership**: today everyone signed in sees every engagement. Archive or delete an engagement.
+5. **Per-engagement membership**: today everyone signed in sees every engagement.
 6. **SSO** (OIDC) alongside passwords, and MFA for admins.
 
 ## Before you put it on a server

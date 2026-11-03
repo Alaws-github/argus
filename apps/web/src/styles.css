@@ -114,7 +114,7 @@ p { margin: 0; }
 .logo { width: 24px; height: 24px; border-radius: 6px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 13px; font-weight: 700; }
 .switcher { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 10px; color: var(--text); font-weight: 500; }
 .swatch { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: var(--on-accent); }
-.nav { display: flex; gap: 2px; overflow-x: auto; }
+.nav { display: flex; gap: 2px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .nav a { color: var(--muted); padding: 6px 10px; border-radius: var(--radius); font-weight: 500; white-space: nowrap; }
 .nav a:hover { color: var(--text); background: var(--hover); }
 .nav a.router-link-active { color: var(--text); background: var(--hover); }
@@ -264,7 +264,7 @@ tbody tr:hover { background: var(--hover); }
 }
 
 /* v0.2: settings tabs, two-pane agent editor, provider cards */
-.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow-x: auto; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .tabs a { color: var(--muted); padding: 8px 12px; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
 .tabs a:hover { color: var(--text); }
 .tabs a.active { color: var(--text); border-bottom-color: var(--accent); }
@@ -380,3 +380,12 @@ button.switcher:hover { border-color: var(--line-hover); background: var(--hover
 .audit-filters { grid-template-columns: 2fr 1fr 1.4fr 1fr; gap: 10px; }
 @media (width <= 820px) { .audit-filters { grid-template-columns: 1fr 1fr; } }
 @media (width <= 520px) { .audit-filters { grid-template-columns: 1fr; } }
+
+/* Horizontal-only scroll areas never show a vertical bar, and their bars stay thin. */
+.nav::-webkit-scrollbar, .tabs::-webkit-scrollbar { display: none; }
+.table-wrap, .columns-scroll, .wizard-steps { overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.archived-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: center; padding: 8px 16px; background: var(--warn-bg); color: var(--warn); border-bottom: 1px solid var(--warn-line); font-size: 13px; }
+.archived-bar a { color: var(--warn); text-decoration: underline; }
+.danger-zone { border-color: var(--danger-line); }
+.bare { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.input:disabled, .select:disabled, .textarea:disabled, fieldset:disabled .switch { opacity: 0.55; cursor: not-allowed; }

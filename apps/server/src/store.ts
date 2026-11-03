@@ -22,6 +22,9 @@ export function toEngagement(r: any): Engagement {
     reportSignedBy: r.report_signed_by ?? null,
     reportSignedAt: iso(r.report_signed_at),
     sector: r.sector ?? '',
+    archivedAt: iso(r.archived_at),
+    archivedBy: r.archived_by ?? null,
+    archiveReason: r.archive_reason ?? null,
     createdAt: iso(r.created_at)!,
   };
 }

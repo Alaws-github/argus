@@ -4,6 +4,7 @@ import { AGENT_ROLES, STAGES, UseCaseInput, riskRating, can, type Stage } from '
 import { configRoutes } from './routes-config.js';
 import { authRoutes } from './routes-auth.js';
 import { grcRoutes } from './routes-grc.js';
+import { archiveRoutes } from './archive.js';
 import { requireDifferentPerson, requirePerm } from './auth.js';
 import { MAX_PARALLEL } from './engine.js';
 import type { Db } from './db.js';
@@ -307,5 +308,6 @@ export function routes(db: Db) {
   configRoutes(r, db, actorOf, wrap);
   authRoutes(r, db, wrap);
   grcRoutes(r, db, actorOf, wrap);
+  archiveRoutes(r, db, actorOf, wrap);
   return r;
 }

@@ -176,4 +176,30 @@ const au2 = await admin('GET', '/audit?q=Harbourview&pageSize=25'); ok(au2.total
 await riley('POST', '/auth/sessions/end-all', {});
 await expectErr(riley('GET', '/engagements'), 401, 'signed out everywhere');
 
+// v0.4.1: archive and delete
+await expectErr(pat('POST', `/engagements/${hcu.id}/archive`, {}), 403, 'preparer cannot archive');
+await expectErr(lee('DELETE', `/engagements/${hcu.id}`, { confirm: hcu.name }), 403, 'lead cannot delete (admin only)');
+await expectErr(admin('DELETE', `/engagements/${hcu.id}`, { confirm: hcu.name }), 409, 'cannot delete before archiving');
+const arch = await lee('POST', `/engagements/${hcu.id}/archive`, { reason: 'Report delivered' });
+ok(!!arch.archivedAt && arch.archivedBy === 'Lee Lead', 'lead archives an engagement');
+const hcuCard = hb.cards[1];
+await expectErr(admin('POST', `/engagements/${hcu.id}/cards`, { title: 'New thing', businessOwner: 'x', description: '', dataUsed: '', affectedPeople: '', autonomy: 'assistive', vendor: '' }), 409, 'archived: cannot add a use case');
+await expectErr(admin('POST', `/cards/${hcuCard.id}/actions`, { action: 'approve' }), 409, 'archived: cannot approve a gate');
+await expectErr(admin('PATCH', `/engagements/${hcu.id}`, { name: 'Renamed' }), 409, 'archived: settings are read-only');
+await expectErr(admin('PUT', `/engagements/${hcu.id}/soa/${hsoa[0].id}`, { applicable: false, justification: 'Not needed here' }), 409, 'archived: SoA is read-only');
+const still = await admin('GET', `/engagements/${hcu.id}/board`); ok(still.cards.length === 2, 'archived: still readable');
+const rec = await admin('GET', `/engagements/${hcu.id}/export`); ok(rec.cards.length === 2 && rec.statementOfApplicability.length > 0 && rec.audit.length > 0, 'full record exports as JSON');
+await lee('POST', `/engagements/${hcu.id}/restore`, {});
+await admin('POST', `/cards/${hcuCard.id}/actions`, { action: 'approve' });
+ok(true, 'restored: writable again');
+await expectErr(lee('POST', `/engagements/${E}/archive`, {}).then(() => lee('POST', `/engagements/${hcu.id}/archive`, {})), 409, 'cannot archive the last active engagement');
+await lee('POST', `/engagements/${E}/restore`, {});
+await new Promise((r) => setTimeout(r, 3500)); // let the classifier finish the card approved above
+await lee('POST', `/engagements/${hcu.id}/archive`, {});
+await expectErr(admin('DELETE', `/engagements/${hcu.id}`, { confirm: 'readiness 2027' }), 400, 'delete needs the exact name');
+const del = await admin('DELETE', `/engagements/${hcu.id}`, { confirm: hcu.name });
+ok(del.ok && del.removed.cards === 2, `admin deletes it (removed ${JSON.stringify(del.removed)})`);
+await expectErr(admin('GET', `/engagements/${hcu.id}/board`), 404, 'deleted engagement is gone');
+const trail = await admin('GET', '/audit?action=engagement.deleted'); ok(trail.total === 1 && trail.rows[0].detail.removed.cards === 2, 'audit keeps who deleted it and what went');
+
 const v = await admin('GET', '/audit/verify'); ok(v.ok, `audit chain verifies (${JSON.stringify(v)})`);

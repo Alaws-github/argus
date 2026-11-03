@@ -53,7 +53,7 @@ async function tick(db: Db) {
 
     const { rows } = await db.query(
       `SELECT c.* FROM cards c JOIN engagements e ON e.id = c.engagement_id
-       WHERE c.status = 'queued' AND NOT e.paused ORDER BY c.updated_at ASC LIMIT 20`,
+       WHERE c.status = 'queued' AND NOT e.paused AND e.archived_at IS NULL ORDER BY c.updated_at ASC LIMIT 20`,
     );
     for (const row of rows) {
       if (free <= 0) break;

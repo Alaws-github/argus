@@ -85,12 +85,21 @@ onBeforeUnmount(() => {
             <span class="switcher-name">{{ app.engagement.name }}</span><span class="faint">▾</span>
           </button>
           <div v-if="menu === 'eng'" class="menu" role="menu" style="min-width: 260px">
-            <button v-for="e in app.engagements" :key="e.id" role="menuitemradio" :aria-checked="e.id === app.engagementId" class="eng-item" @click="pick(e.id)">
+            <button v-for="e in app.active" :key="e.id" role="menuitemradio" :aria-checked="e.id === app.engagementId" class="eng-item" @click="pick(e.id)">
               <span class="swatch" :style="{ background: e.color }">{{ e.prefix[0] }}</span>
               <span class="grow"><span>{{ e.name }}</span><span class="small faint" style="display: block">{{ e.client }}</span></span>
               <span v-if="e.id === app.engagementId" aria-hidden="true">✓</span>
             </button>
-            <template v-if="app.can('manage_engagement')">
+            <template v-if="app.archived.length">
+              <div class="menu-sep" />
+              <span class="label-caps menu-label">Archived · read-only</span>
+              <button v-for="e in app.archived" :key="e.id" role="menuitemradio" :aria-checked="e.id === app.engagementId" class="eng-item" style="opacity: 0.75" @click="pick(e.id)">
+                <span class="swatch" :style="{ background: e.color, filter: 'grayscale(1)' }">{{ e.prefix[0] }}</span>
+                <span class="grow"><span>{{ e.name }}</span><span class="small faint" style="display: block">{{ e.client }}</span></span>
+                <span v-if="e.id === app.engagementId" aria-hidden="true">✓</span>
+              </button>
+            </template>
+            <template v-if="app.canRaw('manage_engagement')">
               <div class="menu-sep" />
               <RouterLink to="/engagements/new" role="menuitem" class="faint-link">+ Add engagement</RouterLink>
             </template>
@@ -148,6 +157,11 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
+    <div v-if="app.engagement?.archivedAt" class="archived-bar" role="status">
+      <strong>{{ app.engagement.name }} is archived.</strong>
+      <span>Read-only since {{ new Date(app.engagement.archivedAt).toLocaleDateString() }}, by {{ app.engagement.archivedBy }}<template v-if="app.engagement.archiveReason">: {{ app.engagement.archiveReason }}</template>.</span>
+      <RouterLink v-if="app.canRaw('manage_engagement')" to="/settings/general">Restore or delete</RouterLink>
+    </div>
     <RouterView :key="app.engagementId" />
 
     <NewUseCase v-if="showNew" @close="showNew = false" />

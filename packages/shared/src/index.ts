@@ -426,6 +426,10 @@ export interface Engagement {
   reportSignedAt: string | null;
   sector: string;
   createdAt: string;
+  // Archived engagements are read-only and hidden from the switcher's main list.
+  archivedAt: string | null;
+  archivedBy: string | null;
+  archiveReason: string | null;
 }
 
 // Risk appetite: the highest residual score the engagement accepts without

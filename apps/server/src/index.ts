@@ -12,6 +12,7 @@ import { routes } from './routes.js';
 import { attach } from './realtime.js';
 import { startEngine } from './engine.js';
 import { withRequestContext } from './context.js';
+import { archiveGuard } from './archive.js';
 import { authMiddleware, readCookie, userFromToken } from './auth.js';
 
 const PORT = Number(process.env.PORT || 4300);
@@ -38,6 +39,7 @@ app.use((_req, res, next) => {
 app.use('/api/evidence', express.json({ limit: '15mb' }));
 app.use(express.json({ limit: '256kb' }));
 app.use('/api', authMiddleware(db));
+app.use('/api', archiveGuard(db));
 app.use('/api', routes(db));
 
 // In production the server also serves the built web app.

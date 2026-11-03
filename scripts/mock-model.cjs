@@ -1,18 +1,56 @@
 // Mock model for the drafting agents. model 'mock-good' answers within the
 // rules; 'mock-bad' tries every trick the guardrails must catch.
 const http = require('http');
+// Every structured request's temperature, so tests can check drafting is deterministic.
+const seen = [];
+// A toy embedding: hashed bag of words with a few synonyms folded together, so
+// "a person reviews" lands near "human oversight". Good enough to test plumbing.
+const SYN = { person: 'human', people: 'human', reviewer: 'oversight', reviews: 'oversight', review: 'oversight', check: 'oversight', checks: 'oversight', declines: 'decision', decisions: 'decision', loans: 'loan' };
+function embed(text) {
+  const v = new Array(128).fill(0);
+  for (let w of String(text).toLowerCase().match(/[a-z]{3,}/g) || []) {
+    w = SYN[w] || w;
+    let h = 0;
+    for (const ch of w) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    v[h % 128] += 1;
+  }
+  const n = Math.sqrt(v.reduce((s, x) => s + x * x, 0)) || 1;
+  return v.map((x) => x / n);
+}
 http.createServer((req, res) => {
   let body = '';
   req.on('data', (c) => (body += c));
   req.on('end', () => {
     res.setHeader('content-type', 'application/json');
-    if (req.url === '/v1/models') return res.end(JSON.stringify({ data: [{ id: 'mock-good' }, { id: 'mock-bad' }] }));
+    if (req.url === '/v1/models') return res.end(JSON.stringify({ data: [{ id: 'mock-good' }, { id: 'mock-bad' }, { id: 'mock-notemp' }, { id: 'mock-embed' }] }));
+    if (req.url === '/__seen') return res.end(JSON.stringify(seen));
     const b = JSON.parse(body);
+    if (req.url === '/v1/embeddings') {
+      const input = Array.isArray(b.input) ? b.input : [b.input];
+      return res.end(JSON.stringify({ data: input.map((t, index) => ({ index, embedding: embed(t) })) }));
+    }
+    seen.push({ model: b.model, temperature: b.temperature });
+    // A model that refuses a temperature setting, like some newer reasoning models.
+    if (b.model === 'mock-notemp' && b.temperature !== undefined) { res.statusCode = 400; return res.end(JSON.stringify({ error: { message: "Unsupported parameter: 'temperature'" } })); }
     const tool = b.tools[0].function.name;
     const user = b.messages.find((m) => m.role === 'user').content;
     const bad = b.model === 'mock-bad';
     let out;
-    if (tool === 'submit_test_drafts') {
+    const given = [...user.matchAll(/<source id="(K-\d+)"/g)].map((m) => m[1]);
+    if (tool === 'submit_classification') {
+      out = {
+        tierRationale: 'It shapes credit decisions about individuals.', tier: 'high', tierSources: bad ? ['K-99999'] : given.slice(0, 1),
+        oversightRationale: 'A person must decide.', oversight: 'human_in_command', factors: ['Decides about individuals'],
+        risks: [
+          { title: 'Biased approvals for a protected group', category: 'fairness', rationale: 'Credit data can encode bias.', likelihood: 4, impact: 5, sources: given.slice(1, 3) },
+          { title: 'Bureau data used beyond purpose', category: 'privacy', rationale: 'Mock rationale.', likelihood: 2, impact: 4, sources: [] },
+        ],
+        openQuestions: ['Who reviews contested decisions?'], frameworkRefs: ['NIST AI RMF MAP 1.1'],
+      };
+    } else if (tool === 'submit_controls') {
+      const risks = [...user.matchAll(/^- (.+?) \[/gm)].map((m) => m[1]);
+      out = { controls: [{ libraryCode: 'OVS-01', title: 'Human review of declines', objective: 'A person reviews every decline.', owner: 'Head of Credit', riskTitles: risks.slice(0, 2), testApproach: 'Sample 25 declines.', sources: given.slice(0, 2) }], gaps: [] };
+    } else if (tool === 'submit_test_drafts') {
       const tests = [...user.matchAll(/<test key="(T-\d+)"[\s\S]*?Evidence you may cite: ([^\n]*)/g)].map((m) => ({ key: m[1], ev: m[2] === 'none' ? [] : m[2].split(', ') }));
       out = {
         results: tests.map((t, i) => bad && i === 0

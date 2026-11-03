@@ -8,10 +8,13 @@ import { configRoutes } from './routes-config.js';
 import { authRoutes } from './routes-auth.js';
 import { grcRoutes } from './routes-grc.js';
 import { archiveRoutes } from './archive.js';
+import { kbRoutes } from './routes-kb.js';
 import { requireDifferentPerson, requirePerm } from './auth.js';
 import { MAX_PARALLEL } from './engine.js';
 import type { Db } from './db.js';
 import { logAudit } from './audit.js';
+import { DECIDED_STAGES, checkEdit, itemsFor, original, undecided } from './decisions.js';
+import { indexUseCase, scheduleEmbedding } from './kb.js';
 import { EXIT_CRITERIA, exitCriteria } from './exit-criteria.js';
 import { advance, emitCard } from './engine.js';
 import { emit } from './realtime.js';
@@ -72,8 +75,10 @@ export function routes(db: Db) {
         [req.params.id, rows[0].card_seq, key, input.title, JSON.stringify(input), actor],
       );
       await logAudit(q, actor, 'card.created', `card:${key}`, { title: input.title });
+      await indexUseCase(q, c[0]);
       return toCard(c[0]);
     });
+    scheduleEmbedding(db);
     emit('card', card);
     res.status(201).json(card);
   }));
@@ -98,6 +103,52 @@ export function routes(db: Db) {
     });
   }));
 
+  // A reviewer's decision on one item of an agent's draft, or "accept the rest".
+  r.post('/cards/:id/decisions', wrap(async (req, res) => {
+    requirePerm(req, 'approve');
+    const b = z.object({
+      item: z.string().max(40).optional(),
+      decision: z.enum(['accept', 'edit', 'reject']).optional(),
+      edit: z.record(z.any()).optional(),
+      reason: z.string().trim().max(600).optional(),
+      rest: z.literal('accept').optional(),
+    }).parse(req.body);
+    const card = await getCard(db, req.params.id);
+    if (!card) return res.status(404).json({ error: 'Card not found' });
+    if (card.status !== 'needs_approval' || !(DECIDED_STAGES as readonly string[]).includes(card.stage)) {
+      return res.status(409).json({ error: 'There is no agent draft waiting for decisions on this card' });
+    }
+    const actor = actorOf(req);
+    const now = new Date().toISOString();
+    const items = itemsFor(card);
+    const updates: Record<string, unknown> = {};
+    if (b.rest) {
+      for (const k of undecided(card)) updates[k] = { decision: 'accept', by: actor, at: now };
+    } else {
+      if (!b.item || !items.includes(b.item)) return res.status(400).json({ error: `Unknown item ${b.item ?? ''}` });
+      if (!b.decision) return res.status(400).json({ error: 'Choose accept, edit or reject' });
+      if (b.decision === 'reject' && (b.reason ?? '').length < 3) return res.status(400).json({ error: 'Say why you are rejecting it. The reason goes in the audit trail.' });
+      if (b.item === 'summary' && b.decision === 'reject') return res.status(400).json({ error: 'Edit the summary, or run the Report Writer again with a note' });
+      if (b.item === 'tier' && b.decision === 'reject') return res.status(400).json({ error: 'A use case needs a tier: accept it, or edit it to the tier you judge right' });
+      const edit = b.decision === 'edit' ? checkEdit(b.item, b.edit) : undefined;
+      if (b.decision === 'edit' && (b.reason ?? '').length < 3) return res.status(400).json({ error: 'Say why you changed it. The reason goes in the audit trail.' });
+      updates[b.item] = { decision: b.decision, ...(edit ? { edit } : {}), ...(b.reason ? { reason: b.reason } : {}), by: actor, at: now };
+    }
+    await db.tx(async (q) => {
+      for (const [k, v] of Object.entries(updates)) {
+        await q.query(
+          `UPDATE cards SET decisions = jsonb_set(decisions, ARRAY[$2::text], COALESCE(decisions->$2, '{}'::jsonb) || jsonb_build_object($3::text, $4::jsonb), true), updated_at = now() WHERE id = $1`,
+          [card.id, card.stage, k, JSON.stringify(v)],
+        );
+      }
+      await logAudit(q, actor, b.rest ? 'draft.rest_accepted' : `draft.item_${b.decision}ed`.replace('editeded', 'edited').replace('accepteded', 'accepted'), `card:${card.key}`, b.rest
+        ? { stage: card.stage, items: Object.keys(updates) }
+        : { stage: card.stage, item: b.item, ...(b.decision !== 'accept' ? { agentProposed: original(card, b.item!) } : {}), ...(b.edit ? { changedTo: (updates[b.item!] as any).edit } : {}), ...(b.reason ? { reason: b.reason } : {}) });
+    });
+    await emitCard(db, card.id);
+    res.json(await getCard(db, card.id));
+  }));
+
   const Action = z.object({
     action: z.enum(['approve', 'request_changes', 'retry', 'advance', 'reject']),
     note: z.string().max(2000).optional(),
@@ -120,6 +171,11 @@ export function routes(db: Db) {
           return conflict('Nothing is waiting for approval on this card');
         }
         if (card.stage === 'intake') requireDifferentPerson(req, card.createdBy, 'use case');
+        // Human in the loop: every item of an agent's draft gets a decision first.
+        if ((DECIDED_STAGES as readonly string[]).includes(card.stage)) {
+          const left = undecided(card);
+          if (left.length) return conflict(`Decide each item of the draft first: ${left.length} left. Accept, edit or reject each one, or accept the rest.`);
+        }
         await advance(db, card.id, actor, note);
         break;
 
@@ -312,5 +368,6 @@ export function routes(db: Db) {
   authRoutes(r, db, wrap);
   grcRoutes(r, db, actorOf, wrap);
   archiveRoutes(r, db, actorOf, wrap);
+  kbRoutes(r, db, actorOf, wrap);
   return r;
 }

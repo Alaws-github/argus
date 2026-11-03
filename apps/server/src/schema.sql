@@ -428,3 +428,38 @@ ALTER TABLE engagements ADD COLUMN IF NOT EXISTS archive_reason text;
 ALTER TABLE cards ADD COLUMN IF NOT EXISTS drafts jsonb NOT NULL DEFAULT '{}';
 ALTER TABLE tests ADD COLUMN IF NOT EXISTS draft jsonb;
 UPDATE agents SET name = 'Review assistant' WHERE role = 'independent_reviewer' AND name = 'Independent reviewer';
+
+-- v0.6: knowledge base for grounding agents (retrieval-augmented generation).
+-- engagement_id NULL means shared by every engagement (framework summaries,
+-- library controls, methodology). The embedding column is added in code,
+-- only when the vector extension is available.
+CREATE SEQUENCE IF NOT EXISTS kb_seq;
+CREATE TABLE IF NOT EXISTS kb_sources (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  engagement_id  uuid REFERENCES engagements(id) ON DELETE CASCADE,
+  kind           text NOT NULL,
+  title          text NOT NULL,
+  ref            text NOT NULL DEFAULT '',
+  origin         text NOT NULL DEFAULT 'built_in',
+  evidence_id    uuid REFERENCES evidence(id) ON DELETE CASCADE,
+  card_id        uuid REFERENCES cards(id) ON DELETE CASCADE,
+  created_by     text NOT NULL DEFAULT 'system',
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (kind, ref, engagement_id)
+);
+CREATE TABLE IF NOT EXISTS kb_chunks (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  number         integer NOT NULL DEFAULT nextval('kb_seq'),
+  source_id      uuid NOT NULL REFERENCES kb_sources(id) ON DELETE CASCADE,
+  engagement_id  uuid REFERENCES engagements(id) ON DELETE CASCADE,
+  ord            integer NOT NULL DEFAULT 0,
+  heading        text NOT NULL DEFAULT '',
+  text           text NOT NULL,
+  tsv            tsvector GENERATED ALWAYS AS (to_tsvector('english', heading || ' ' || text)) STORED,
+  embed_model    text
+);
+CREATE INDEX IF NOT EXISTS kb_chunks_tsv ON kb_chunks USING gin (tsv);
+CREATE INDEX IF NOT EXISTS kb_chunks_eng ON kb_chunks (engagement_id);
+
+-- Per-item human decisions on agent drafts (accept, edit, reject).
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS decisions jsonb NOT NULL DEFAULT '{}';

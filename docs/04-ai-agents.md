@@ -4,6 +4,38 @@ Six agents do the drafting. Each works on one stage. None of them can approve an
 
 ![How a draft becomes a decision](images/guardrails.png)
 
+## Drafts you decide on, item by item
+
+Each draft is shown as a list of items: each proposed risk, each control, each challenge, the tier, the board summary. Every item shows:
+
+- **what the agent proposes**, in one line;
+- **why**, in the agent's words;
+- **its sources**: the knowledge-base passages it rests on. Click one to read exactly what the agent read. An item with no source is flagged **No source cited**, so you know to check it yourself;
+- **your decision**: **Accept**, **Edit** (change it and say why) or **Reject** (say why).
+
+![A classification draft with its sources](images/ai-draft-classification.png)
+
+The stage can't be approved until every item has a decision. **Accept the rest** accepts whatever you haven't changed. Only what you keep goes into the registers, as you edited it. The audit log records what the AI proposed, what you changed it to and why, so anyone can see where people overruled the AI.
+
+![Edited and rejected items](images/ai-draft-decisions.png)
+
+On the board, a card with a draft waiting says what the AI proposes and how many items are decided:
+
+![The board shows AI drafts](images/board-ai-line.png)
+
+## Grounding: the knowledge base
+
+Agents don't answer from memory alone. Before drafting, each one searches the **knowledge base** and is given the passages it finds:
+
+- **Framework requirements**: summaries of the EU AI Act, ISO/IEC 42001, NIST AI RMF, the Jamaica DPA and OWASP, in the harness's own words, with links to the official text.
+- **The control library**: each control's objective, test procedure and expected evidence.
+- **Method**: how to tier a use case, choose oversight, size a sample, judge evidence and write a finding.
+- **The client's own material**: the engagement description, each use case, evidence notes and text files, and documents you upload (such as the client's AI policy).
+
+The agent must cite the passages it relies on. The harness checks every citation, and a draft that cites a passage it wasn't given is rejected. Drafting also runs at temperature 0, so the same input gives the same draft.
+
+Search works two ways: by **keyword**, which finds exact terms like "Article 14" and needs no setup, and by **meaning**, which finds passages that say the same thing in other words. Meaning search needs an embedding model: see [Set up meaning search](runbooks/set-up-meaning-search.md).
+
 ## The six agents
 
 | Agent | Stage | What it drafts | On by default |

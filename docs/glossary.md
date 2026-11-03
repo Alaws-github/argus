@@ -10,7 +10,11 @@
 | Card | A use case on the board |
 | Control | Something in place to reduce a risk, such as "a person reviews every loan decline before it's sent" |
 | Control library | 31 reusable controls mapped to standards, used as a starting point |
-| Draft | An agent's suggestion. It has no effect until a person acts on it |
+| Draft | An agent's suggestion. It has no effect until a person acts on it. A person accepts, edits or rejects each item |
+| Embedding | A list of numbers representing what a passage means, used for meaning search |
+| Grounding | Giving an agent trusted passages to work from, and making it cite them |
+| Knowledge base | The passages agents draw on: framework summaries, the control library, method guidance and the client's own material |
+| Passage (K-number) | One piece of the knowledge base, cited by agents as K-12 and so on |
 | Engagement | One piece of work for one client |
 | Evaluation (eval) | A set of test questions put to an AI system, with checks on its answers |
 | Evidence | A file, link or note that shows a control works. Fingerprinted when collected |

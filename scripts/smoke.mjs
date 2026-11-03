@@ -49,9 +49,11 @@ const waitFor = async (pred, label, ms = 30000) => { const t0 = Date.now(); whil
 let c = await waitFor((c) => c.stage === 'classify' && c.status === 'needs_approval', 'classify');
 ok(!!c.classification, `classified tier=${c.classification?.tier ?? c.tier}`);
 await expectErr(pat('POST', `/cards/${card.id}/actions`, { action: 'approve' }), 403, 'preparer cannot approve gate');
+await riley('POST', `/cards/${card.id}/decisions`, { rest: 'accept' });
 await riley('POST', `/cards/${card.id}/actions`, { action: 'approve', note: 'Tier agreed' });
 c = await waitFor((c) => c.stage === 'design' && c.status === 'needs_approval', 'design');
 ok(c.design?.controls?.length > 0, `design proposed ${c.design?.controls?.length} controls`);
+await riley('POST', `/cards/${card.id}/decisions`, { rest: 'accept' });
 await riley('POST', `/cards/${card.id}/actions`, { action: 'approve', note: 'Controls agreed' });
 c = await waitFor((c) => c.stage !== 'design', 'after design');
 console.log('   now at', c.stage, c.status, c.statusNote ?? '');

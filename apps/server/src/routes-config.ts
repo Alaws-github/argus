@@ -13,6 +13,7 @@ import { emit } from './realtime.js';
 import { RULES_VERSION as CLASSIFIER_RULES } from './agents/risk-classifier.js';
 import { RULES_VERSION as DESIGNER_RULES } from './agents/control-designer.js';
 import { ensureAgents } from './seed.js';
+import { ensureEngagementKnowledge, indexEngagement, scheduleEmbedding } from './kb.js';
 import { DRAFTING_RULES_VERSIONS } from './agents/drafting.js';
 import { AGENT_SELECT, getEngagement, getSettings, monthSpend, toAgent, toEngagement } from './store.js';
 import { PROVIDER_SELECT, apiKeyOf, discoverModels, getProviderRow, toProvider } from './providers.js';
@@ -274,6 +275,9 @@ export function configRoutes(r: Router, db: Db, actorOf: (req: Request) => strin
     });
     const { rows } = await db.query(`SELECT * FROM engagements WHERE id = $1`, [id]);
     const e = toEngagement(rows[0]);
+    await ensureEngagementKnowledge(db, e.id).catch(() => {});
+    if (req.method === 'PATCH' && (req.body as any)?.about !== undefined) await indexEngagement(db, { id: e.id, name: e.name, client: e.client, about: e.about });
+    scheduleEmbedding(db);
     emit('engagement', e);
     res.status(201).json(e);
   }));
@@ -306,6 +310,9 @@ export function configRoutes(r: Router, db: Db, actorOf: (req: Request) => strin
     });
     const { rows } = await db.query(`SELECT * FROM engagements WHERE id = $1`, [before.id]);
     const e = toEngagement(rows[0]);
+    await ensureEngagementKnowledge(db, e.id).catch(() => {});
+    if (req.method === 'PATCH' && (req.body as any)?.about !== undefined) await indexEngagement(db, { id: e.id, name: e.name, client: e.client, about: e.about });
+    scheduleEmbedding(db);
     emit('engagement', e);
     res.json(e);
   }));

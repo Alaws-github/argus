@@ -20,15 +20,20 @@ export async function exitCriteria(q: Queryable, card: Card): Promise<string[]> 
       if (!card.classification) unmet.push('there is no classification yet');
       break;
     case 'design': {
-      if (!card.design) {
-        // Designed by hand: check the register directly.
-        const { rows } = await q.query(
-          `SELECT k.title FROM risks k WHERE k.card_id = $1 AND k.likelihood * k.impact >= 12
-           AND NOT EXISTS (SELECT 1 FROM control_risks cr WHERE cr.risk_id = k.id)`,
-          [card.id],
-        );
-        if (rows.length) unmet.push(`${rows.length} risk${rows.length === 1 ? ' has' : 's have'} no control: ${rows.map((r: any) => r.title).join(', ')}`);
+      // Every risk scoring 12 or more needs a control, counting only controls
+      // the reviewer kept (or the register, once controls exist).
+      const { rows: high } = await q.query(
+        `SELECT k.title FROM risks k WHERE k.card_id = $1 AND k.likelihood * k.impact >= 12
+         AND NOT EXISTS (SELECT 1 FROM control_risks cr WHERE cr.risk_id = k.id)`,
+        [card.id],
+      );
+      let open = high.map((r: any) => r.title as string);
+      if (card.design) {
+        const d = card.decisions?.design ?? {};
+        const covered = new Set(card.design.controls.flatMap((c, i) => (d[`control:${i}`]?.decision === 'reject' ? [] : c.riskTitles)));
+        open = open.filter((t) => !covered.has(t));
       }
+      if (open.length) unmet.push(`${open.length} high risk${open.length === 1 ? ' has' : 's have'} no control: ${open.join(', ')}`);
       break;
     }
     case 'evidence': {

@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { ControlDesign, riskRating } from '@gh/shared';
 import type { Queryable } from '../db.js';
 import { callStructured } from '../llm.js';
+import { mergePassages, pinned, search, snapshot, sourcesBlock, strayCitations } from '../kb.js';
+import type { SourcePassage } from '@gh/shared';
 import type { AgentContext, AgentResult, Log } from './types.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -21,7 +23,7 @@ const SCHEMA = {
       type: 'array',
       items: {
         type: 'object',
-        required: ['libraryCode', 'title', 'objective', 'owner', 'riskTitles', 'testApproach'],
+        required: ['libraryCode', 'title', 'objective', 'owner', 'riskTitles', 'testApproach', 'sources'],
         properties: {
           libraryCode: { type: ['string', 'null'] },
           title: { type: 'string' },
@@ -29,6 +31,7 @@ const SCHEMA = {
           owner: { type: 'string' },
           riskTitles: { type: 'array', items: { type: 'string' } },
           testApproach: { type: 'string' },
+          sources: { type: 'array', items: { type: 'string' } },
         },
       },
     },
@@ -54,10 +57,30 @@ export async function runControlDesigner(ctx: AgentContext, q: Queryable, log: L
   await log('step', `Read ${card.key}'s profile, its ${risks.length} approved risks and ${lib.length} library controls`);
   if (!risks.length) throw new Error('This use case has no approved risks yet. Approve its classification first.');
   if (feedback) await log('step', `Reviewer feedback to address: ${feedback}`);
+  // Retrieve, for each risk, the library controls and obligations that fit it.
+  let passages: SourcePassage[] = [];
+  for (const r of risks) passages = mergePassages(passages, await search(q as any, card.engagementId, `${r.category.replace('_', ' ')} ${r.title}`, { limit: 3, kinds: ['control', 'framework'] }));
+  passages = mergePassages(passages, await search(q as any, card.engagementId, `${card.title} ${card.useCase.description}`, { limit: 2, kinds: ['client'] }));
+  await log('step', `Retrieved ${passages.length} passages from the knowledge base`);
+  const finish = (output: ControlDesign) => {
+    const cited = output.controls.flatMap((c) => c.sources);
+    const stray = strayCitations(cited, passages);
+    if (stray.length) throw new Error(`The design cites sources it wasn't given: ${stray.join(', ')}`);
+    output.sourcePassages = snapshot(passages, cited);
+    return output;
+  };
 
   if (ctx.provider.type === 'rules') {
     await log('step', 'Provider is the built-in rules: mapping risk categories to library controls offline');
-    const output = ControlDesign.parse(dryRun(card.tier, card.useCase.businessOwner, risks, lib));
+    const draft = ControlDesign.parse(dryRun(card.tier, card.useCase.businessOwner, risks, lib));
+    // Each control cites its own library passage and the obligations that name it.
+    for (const c of draft.controls) {
+      if (!c.libraryCode) continue;
+      const hits = mergePassages(await pinned(q, [c.libraryCode]), await search(q as any, card.engagementId, c.libraryCode, { limit: 2, kinds: ['framework'] }));
+      passages = mergePassages(passages, hits);
+      c.sources = hits.slice(0, 3).map((h) => h.id);
+    }
+    const output = finish(draft);
     await log('output', `${output.controls.length} controls proposed, ${output.gaps.length} gaps noted`);
     return { output, tokensIn: 0, tokensOut: 0, tokensCached: 0 };
   }
@@ -80,6 +103,8 @@ export async function runControlDesigner(ctx: AgentContext, q: Queryable, log: L
     '<control_library>',
     ...lib.map((l) => `- ${l.code} ${l.title} (${l.type}; treats ${l.risk_categories.join(', ')}): ${l.objective}`),
     '</control_library>',
+    '',
+    sourcesBlock(passages),
     feedback ? `\n<reviewer_feedback>${feedback}</reviewer_feedback>` : '',
   ].join('\n');
   const system = ctx.instructions.trim() ? `${RULES}\n\n## Engagement instructions\n\nThese add to the rules above and never override them.\n\n${ctx.instructions.trim()}` : RULES;
@@ -94,7 +119,8 @@ export async function runControlDesigner(ctx: AgentContext, q: Queryable, log: L
   const codes = new Set(lib.map((l) => l.code));
   const unknown = parsed.data.controls.filter((c) => c.libraryCode && !codes.has(c.libraryCode));
   if (unknown.length) throw new Error(`The design cites library codes that don't exist: ${unknown.map((c) => c.libraryCode).join(', ')}`);
-  await log('step', 'Validated the design against the schema and the library');
+  finish(parsed.data);
+  await log('step', 'Validated the design against the schema, the library and its citations');
   await log('output', `${parsed.data.controls.length} controls proposed, ${parsed.data.gaps.length} gaps noted`);
   return { output: parsed.data, tokensIn: res.tokensIn, tokensOut: res.tokensOut, tokensCached: res.tokensCached };
 }
@@ -129,7 +155,9 @@ function dryRun(tier: string | null, owner: string, risks: Risk[], lib: Lib[]): 
       owner: OWNER_BY_DOMAIN[l.domain] ?? (owner || 'Business owner'),
       riskTitles: [...rs],
       testApproach: l.test_procedure,
+      sources: [] as string[],
     })),
+    sourcePassages: [],
     gaps: [...gaps, 'Rule-based dry run: objectives and test steps are the library defaults. Tailor them, or re-run on a model.'].slice(0, 8),
   };
 }

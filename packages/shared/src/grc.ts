@@ -167,11 +167,13 @@ export const ControlDesign = z.object({
         owner: z.string().max(120),
         riskTitles: z.array(z.string().max(200)).min(1),
         testApproach: z.string().max(800),
+        sources: z.array(z.string().max(12)).max(6).default([]),
       }),
     )
     .min(1)
     .max(16),
   gaps: z.array(z.string().max(300)).max(8),
+  sourcePassages: z.array(z.any()).default([]),
 });
 export type ControlDesign = z.infer<typeof ControlDesign>;
 
@@ -493,11 +495,13 @@ export const EvidencePlan = z.object({
         status: z.enum(['received', 'partial', 'missing']),
         evidenceKeys: z.array(z.string().max(20)).max(10),
         note: z.string().max(400),
+        sources: z.array(z.string().max(12)).max(6).default([]),
       }),
     )
     .min(1)
     .max(40),
   summary: z.string().max(800),
+  sourcePassages: z.array(z.any()).default([]),
 });
 export type EvidencePlan = z.infer<typeof EvidencePlan>;
 
@@ -511,13 +515,14 @@ export const TestDrafts = z.object({
         exceptions: z.number().int().min(0).max(100000),
         evidenceKeys: z.array(z.string().max(20)).max(10),
         reasoning: z.string().max(1000),
+        sources: z.array(z.string().max(12)).max(6).default([]),
       }),
     )
     .max(40),
   summary: z.string().max(800),
 });
 export type TestDrafts = z.infer<typeof TestDrafts>;
-export type TestDraft = TestDrafts['results'][number] & { runId: string; model: string; at: string; used?: boolean };
+export type TestDraft = TestDrafts['results'][number] & { runId: string; model: string; at: string; used?: boolean; sourcePassages?: SourcePassage[] };
 
 export const ReviewChallenges = z.object({
   challenges: z
@@ -555,3 +560,31 @@ export interface DraftMeta {
   model: string;
   at: string;
 }
+
+// ---------------------------------------------------------------------------
+// Grounding and human decisions on drafts
+// ---------------------------------------------------------------------------
+// A knowledge-base passage an agent was given and may cite as K-<number>.
+export interface SourcePassage {
+  id: string;
+  title: string;
+  kind: string;
+  ref: string;
+  text: string;
+  score: number;
+}
+
+// A person's decision on one item of an agent's draft. Edits keep the agent's
+// original alongside, so the audit trail shows what the AI proposed and what
+// the person changed.
+export const ItemDecision = z.object({
+  decision: z.enum(['accept', 'edit', 'reject']),
+  edit: z.record(z.any()).optional(),
+  reason: z.string().max(600).optional(),
+  by: z.string().optional(),
+  at: z.string().optional(),
+});
+export type ItemDecision = z.infer<typeof ItemDecision>;
+
+// Keyed by stage, then by what is being decided: 'tier', 'risk:0', 'control:2', 'challenge:1'.
+export type CardDecisions = Partial<Record<string, Record<string, ItemDecision>>>;

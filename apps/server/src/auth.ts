@@ -98,6 +98,7 @@ const RULES: [string, RegExp, Permission][] = [
   ['*', /^\/users/, 'manage_users'],
   ['*', /^\/auth\/(sessions|me)/, 'read'],
   ['POST', /^\/engagements$/, 'manage_engagement'],
+  ['POST', /^\/knowledge\/(reindex|embeddings)/, 'manage_models'],
   ['POST', /^\/engagements\/[^/]+\/(archive|restore)$/, 'manage_engagement'],
   ['GET', /^\/engagements\/[^/]+\/export$/, 'manage_engagement'],
   ['DELETE', /^\/engagements\/[^/]+$/, 'manage_users'],

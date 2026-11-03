@@ -11,6 +11,7 @@ import { costUsd, priceFor } from './agents/pricing.js';
 import { runRiskClassifier, RULES_VERSION as CLASSIFIER_RULES } from './agents/risk-classifier.js';
 import { runControlDesigner, RULES_VERSION as DESIGNER_RULES } from './agents/control-designer.js';
 import { exitCriteria } from './exit-criteria.js';
+import { decided } from './decisions.js';
 import { DRAFTING_RULES_VERSIONS, runControlTester, runEvidenceCollector, runReportWriter, runReviewAssistant } from './agents/drafting.js';
 import type { AgentContext } from './agents/types.js';
 
@@ -171,7 +172,7 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
       engagementAbout: engagementAbout,
       timeoutMs: agent.timeoutMin * 60_000,
     };
-    if ((agent.role as AgentRole) === 'risk_classifier') return runRiskClassifier(ctx, log);
+    if ((agent.role as AgentRole) === 'risk_classifier') return runRiskClassifier(ctx, db, log);
     if ((agent.role as AgentRole) === 'control_designer') return runControlDesigner(ctx, db, log);
     if ((agent.role as AgentRole) === 'evidence_collector') return runEvidenceCollector(ctx, db, log);
     if ((agent.role as AgentRole) === 'control_tester') return runControlTester(ctx, db, log);
@@ -228,7 +229,8 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
         } else if (agent.role === 'control_tester') {
           // Each draft sits on its test. It isn't a result: a person concludes the test.
           for (const d of output.results) {
-            await q.query(`UPDATE tests SET draft = $2 WHERE id = $1 AND status NOT IN ('passed','failed')`, [output.byTest[d.testKey], JSON.stringify({ ...d, ...meta })]);
+            const sp = output.sourcePassages.filter((p: any) => d.sources.includes(p.id));
+            await q.query(`UPDATE tests SET draft = $2 WHERE id = $1 AND status NOT IN ('passed','failed')`, [output.byTest[d.testKey], JSON.stringify({ ...d, sourcePassages: sp, ...meta })]);
           }
           const proposed = { pass: 0, fail: 0, cannot_assess: 0 } as Record<string, number>;
           for (const d of output.results) proposed[d.proposed]++;
@@ -244,19 +246,19 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
           detail = { headline: output.headline };
         }
         await q.query(
-          `UPDATE cards SET drafts = jsonb_set(drafts, $2, $3::jsonb, true), cost_usd = cost_usd + $4, status = 'needs_approval', status_note = $5, updated_at = now() WHERE id = $1`,
-          [card.id, `{${card.stage}}`, JSON.stringify(draft), cost, note],
+          `UPDATE cards SET drafts = jsonb_set(drafts, $2, $3::jsonb, true), decisions = decisions - $6, cost_usd = cost_usd + $4, status = 'needs_approval', status_note = $5, updated_at = now() WHERE id = $1`,
+          [card.id, `{${card.stage}}`, JSON.stringify(draft), cost, note, card.stage],
         );
         await logAudit(q, agent.name, 'run.succeeded', `card:${card.key}`, { ...detail, draftOnly: true, costUsd: cost, model: target.model });
         return true;
       }
       const note = isDesign ? `Proposed ${output.controls.length} controls. Review and approve.` : `Proposed tier: ${output.tier}. Review and approve.`;
       if (isDesign) {
-        await q.query(`UPDATE cards SET design=$2, cost_usd=cost_usd+$3, status=$4, status_note=$5, updated_at=now() WHERE id=$1`, [
+        await q.query(`UPDATE cards SET design=$2, decisions = decisions - 'design', cost_usd=cost_usd+$3, status=$4, status_note=$5, updated_at=now() WHERE id=$1`, [
           card.id, JSON.stringify(output), cost, gated ? 'needs_approval' : 'idle', gated ? note : null,
         ]);
       } else {
-        await q.query(`UPDATE cards SET classification=$2, tier=$3, cost_usd=cost_usd+$4, status=$5, status_note=$6, updated_at=now() WHERE id=$1`, [
+        await q.query(`UPDATE cards SET classification=$2, tier=$3, decisions = decisions - 'classify', cost_usd=cost_usd+$4, status=$5, status_note=$6, updated_at=now() WHERE id=$1`, [
           card.id, JSON.stringify(output), output.tier, cost, gated ? 'needs_approval' : 'idle', gated ? note : null,
         ]);
       }
@@ -298,15 +300,22 @@ export async function advance(db: Db, cardId: string, actor: string, note?: stri
     if (unmet.length) throw Object.assign(new Error(`Exit criteria not met: ${unmet.join('; ')}`), { status: 409, unmet });
 
     if (card.stage === 'design' && card.design) await applyDesign(q, card, actor);
-    // The approved board summary records who approved it; the agent never does.
+    // The approved board summary records who approved it (and any edits); the agent never does.
     if (card.stage === 'report' && card.drafts?.report) {
+      const d = card.decisions?.report?.summary;
       await q.query(`UPDATE cards SET drafts = jsonb_set(drafts, '{report}', drafts->'report' || $2::jsonb) WHERE id = $1`, [
-        card.id, JSON.stringify({ approvedBy: actor, approvedAt: new Date().toISOString() }),
+        card.id, JSON.stringify({ ...(d?.decision === 'edit' ? { ...d.edit, editedBy: d.by } : {}), approvedBy: actor, approvedAt: new Date().toISOString() }),
       ]);
     }
 
     if (card.stage === 'classify' && card.classification) {
-      for (const r of card.classification.risks) {
+      const d = card.decisions?.classify ?? {};
+      // The reviewer may have changed the tier or oversight model.
+      const tier = decided({ tier: card.classification.tier, oversight: card.classification.oversight }, d.tier)!;
+      if (tier.tier !== card.classification.tier) await q.query(`UPDATE cards SET tier = $2 WHERE id = $1`, [card.id, tier.tier]);
+      // Only accepted risks enter the register, as the reviewer edited them.
+      const kept = card.classification.risks.map((r, i) => decided(r, d[`risk:${i}`])).filter((r): r is NonNullable<typeof r> => !!r);
+      for (const r of kept) {
         await q.query(
           `INSERT INTO risks (engagement_id, card_id, title, category, likelihood, impact, owner, rationale) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
           [card.engagementId, card.id, r.title, r.category, r.likelihood, r.impact, card.useCase.businessOwner || '', r.rationale],
@@ -335,7 +344,9 @@ export async function advance(db: Db, cardId: string, actor: string, note?: stri
 // they treat, each with a draft test built from its test approach.
 async function applyDesign(q: Queryable, card: Card, actor: string) {
   const { rows: risks } = await q.query(`SELECT id, title FROM risks WHERE card_id = $1`, [card.id]);
-  for (const c of card.design!.controls) {
+  const d = card.decisions?.design ?? {};
+  const kept = card.design!.controls.map((c, i) => decided(c, d[`control:${i}`])).filter((c): c is NonNullable<typeof c> => !!c);
+  for (const c of kept) {
     const { rows: lib } = c.libraryCode ? await q.query(`SELECT id, type, frequency, refs FROM control_library WHERE code = $1`, [c.libraryCode]) : { rows: [] as any[] };
     const { rows } = await q.query(
       `INSERT INTO controls (engagement_id, card_id, library_id, title, objective, type, frequency, owner, status, framework_refs)
@@ -351,5 +362,5 @@ async function applyDesign(q: Queryable, card: Card, actor: string) {
       [card.engagementId, rows[0].id, `Test: ${c.title}`, c.testApproach, 'The control operated as designed for every item sampled'],
     );
   }
-  await logAudit(q, actor, 'controls.created_from_design', `card:${card.key}`, { controls: card.design!.controls.length });
+  await logAudit(q, actor, 'controls.created_from_design', `card:${card.key}`, { proposed: card.design!.controls.length, created: kept.length });
 }

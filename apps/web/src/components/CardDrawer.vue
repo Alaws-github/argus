@@ -10,6 +10,8 @@ import {
 import { api, ago, money, socket } from '../api';
 import { useApp } from '../stores/app';
 import StatusPill from './StatusPill.vue';
+import DraftItem, { type EditField } from './DraftItem.vue';
+import { draftProgress } from '../lib/drafts';
 
 const props = defineProps<{ cardKey: string }>();
 const emit = defineEmits<{ close: [] }>();
@@ -84,9 +86,65 @@ async function act(action: string, requireNote = false) {
 const agentName = computed(() => Object.values(AGENT_ROLES).find((a) => a.stage === card.value?.stage)?.name ?? 'agent');
 const drafting = computed(() => !!card.value && DRAFT_STAGES.includes(card.value.stage) && mode.value === 'review');
 const draft = computed<any>(() => (card.value ? (card.value.drafts as any)?.[card.value.stage] : null));
-const DRAFT_TITLES: Record<string, string> = { evidence: 'Evidence request list', test: 'Draft test results', validate: 'Challenges before sign-off', report: 'Draft board summary' };
+const DRAFT_ASK: Record<string, string> = {
+  evidence: 'collect what is still missing from the client, then move on. The list is a guide; the exit criteria decide when every control has evidence.',
+  test: 'nothing here directly. A preparer concludes each test on the Testing page, starting from the draft if it holds up; someone else reviews it.',
+  validate: 'weigh each challenge. Accept it if you agree and it has been dealt with; reject it if it does not apply, saying why. Then sign off.',
+  report: 'whether this summary is right for the board. Edit it if needed; only a summary you approve goes into the readiness report.',
+};
+const DRAFT_HEADLINE = computed(() => {
+  const c = card.value;
+  const d: any = draft.value;
+  if (!c || !d) return '';
+  if (c.stage === 'evidence') return `The Evidence Collector lists ${d.requests.length} items to collect, ${d.requests.filter((r: any) => r.status !== 'received').length} still needed`;
+  if (c.stage === 'test') return `The Control Tester drafted results for ${d.count} tests`;
+  if (c.stage === 'validate') return `The Review assistant raises ${d.challenges.length} challenges, ${d.challenges.filter((x: any) => x.severity === 'high').length} high`;
+  return 'The Report Writer drafted the board summary';
+});
 const statusPill: Record<string, string> = { received: 'green', partial: 'amber', missing: 'coral' };
 const canApprove = computed(() => app.can('approve'));
+const progress = computed(() => (card.value ? draftProgress(card.value) : { total: 0, decided: 0 }));
+const decisionsHere = computed<Record<string, any>>(() => (card.value?.decisions as any)?.[card.value!.stage] ?? {});
+const lastModel = computed(() => runs.value.find((r) => r.stage === card.value?.stage)?.model ?? draft.value?.model ?? '');
+const passagesHere = computed<any[]>(() => {
+  const c = card.value;
+  if (!c) return [];
+  if (c.stage === 'classify') return c.classification?.sourcePassages ?? [];
+  if (c.stage === 'design') return c.design?.sourcePassages ?? [];
+  return (c.drafts as any)?.[c.stage]?.sourcePassages ?? [];
+});
+
+// A reviewer's decision on one item of the draft, or "accept the rest".
+async function decide(item: string | null, decision?: 'accept' | 'edit' | 'reject', edit?: Record<string, unknown>, reason?: string) {
+  error.value = '';
+  try {
+    await api(`/cards/${card.value!.id}/decisions`, { method: 'POST', body: item ? { item, decision, edit, reason } : { rest: 'accept' } });
+    await load();
+  } catch (e: any) {
+    error.value = e.message;
+  }
+}
+
+const LEVELS = [1, 2, 3, 4, 5].map((n) => ({ value: n, label: String(n) }));
+const RISK_FIELDS: EditField[] = [
+  { key: 'title', label: 'Risk', type: 'text' },
+  { key: 'likelihood', label: 'Likelihood (1-5)', type: 'select', options: LEVELS },
+  { key: 'impact', label: 'Impact (1-5)', type: 'select', options: LEVELS },
+];
+const TIER_FIELDS: EditField[] = [
+  { key: 'tier', label: 'Tier', type: 'select', options: Object.entries(TIER_LABELS).map(([value, label]) => ({ value, label })) },
+  { key: 'oversight', label: 'Oversight', type: 'select', options: Object.entries(OVERSIGHT_LABELS).map(([value, label]) => ({ value, label })) },
+];
+const CONTROL_FIELDS: EditField[] = [
+  { key: 'title', label: 'Control', type: 'text' },
+  { key: 'owner', label: 'Owner', type: 'text' },
+  { key: 'objective', label: 'Objective', type: 'textarea' },
+];
+const SUMMARY_FIELDS: EditField[] = [
+  { key: 'headline', label: 'Headline', type: 'text' },
+  { key: 'summary', label: 'Summary', type: 'textarea' },
+];
+const editedOr = (item: string, base: Record<string, unknown>) => ({ ...base, ...(decisionsHere.value[item]?.edit ?? {}) });
 const ownCard = computed(() => !!card.value?.createdBy && card.value.createdBy === app.user?.name);
 
 const autonomyLabel: Record<string, string> = {
@@ -142,44 +200,68 @@ const actionLabel = (a: string) =>
         <p v-else class="small faint">{{ ownCard ? 'You added this use case, so someone else decides whether to take it forward.' : 'A reviewer or lead decides this.' }}</p>
       </div>
 
-      <div v-else-if="mode === 'review' && card.stage === 'classify' && card.classification" class="notice">
-        <div class="spread">
-          <h3>Review the proposed classification</h3>
-          <span class="tier" :class="card.classification.tier">{{ TIER_LABELS[card.classification.tier] }} risk</span>
+      <div v-else-if="mode === 'review' && card.stage === 'classify' && card.classification" class="ai-draft">
+        <div class="ai-draft-head">
+          <span class="ai-mark">AI</span>
+          <div class="grow">
+            <h3>The Risk Classifier proposes: {{ TIER_LABELS[card.classification.tier] }} risk, {{ card.classification.risks.length }} starting risks</h3>
+            <p class="small muted">Drafted on {{ lastModel }} from the use case profile and {{ passagesHere.length }} knowledge-base passages.</p>
+          </div>
         </div>
-        <p class="small">{{ card.classification.tierRationale }}</p>
-        <p class="small"><strong>{{ OVERSIGHT_LABELS[card.classification.oversight] }}.</strong> {{ card.classification.oversightRationale }}</p>
-        <p class="small muted">Approving adds the {{ card.classification.risks.length }} risks below to the risk register, owned by the business owner.</p>
-        <textarea v-model="note" class="textarea" placeholder="Note to the Risk Classifier (needed to request changes)" />
-        <div v-if="canApprove" class="row">
-          <button class="btn primary" :disabled="busy" @click="act('approve')">Approve classification</button>
-          <button class="btn" :disabled="busy" @click="act('request_changes', true)">Request changes</button>
+        <div class="decide-box">
+          <strong>What you decide:</strong> is the tier right, and which risks belong in the register? Accept, edit or reject each one. Only what you keep is added, owned by {{ card.useCase.businessOwner || 'the business owner' }}.
         </div>
-        <p v-else class="small faint">A reviewer or lead approves this.</p>
+        <div class="stack" style="gap: 4px">
+          <div class="spread small"><span>{{ progress.decided }} of {{ progress.total }} decided</span><button v-if="canApprove && progress.decided < progress.total" class="btn sm ghost" @click="decide(null)">Accept the rest</button></div>
+          <div class="progress"><i :style="{ width: `${progress.total ? (progress.decided / progress.total) * 100 : 0}%` }" /></div>
+        </div>
+
+        <span class="label-caps">Tier and oversight</span>
+        <DraftItem
+          :title="`${TIER_LABELS[editedOr('tier', { tier: card.classification.tier }).tier as keyof typeof TIER_LABELS]} risk · ${OVERSIGHT_LABELS[editedOr('tier', { oversight: card.classification.oversight }).oversight as keyof typeof OVERSIGHT_LABELS]}`"
+          :meta="card.classification.factors.join(' · ')"
+          :why="`${card.classification.tierRationale} ${card.classification.oversightRationale}`"
+          :sources="card.classification.tierSources" :passages="passagesHere" :decision="decisionsHere.tier" :can-decide="canApprove"
+          :fields="TIER_FIELDS" :values="{ tier: card.classification.tier, oversight: card.classification.oversight }" no-reject
+          @decide="(d, e, r) => decide('tier', d, e, r)"
+        />
+        <span class="label-caps">Risks for the register</span>
+        <DraftItem
+          v-for="(r, i) in card.classification.risks" :key="i"
+          :title="String(editedOr(`risk:${i}`, r).title)"
+          :meta="`${r.category.replace('_', ' ')} · likelihood ${editedOr(`risk:${i}`, r).likelihood} × impact ${editedOr(`risk:${i}`, r).impact} = ${Number(editedOr(`risk:${i}`, r).likelihood) * Number(editedOr(`risk:${i}`, r).impact)}`"
+          :why="r.rationale" :sources="r.sources" :passages="passagesHere" :decision="decisionsHere[`risk:${i}`]" :can-decide="canApprove"
+          :fields="RISK_FIELDS" :values="{ title: r.title, likelihood: r.likelihood, impact: r.impact }"
+          @decide="(d, e, rs) => decide(`risk:${i}`, d, e, rs)"
+        />
+        <div v-if="card.classification.openQuestions.length" class="small"><strong>Questions for the business owner</strong><ul class="plain"><li v-for="q in card.classification.openQuestions" :key="q">{{ q }}</li></ul></div>
+
+        <textarea v-model="note" class="textarea" style="min-height: 60px" placeholder="Note for the record, or what the Risk Classifier should reconsider (needed to run it again)" />
+        <div v-if="canApprove" class="row" style="flex-wrap: wrap">
+          <button class="btn primary" :disabled="busy || progress.decided < progress.total" :title="progress.decided < progress.total ? 'Decide each item first' : ''" @click="act('approve')">Approve and add to the register</button>
+          <button class="btn" :disabled="busy" @click="act('request_changes', true)">Run it again</button>
+        </div>
+        <p v-else class="small faint">A reviewer or lead decides on this draft.</p>
       </div>
 
-      <div v-else-if="drafting && draft" class="notice">
-        <div class="spread">
-          <h3>{{ DRAFT_TITLES[card.stage] }}</h3>
-          <span class="badge">Drafted by {{ agentName }} · {{ draft.model }}</span>
+      <div v-else-if="drafting && draft" class="ai-draft">
+        <div class="ai-draft-head">
+          <span class="ai-mark">AI</span>
+          <div class="grow">
+            <h3>{{ DRAFT_HEADLINE }}</h3>
+            <p class="small muted">Drafted by the {{ agentName }} on {{ draft.model }}{{ passagesHere.length ? ` with ${passagesHere.length} knowledge-base passages` : '' }}.</p>
+          </div>
         </div>
-        <p class="small muted">An agent's draft. It doesn't conclude, review or approve anything; a named person decides.</p>
+        <div class="decide-box"><strong>What you decide:</strong> {{ DRAFT_ASK[card.stage] }}</div>
 
         <template v-if="card.stage === 'evidence'">
           <p class="small">{{ draft.summary }}</p>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Control</th><th>Ask for</th><th>Status</th></tr></thead>
-              <tbody>
-                <tr v-for="(r, i) in draft.requests" :key="i">
-                  <td class="mono small">{{ r.controlKey }}</td>
-                  <td class="small">{{ r.item }}<div class="faint">From {{ r.askFrom }}. {{ r.why }}</div><div v-if="r.note" class="faint">{{ r.note }}</div></td>
-                  <td><span class="pill" :class="statusPill[r.status]">{{ r.status }}</span><div class="mono small faint">{{ r.evidenceKeys.join(' ') }}</div></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <RouterLink class="small" to="/testing/evidence">Open the evidence vault</RouterLink>
+          <DraftItem
+            v-for="(r, i) in draft.requests" :key="i"
+            :title="`${r.controlKey} · ${r.item}`" :meta="`Ask ${r.askFrom} · ${r.status}${r.evidenceKeys.length ? ` · matched ${r.evidenceKeys.join(', ')}` : ''}`"
+            :why="`${r.why}${r.note ? ` ${r.note}` : ''}`" :sources="r.sources" :passages="passagesHere" :can-decide="false"
+          />
+          <RouterLink class="btn sm" to="/testing/evidence" style="align-self: flex-start">Open the evidence vault</RouterLink>
         </template>
 
         <template v-else-if="card.stage === 'test'">
@@ -193,19 +275,29 @@ const actionLabel = (a: string) =>
 
         <template v-else-if="card.stage === 'validate'">
           <div class="row"><span class="badge" :class="draft.readiness === 'ready' ? 'ok' : 'danger'">{{ draft.readiness === 'ready' ? 'Looks ready' : 'Not ready' }}</span><span class="small">{{ draft.summary }}</span></div>
-          <ul class="plain small" style="max-height: 280px; overflow: auto">
-            <li v-for="(c, i) in draft.challenges" :key="i"><span class="sev" :class="c.severity">{{ c.severity }}</span> {{ c.finding }}</li>
-          </ul>
-          <p class="small faint">The Review assistant isn't a second-line review. You sign off as the reviewer, having weighed these.</p>
+          <div class="stack" style="gap: 4px">
+            <div class="spread small"><span>{{ progress.decided }} of {{ progress.total }} weighed</span><button v-if="canApprove && progress.decided < progress.total" class="btn sm ghost" @click="decide(null)">Accept the rest</button></div>
+            <div class="progress"><i :style="{ width: `${progress.total ? (progress.decided / progress.total) * 100 : 0}%` }" /></div>
+          </div>
+          <DraftItem
+            v-for="(c, i) in draft.challenges" :key="i"
+            :title="c.finding" :meta="`${c.severity} · ${c.area}${c.ref ? ` · ${c.ref}` : ''}`"
+            :sources="[]" :decision="decisionsHere[`challenge:${i}`]" :can-decide="canApprove"
+            @decide="(d, e, r) => decide(`challenge:${i}`, d, e, r)"
+          />
+          <p class="small faint">Accept means you agree and it has been dealt with; reject means it doesn't apply, with your reason. The Review assistant isn't a second-line review; you are.</p>
         </template>
 
         <template v-else-if="card.stage === 'report'">
-          <strong>{{ draft.headline }}</strong>
-          <p v-for="(para, i) in draft.summary.split(/\n+/)" :key="i" class="small">{{ para }}</p>
+          <DraftItem
+            :title="String(editedOr('summary', draft).headline)" meta="Board summary"
+            :why="String(editedOr('summary', draft).summary)" :sources="['data']" :passages="[{ id: 'data', title: 'Figures from the harness', kind: 'client', ref: '', text: 'Every number in this summary was checked against the harness\'s own records before you saw it.', score: 1 }]"
+            :decision="decisionsHere.summary" :can-decide="canApprove" :fields="SUMMARY_FIELDS" :values="{ headline: draft.headline, summary: draft.summary }" no-reject
+            @decide="(d, e, r) => decide('summary', d, e, r)"
+          />
           <div v-if="draft.keyFigures.length" class="row" style="flex-wrap: wrap"><span v-for="k in draft.keyFigures" :key="k.label" class="badge">{{ k.label }}: {{ k.value }}</span></div>
           <div v-if="draft.recommendations.length" class="small"><strong>Recommendations</strong><ul class="plain"><li v-for="r in draft.recommendations" :key="r">{{ r }}</li></ul></div>
           <div v-if="draft.decisionsNeeded.length" class="small"><strong>Decisions for the board</strong><ul class="plain"><li v-for="r in draft.decisionsNeeded" :key="r">{{ r }}</li></ul></div>
-          <p class="small faint">Every figure was checked against the harness's data before you saw it.</p>
         </template>
 
         <div v-if="exit.required.length" class="small">
@@ -213,40 +305,45 @@ const actionLabel = (a: string) =>
           <ul class="check-list" style="margin-top: 4px"><li v-for="r in exit.required" :key="r" :class="{ no: exit.unmet.length > 0 }">{{ r }}</li></ul>
           <p v-if="exit.unmet.length" class="error" style="margin-top: 4px">Not met yet: {{ exit.unmet.join('; ') }}</p>
         </div>
-        <textarea v-model="note" class="textarea" :placeholder="`Note for the record, or what the ${agentName} should look at again (needed to run it again)`" />
+        <textarea v-model="note" class="textarea" style="min-height: 60px" :placeholder="`Note for the record, or what the ${agentName} should look at again (needed to run it again)`" />
         <div v-if="canApprove" class="row" style="flex-wrap: wrap">
-          <button class="btn primary" :disabled="busy || exit.unmet.length > 0" @click="act('approve')">{{ card.stage === 'validate' ? 'Sign off' : card.stage === 'report' ? 'Approve the summary' : 'Move on' }}</button>
+          <button class="btn primary" :disabled="busy || exit.unmet.length > 0 || progress.decided < progress.total" @click="act('approve')">{{ card.stage === 'validate' ? 'Sign off' : card.stage === 'report' ? 'Approve the summary' : 'Move on' }}</button>
           <button class="btn" :disabled="busy" @click="act('request_changes', true)">Run it again</button>
         </div>
         <p v-else class="small faint">A reviewer or lead moves this on.</p>
       </div>
 
-      <div v-else-if="mode === 'review' && card.stage === 'design' && card.design" class="notice">
-        <h3>Review the proposed controls</h3>
-        <p class="small">The Control Designer proposes {{ card.design.controls.length }} controls from the library. Approving adds them to the control register with a draft test each, linked to the risks they treat.</p>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Control</th><th>Treats</th></tr></thead>
-            <tbody>
-              <tr v-for="c in card.design.controls" :key="c.title">
-                <td>
-                  <span v-if="c.libraryCode" class="code">{{ c.libraryCode }} </span><strong>{{ c.title }}</strong>
-                  <div class="small muted">{{ c.objective }}</div>
-                  <div class="small faint">Owner: {{ c.owner }}</div>
-                  <details class="small"><summary class="faint" style="cursor: pointer">Test approach</summary>{{ c.testApproach }}</details>
-                </td>
-                <td class="small">{{ c.riskTitles.join('; ') }}</td>
-              </tr>
-            </tbody>
-          </table>
+      <div v-else-if="mode === 'review' && card.stage === 'design' && card.design" class="ai-draft">
+        <div class="ai-draft-head">
+          <span class="ai-mark">AI</span>
+          <div class="grow">
+            <h3>The Control Designer proposes {{ card.design.controls.length }} controls</h3>
+            <p class="small muted">Drafted on {{ lastModel }} from the approved risks, the control library and {{ passagesHere.length }} knowledge-base passages.</p>
+          </div>
         </div>
-        <div v-if="card.design.gaps.length" class="small"><strong>Gaps noted</strong><ul class="plain"><li v-for="g in card.design.gaps" :key="g">{{ g }}</li></ul></div>
-        <textarea v-model="note" class="textarea" placeholder="Note to the Control Designer (needed to request changes)" />
-        <div v-if="canApprove" class="row">
-          <button class="btn primary" :disabled="busy" @click="act('approve')">Approve controls</button>
-          <button class="btn" :disabled="busy" @click="act('request_changes', true)">Request changes</button>
+        <div class="decide-box">
+          <strong>What you decide:</strong> which controls should be in place for this use case. Each one you keep goes into the control register with a draft test, linked to the risks it treats. Every risk scoring 12 or more must keep at least one control.
         </div>
-        <p v-else class="small faint">A reviewer or lead approves this.</p>
+        <div class="stack" style="gap: 4px">
+          <div class="spread small"><span>{{ progress.decided }} of {{ progress.total }} decided</span><button v-if="canApprove && progress.decided < progress.total" class="btn sm ghost" @click="decide(null)">Accept the rest</button></div>
+          <div class="progress"><i :style="{ width: `${progress.total ? (progress.decided / progress.total) * 100 : 0}%` }" /></div>
+        </div>
+        <DraftItem
+          v-for="(c, i) in card.design.controls" :key="i"
+          :title="`${c.libraryCode ? c.libraryCode + ' · ' : ''}${editedOr(`control:${i}`, c).title}`"
+          :meta="`Owner: ${editedOr(`control:${i}`, c).owner} · treats ${c.riskTitles.join('; ')}`"
+          :why="String(editedOr(`control:${i}`, c).objective)" :sources="c.sources" :passages="passagesHere" :decision="decisionsHere[`control:${i}`]" :can-decide="canApprove"
+          :fields="CONTROL_FIELDS" :values="{ title: c.title, owner: c.owner, objective: c.objective }"
+          @decide="(d, e, r) => decide(`control:${i}`, d, e, r)"
+        />
+        <div v-if="card.design.gaps.length" class="small"><strong>Gaps the agent noted</strong><ul class="plain"><li v-for="g in card.design.gaps" :key="g">{{ g }}</li></ul></div>
+        <p v-if="exit.unmet.length" class="error small">{{ exit.unmet.join('; ') }}</p>
+        <textarea v-model="note" class="textarea" style="min-height: 60px" placeholder="Note for the record, or what the Control Designer should reconsider (needed to run it again)" />
+        <div v-if="canApprove" class="row" style="flex-wrap: wrap">
+          <button class="btn primary" :disabled="busy || progress.decided < progress.total || exit.unmet.length > 0" @click="act('approve')">Approve and create the controls</button>
+          <button class="btn" :disabled="busy" @click="act('request_changes', true)">Run it again</button>
+        </div>
+        <p v-else class="small faint">A reviewer or lead decides on this draft.</p>
       </div>
 
       <div v-else-if="mode === 'failed'" class="notice danger">

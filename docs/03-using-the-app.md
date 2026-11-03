@@ -33,9 +33,9 @@ The engagement at a glance: how many use cases are classified, open high risks, 
 
 One column per stage, one card per use case. Filters show what needs you, what's running and high-risk cases. Click a card to open its panel, which shows the decision it's waiting for:
 
-![Reviewing a proposed classification](images/review-classification.png)
+![A classification draft, item by item](images/ai-draft-classification.png)
 
-![Reviewing proposed controls](images/review-control-design.png)
+Each item of an AI draft has its reasons, its sources and Accept, Edit and Reject buttons. See [The AI agents](04-ai-agents.md#drafts-you-decide-on-item-by-item).
 
 ## Risks
 
@@ -94,10 +94,14 @@ Score the seven assessment areas, then read, print, download (Markdown) and sign
 
 ![Readiness report](images/readiness-report.png)
 
+## Knowledge base (More)
+
+Everything the agents ground their drafts in: framework summaries, the control library, method guidance, and this engagement's own material. **Search as an agent would** shows which passages an agent would be given for a question. **Add a client document** uploads the client's policies and procedures (text, Markdown or CSV; paste the text of a PDF or Word file).
+
 ## More: Runs, Settings, Models
 
 - **Runs**: every agent run, with the model used, cost and a step-by-step log.
 - **Settings**: General (details, pause, archive or delete), Workflow & gates, Agents (model, limits, instructions, kill switch).
-- **Models**: the AI providers, their keys (stored encrypted, shown masked), models, prices and the monthly spending limit.
+- **Models**: the AI providers, their keys (stored encrypted, shown masked), models, prices, the monthly spending limit, and the embedding model for meaning search.
 
 ![Agent settings](images/settings-agents.png)

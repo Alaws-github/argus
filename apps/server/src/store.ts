@@ -45,6 +45,7 @@ export function toCard(r: any): Card {
     design: r.design ?? null,
     createdBy: r.created_by ?? null,
     drafts: r.drafts ?? {},
+    decisions: r.decisions ?? {},
     latestRunId: r.latest_run_id,
     costUsd: num(r.cost_usd),
     createdAt: iso(r.created_at)!,
@@ -141,6 +142,8 @@ export const SETTING_DEFAULTS: WorkspaceSettings = {
   defaultModel: 'claude-sonnet-5-5',
   defaultEffort: 'medium',
   defaultFallbackModel: null,
+  embedProviderId: null,
+  embedModel: '',
 };
 
 export async function getSettings(q: Queryable): Promise<WorkspaceSettings> {

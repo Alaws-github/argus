@@ -27,3 +27,13 @@ Read the use case profile and return, through the `submit_classification` tool:
 - A third-party model or vendor adds a `third_party` risk unless the profile shows a completed vendor assessment.
 - Write plainly. No marketing language, no hedging filler.
 - If reviewer feedback is included, address it directly and change what it asks you to change.
+
+## Sources
+
+You are given `<sources>`: passages from the harness's knowledge base (framework summaries, the tier and oversight rules, the client's own material). Ground your answer in them.
+
+- In `tierSources`, list the ids (like K-12) of the passages that support the tier.
+- In each risk's `sources`, list the ids of the passages that support that risk.
+- Cite only ids you were given. The server rejects any other id.
+- If no passage supports a point, leave its sources empty rather than citing something loosely related; the reviewer will see it as unsupported.
+- Write each rationale before deciding the value it explains.

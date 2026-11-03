@@ -47,8 +47,10 @@ async function openPostgres(url: string): Promise<Db> {
 
 async function openPglite(): Promise<Db> {
   const { PGlite } = await import('@electric-sql/pglite');
+  // pgvector ships inside PGlite and works offline; it powers meaning-based search.
+  const { vector } = await import('@electric-sql/pglite/vector');
   mkdirSync(DATA_DIR, { recursive: true });
-  const db = new PGlite(resolve(DATA_DIR, 'pglite'));
+  const db = new PGlite(resolve(DATA_DIR, 'pglite'), { extensions: { vector } });
   await db.waitReady;
   return {
     kind: 'pglite',
@@ -69,7 +71,16 @@ export async function getDb(): Promise<Db> {
   return instance;
 }
 
+// True once the vector extension is installed; without it search is keyword only.
+export let vectorAvailable = false;
+
 export async function migrate(db: Db) {
   const sql = readFileSync(resolve(here, 'schema.sql'), 'utf8');
   await db.exec(sql);
+  try {
+    await db.exec(`CREATE EXTENSION IF NOT EXISTS vector; ALTER TABLE kb_chunks ADD COLUMN IF NOT EXISTS embedding vector;`);
+    vectorAvailable = true;
+  } catch (e: any) {
+    console.warn(`[db] vector extension unavailable, so search is keyword only: ${e.message}`);
+  }
 }

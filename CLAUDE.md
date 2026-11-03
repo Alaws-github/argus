@@ -4,7 +4,7 @@ Context for Claude working on this project. Read this first.
 
 ## What this is
 
-**Governance Harness** (v0.5): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report). Six AI agents draft the work; named people make every decision; everything is written to a hash-chained audit log.
+**Governance Harness** (v0.6): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report). Six AI agents draft the work; named people make every decision; everything is written to a hash-chained audit log.
 
 It was rebuilt from **GoldenEye**, the owner's AI delivery harness, keeping its board-and-gate engine, Models page, tabbed Settings, account menu and look. GoldenEye is a reference only: never change anything in it.
 
@@ -26,6 +26,8 @@ These are the product. Any change must keep them, and the tests check them.
 8. **Agent rules live in `apps/server/src/agents/prompts/*.md`.** Engagement instructions are appended after them, never replacing them. Each run stores the rules file's sha256 prefix (`rules_version`).
 9. **Archived engagements are read-only**, enforced centrally by `archiveGuard` in `archive.ts`. A new write route must map to its engagement there if its URL doesn't start with `/engagements/:id/`.
 10. **New agents ship switched off** (`ON_BY_DEFAULT` in `seed.ts`).
+12. **Drafts are decided item by item** (`decisions.ts`): approving classify, design, validate or report needs a decision on every item; only kept items reach the registers; edits and rejections need a reason; the audit log keeps the AI's original. Undecided items count as accepted only when the engine auto-advances an ungated stage.
+13. **Agents are grounded** (`kb.ts`): they get knowledge-base passages, must cite them by K-id, and `strayCitations` rejects any id they weren't given. Cited passages are snapshotted onto the draft. Drafting calls use temperature 0 (`postDeterministic` in `llm.ts`).
 11. **Generic names only.** No client firm's trademarked service or product names in the app or docs. Demo data is fictional ("Client Zero", "Northshore Financial Group (demo)").
 
 ## Run it
@@ -36,7 +38,8 @@ npm run dev          # web http://localhost:5173, API http://localhost:4300
 npm run typecheck
 npm run db:reset     # STOP THE APP FIRST. Rebuilds data/pglite with the demo
 npm run smoke        # 66 API checks; needs a fresh db and a running server
-npm run test:agents  # 28 drafting-agent checks incl. a cheating mock model
+npm run test:agents  # 30 drafting-agent checks incl. a cheating mock model
+npm run test:grounding # 31 checks: knowledge base, citations, decisions, meaning search, temperature
 ```
 
 - **PGlite (the embedded Postgres) allows one process at a time.** Running `db:reset` while the app runs damages the database; `reset.ts` now refuses if port 4300 answers.
@@ -66,6 +69,9 @@ apps/server/src
   llm.ts          one structured-output call for Anthropic, OpenAI-compatible and Ollama; callText for evals;
                   the offline "rules" provider and demo-chatbot-v1
   library.ts      31 controls, 23 obligations, eval templates, the demo chatbot
+  kb.ts           knowledge base: ingest, chunk, hybrid search (full text + pgvector, rank fusion), pluggable embeddings
+  routes-kb.ts    knowledge API: browse, search, upload, reindex, test embeddings
+  decisions.ts    per-item human decisions on agent drafts
   schema.sql      idempotent schema; versions append ALTER TABLE ... IF NOT EXISTS at the end
   seed.ts         demo engagement, providers, agents, library, inventory and eval suites
 apps/web/src
@@ -97,4 +103,4 @@ The working copy lives in `~/Documents/Governance and Risk - AI/governance-harne
 
 ## Not built yet
 
-Connectors for the Evidence Collector; reading PDFs and spreadsheets as evidence; scheduled evals and drift monitoring; incident records; per-engagement membership; SSO and MFA; sign-in rate limiting.
+The Verifier (LLM-as-a-judge with a golden dataset; round 2); the AI assistant panel, Standards redesign and more provider presets (round 3); design refresh and demo walkthrough (round 4); connectors for the Evidence Collector; reading PDFs and spreadsheets as evidence; scheduled evals and drift monitoring; incident records; per-engagement membership; SSO and MFA; sign-in rate limiting.

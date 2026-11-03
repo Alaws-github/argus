@@ -30,6 +30,18 @@ const MAX_TOKENS: Record<Effort, number> = { low: 2000, medium: 4000, high: 8000
 
 const trimSlash = (u: string) => u.replace(/\/+$/, '');
 
+// Drafting is set to temperature 0 so the same input gives the same draft.
+// Some newer models refuse a temperature setting; then we retry without it.
+async function postDeterministic(url: string, headers: Record<string, string>, body: Record<string, any>, timeoutMs: number, where: 'top' | 'options' = 'top') {
+  const withTemp = where === 'top' ? { ...body, temperature: 0 } : { ...body, options: { ...(body.options ?? {}), temperature: 0 } };
+  try {
+    return await post(url, headers, withTemp, timeoutMs);
+  } catch (e: any) {
+    if (/^400 /.test(e.message) && /temperature/i.test(e.message)) return post(url, headers, body, timeoutMs);
+    throw e;
+  }
+}
+
 async function post(url: string, headers: Record<string, string>, body: unknown, timeoutMs: number) {
   const res = await fetch(url, {
     method: 'POST',
@@ -62,7 +74,7 @@ export async function callStructured(c: StructuredCall): Promise<StructuredResul
 
   if (c.type === 'anthropic') {
     if (!c.apiKey) throw new Error('This provider has no API key. Add one on Models & keys.');
-    const r = await post(
+    const r = await postDeterministic(
       `${base}/v1/messages`,
       { 'x-api-key': c.apiKey, 'anthropic-version': '2023-06-01' },
       {
@@ -87,7 +99,7 @@ export async function callStructured(c: StructuredCall): Promise<StructuredResul
 
   if (c.type === 'ollama') {
     if (!c.apiKey) throw new Error('This provider has no API key. Add one on Models & keys.');
-    const r = await post(
+    const r = await postDeterministic(
       `${base}/api/chat`,
       { authorization: `Bearer ${c.apiKey}` },
       {
@@ -101,6 +113,7 @@ export async function callStructured(c: StructuredCall): Promise<StructuredResul
         ],
       },
       c.timeoutMs,
+      'options',
     );
     return {
       input: parseJsonText(r.message?.content ?? ''),
@@ -111,7 +124,7 @@ export async function callStructured(c: StructuredCall): Promise<StructuredResul
   }
 
   if (c.type === 'openai') {
-    const r = await post(
+    const r = await postDeterministic(
       `${base}/chat/completions`,
       c.apiKey ? { authorization: `Bearer ${c.apiKey}` } : {},
       {

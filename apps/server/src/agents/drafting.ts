@@ -7,9 +7,10 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { z } from 'zod';
-import { BoardSummary, EvidencePlan, ReviewChallenges, TestDrafts, riskRating } from '@gh/shared';
+import { BoardSummary, EvidencePlan, ReviewChallenges, TestDrafts, riskRating, type SourcePassage } from '@gh/shared';
 import { DATA_DIR, type Queryable } from '../db.js';
 import { callStructured } from '../llm.js';
+import { mergePassages, pinned, snapshot, sourcesBlock, strayCitations } from '../kb.js';
 import type { AgentContext, AgentResult, Log } from './types.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -24,16 +25,16 @@ const RULES = {
 export const DRAFTING_RULES_VERSIONS: Record<string, string> = Object.fromEntries(Object.entries(RULES).map(([k, v]) => [k, version(v)]));
 
 // ------------------------------------------------------------------ reading
-interface Ctl { id: string; key: string; title: string; objective: string; owner: string; status: string; expected: string; procedure: string }
+interface Ctl { id: string; key: string; title: string; objective: string; owner: string; status: string; expected: string; procedure: string; code: string | null }
 interface Ev { id: string; key: string; title: string; kind: string; controlId: string | null; testId: string | null; text: string }
 
 async function controlsOf(q: Queryable, cardId: string): Promise<Ctl[]> {
   const { rows } = await q.query(
-    `SELECT c.id, c.number, c.title, c.objective, c.owner, c.status, COALESCE(l.evidence_expected, '') AS expected, COALESCE(l.test_procedure, '') AS procedure
+    `SELECT c.id, c.number, c.title, c.objective, c.owner, c.status, COALESCE(l.evidence_expected, '') AS expected, COALESCE(l.test_procedure, '') AS procedure, l.code
      FROM controls c LEFT JOIN control_library l ON l.id = c.library_id WHERE c.card_id = $1 ORDER BY c.number`,
     [cardId],
   );
-  return rows.map((r: any) => ({ id: r.id, key: `C-${r.number}`, title: r.title, objective: r.objective, owner: r.owner, status: r.status, expected: r.expected, procedure: r.procedure }));
+  return rows.map((r: any) => ({ id: r.id, key: `C-${r.number}`, title: r.title, objective: r.objective, owner: r.owner, status: r.status, expected: r.expected, procedure: r.procedure, code: r.code ?? null }));
 }
 
 const TEXTY = /^text\/|json|csv|xml|markdown/;
@@ -96,6 +97,11 @@ export async function runEvidenceCollector(ctx: AgentContext, q: Queryable, log:
   await log('step', `Read ${controls.length} controls and ${evidence.length} evidence items for ${ctx.card.key}`);
   const ctlKeys = new Set(controls.map((c) => c.key));
   const evKeys = new Set(evidence.map((e) => e.key));
+  // Ground it in each control's library entry and the evidence-strength guidance.
+  const passages = await pinned(q, ['M-EVIDENCE', ...controls.map((c) => c.code).filter(Boolean) as string[]]);
+  const libPassage = (c: Ctl) => passages.filter((p) => p.ref === c.code).map((p) => p.id);
+  const guide = passages.filter((p) => p.ref === 'M-EVIDENCE').map((p) => p.id);
+  await log('step', `Retrieved ${passages.length} passages: library entries and evidence guidance`);
 
   let result: AgentResult<EvidencePlan>;
   if (ctx.provider.type === 'rules') {
@@ -111,6 +117,7 @@ export async function runEvidenceCollector(ctx: AgentContext, q: Queryable, log:
         status: (strong.length ? 'received' : mine.length ? 'partial' : 'missing') as 'received' | 'partial' | 'missing',
         evidenceKeys: mine.map((e) => e.key).slice(0, 10),
         note: strong.length ? 'Matched by control. Check it covers the whole test period.' : mine.length ? 'Only walkthrough notes so far; ask for a system export or sample.' : 'Nothing uploaded yet.',
+        sources: [...libPassage(c), ...(mine.length && !strong.length ? guide : [])],
       };
     });
     const missing = requests.filter((r) => r.status !== 'received').length;
@@ -120,21 +127,25 @@ export async function runEvidenceCollector(ctx: AgentContext, q: Queryable, log:
       `<use_case key="${ctx.card.key}" tier="${ctx.card.tier ?? 'unknown'}">${ctx.card.title}</use_case>`,
       '<controls>', ...controls.map((c) => `- ${c.key} ${c.title} (owner: ${c.owner || 'not set'}). Objective: ${c.objective}. Evidence usually expected: ${c.expected || 'not stated'}`), '</controls>',
       '<uploaded_evidence>', ...(evidence.length ? evidence.map((e) => `${wrapEvidence(e)}\n(attached to ${controls.find((c) => c.id === e.controlId)?.key ?? 'a test'})`) : ['None yet.']), '</uploaded_evidence>',
+      sourcesBlock(passages),
     ].join('\n');
     result = await ask(ctx, log, 'evidence_collector', 'submit_evidence_plan', S({
-      requests: { type: 'array', items: S({ controlKey: str, item: str, why: str, askFrom: str, status: { type: 'string', enum: ['received', 'partial', 'missing'] }, evidenceKeys: strs, note: str }) },
+      requests: { type: 'array', items: S({ controlKey: str, item: str, why: str, askFrom: str, status: { type: 'string', enum: ['received', 'partial', 'missing'] }, evidenceKeys: strs, note: str, sources: strs }) },
       summary: str,
     }), EvidencePlan, user);
   }
   const bad = result.output.requests.flatMap((r) => [...(ctlKeys.has(r.controlKey) ? [] : [r.controlKey]), ...r.evidenceKeys.filter((k) => !evKeys.has(k))]);
-  if (bad.length) throw new Error(`The draft cites keys that aren't part of this use case: ${[...new Set(bad)].join(', ')}`);
-  await log('step', 'Checked every control and evidence key against the register');
+  const strayK = strayCitations(result.output.requests.flatMap((r) => r.sources), passages);
+  if (bad.length || strayK.length) throw new Error(`The draft cites keys that aren't part of this use case: ${[...new Set([...bad, ...strayK])].join(', ')}`);
+  result.output.sourcePassages = snapshot(passages, result.output.requests.flatMap((r) => r.sources));
+  await log('step', 'Checked every control, evidence and source key against the register');
   await log('output', `${result.output.requests.length} evidence requests, ${result.output.requests.filter((r) => r.status === 'missing').length} missing`);
   return result;
 }
 
 // ----------------------------------------------------------- Control Tester
 export interface TesterOutput extends TestDrafts {
+  sourcePassages: SourcePassage[];
   byTest: Record<string, string>; // test key -> test id, for applying drafts
 }
 
@@ -148,6 +159,8 @@ export async function runControlTester(ctx: AgentContext, q: Queryable, log: Log
   const evidence = await evidenceOf(q, controls);
   await log('step', `Read ${tests.length} open tests and ${evidence.length} evidence items`);
   const keyOf = (t: any) => `T-${t.number}`;
+  const passages = await pinned(q, ['M-SAMPLING', 'M-EXCEPTIONS', 'M-EVIDENCE']);
+  const guide = (ref: string) => passages.filter((p) => p.ref === ref).map((p) => p.id);
   const allowed = (t: any) => new Set(evidence.filter((e) => e.testId === t.id || e.controlId === t.control_id).map((e) => e.key));
 
   let drafts: TestDrafts;
@@ -168,11 +181,12 @@ export async function runControlTester(ctx: AgentContext, q: Queryable, log: Log
         if (hit) {
           return {
             testKey: keyOf(t), proposed: 'fail' as const, actual: `${hit.e.key} states: "${sentence(hit.e.text, hit.m!.index)}"`, exceptions: Number(hit.m![1]),
-            evidenceKeys: [hit.e.key], reasoning: 'The evidence states exceptions in so many words. Confirm the count against the sample.',
+            evidenceKeys: [hit.e.key], reasoning: 'The evidence states exceptions in so many words. Confirm the count against the sample.', sources: guide('M-EXCEPTIONS'),
           };
         }
         return {
           testKey: keyOf(t), proposed: 'cannot_assess' as const, actual: '', exceptions: 0, evidenceKeys: mine.map((e) => e.key).slice(0, 10),
+          sources: mine.length && mine.every((e) => e.kind === 'note') ? guide('M-EVIDENCE') : [],
           reasoning: mine.length ? `Rules can't judge a pass. Read ${mine.map((e) => e.key).join(', ')} and conclude it yourself, or run this agent on a model.` : 'No evidence is attached to this test or its control.',
         };
       }),
@@ -189,9 +203,10 @@ export async function runControlTester(ctx: AgentContext, q: Queryable, log: Log
       }),
       '</open_tests>',
       '<evidence_items>', ...(evidence.length ? evidence.map(wrapEvidence) : ['None attached.']), '</evidence_items>',
+      sourcesBlock(passages),
     ].join('\n');
     const r = await ask(ctx, log, 'control_tester', 'submit_test_drafts', S({
-      results: { type: 'array', items: S({ testKey: str, proposed: { type: 'string', enum: ['pass', 'fail', 'cannot_assess'] }, actual: str, exceptions: { type: 'integer', minimum: 0 }, evidenceKeys: strs, reasoning: str }) },
+      results: { type: 'array', items: S({ testKey: str, proposed: { type: 'string', enum: ['pass', 'fail', 'cannot_assess'] }, actual: str, exceptions: { type: 'integer', minimum: 0 }, evidenceKeys: strs, reasoning: str, sources: strs }) },
       summary: str,
     }), TestDrafts, user);
     drafts = r.output;
@@ -216,11 +231,13 @@ export async function runControlTester(ctx: AgentContext, q: Queryable, log: Log
     if (seen.has(d.testKey)) problems.push(`${d.testKey} appears twice`);
     seen.add(d.testKey);
   }
+  const strayK = strayCitations(drafts.results.flatMap((d) => d.sources), passages);
+  if (strayK.length) problems.push(`cites sources it wasn't given: ${strayK.join(', ')}`);
   if (problems.length) throw new Error(`The draft was rejected: ${problems.join('; ')}`);
   await log('step', 'Checked every test key and evidence citation; no pass with exceptions or without evidence');
   const n = (p: string) => drafts.results.filter((d) => d.proposed === p).length;
   await log('output', `${drafts.results.length} drafts: ${n('pass')} pass, ${n('fail')} fail, ${n('cannot_assess')} can't assess`);
-  return { output: { ...drafts, byTest: Object.fromEntries(tests.map((t: any) => [keyOf(t), t.id])) }, ...usage };
+  return { output: { ...drafts, sourcePassages: snapshot(passages, drafts.results.flatMap((d) => d.sources)), byTest: Object.fromEntries(tests.map((t: any) => [keyOf(t), t.id])) }, ...usage };
 }
 
 // --------------------------------------------------------- Review assistant

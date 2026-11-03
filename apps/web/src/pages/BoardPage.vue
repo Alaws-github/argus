@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // The board: one column per stage, use cases as cards, filters and search.
 // Clicking a card opens the side panel (CardDrawer).
+import { draftProgress, draftSummary } from '../lib/drafts';
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { STAGES, STAGE_HINTS, STAGE_LABELS, TIER_LABELS, type Card, type Stage } from '@gh/shared';
@@ -94,6 +95,10 @@ async function toggleAuto() {
               <span v-if="c.costUsd > 0" class="faint">{{ money(c.costUsd) }}</span>
             </span>
             <span class="title">{{ c.title }}</span>
+            <span v-if="draftSummary(c)" class="ai-line" :title="'An AI agent drafted this. A person decides.'">
+              <span class="ai-dot">AI</span><span class="grow">{{ draftSummary(c) }}</span>
+              <span v-if="draftProgress(c).total" class="faint">{{ draftProgress(c).decided }}/{{ draftProgress(c).total }}</span>
+            </span>
             <span class="spread small">
               <StatusPill :card="c" />
               <span class="faint">{{ ago(c.stageEnteredAt) }}</span>

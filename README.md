@@ -4,7 +4,9 @@
 
 An AI governance, risk and assurance workbench. AI use cases move across a board from Intake to Board report. Agents draft the work at each stage; a named person approves at each gate; every action lands in a hash-chained audit trail.
 
-v0.5 builds the four remaining agents (Evidence Collector, Control Tester, Review assistant, Report Writer) as drafting agents with guardrails; see **Drafting agents** below.
+v0.6 grounds the agents in a knowledge base (keyword and meaning search, cited sources checked by the server), runs drafting at temperature 0, and lets reviewers accept, edit or reject each item of a draft. See docs/04-ai-agents.md.
+
+v0.5 built the four remaining agents (Evidence Collector, Control Tester, Review assistant, Report Writer) as drafting agents with guardrails; see **Drafting agents** below.
 
 v0.4 added engagements you can add from the switcher (a five-step wizard modelled on GoldenEye's Add project), a GoldenEye-style account menu (Your account, People and roles, Audit log, theme, desktop notifications), a Your account page, and an audit log you can filter by person, action, address and date.
 
@@ -61,7 +63,8 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run build` then `npm start` | Builds the web app and serves it from the API on port 4300 |
 | `npm run typecheck` | Type-checks server and web |
 | `npm run smoke` | API smoke test (66 checks) against a running server on a **fresh** database. It creates test accounts (password `correct-horse-9`), so reset afterwards before real use |
-| `npm run test:agents` | Drafting-agent tests (28 checks), including a mock model that tries to cheat the guardrails. Also needs a fresh database |
+| `npm run test:grounding` | Grounding tests (31 checks): knowledge base, citations, item-by-item decisions, meaning search, temperature 0. Fresh database |
+| `npm run test:agents` | Drafting-agent tests (30 checks), including a mock model that tries to cheat the guardrails. Also needs a fresh database |
 
 To use a real Postgres instead of PGlite, set `DATABASE_URL` in `.env`.
 

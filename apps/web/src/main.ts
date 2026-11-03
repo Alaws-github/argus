@@ -34,6 +34,7 @@ const router = createRouter({
     { path: '/inventory', component: () => import('./pages/InventoryPage.vue') },
     { path: '/report', component: () => import('./pages/ReportPage.vue') },
     { path: '/users', component: () => import('./pages/UsersPage.vue') },
+    { path: '/knowledge', component: () => import('./pages/KnowledgePage.vue') },
     { path: '/account', component: () => import('./pages/AccountPage.vue') },
     { path: '/engagements/new', component: () => import('./pages/AddEngagementPage.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/' },

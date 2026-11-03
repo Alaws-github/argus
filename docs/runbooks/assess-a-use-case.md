@@ -12,12 +12,13 @@
 ## 2. Classify risk
 
 1. The Risk Classifier drafts a tier, the oversight needed, the factors behind them, starting risks and questions for the owner.
-2. The reviewer reads it and either **Approves**, which adds the risks to the risk register, or chooses **Request changes** with a note saying what to fix.
+2. The reviewer goes through the draft item by item. For the tier and each risk: read why, open its sources, then **Accept**, **Edit** (say why) or **Reject** (say why). **Accept the rest** accepts anything not changed.
+3. **Approve and add to the register** adds the kept risks, as edited. Or **Run it again** with a note saying what the agent should reconsider.
 
 ## 3. Design controls
 
 1. The Control Designer proposes controls from the library for each risk, with an owner and a test approach.
-2. The reviewer approves. Each control goes into the register, linked to its risks, with a draft test.
+2. The reviewer decides on each control the same way, then **Approve and create the controls**. Each kept control goes into the register, linked to its risks, with a draft test. Every risk scoring 12 or more must keep at least one control.
 
 ## 4. Collect evidence
 
@@ -44,12 +45,12 @@
 ## 7. Validate
 
 1. If the Review assistant is on, it lists challenges. Read them; fix what matters.
-2. A reviewer **signs off**.
+2. A reviewer weighs each challenge (accept it if it's been dealt with, reject it with a reason if it doesn't apply), then **signs off**.
 
 ## 8. Board report
 
 1. If the Report Writer is on, it drafts a summary from the harness's figures.
-2. A reviewer reads it and **approves** it. It then appears in the readiness report.
+2. A reviewer reads it, edits the headline or text if needed (with a reason), and **approves** it. It then appears in the readiness report.
 
 ## Along the way
 

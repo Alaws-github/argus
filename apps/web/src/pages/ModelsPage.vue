@@ -15,6 +15,30 @@ const editingId = ref<string | null>(null);
 const testing = ref<string | null>(null);
 const limit = ref({ cap: '', warnAtPct: 75, pauseAtCap: true, timeZone: '' });
 const defaults = ref({ providerId: '', model: '', effort: 'medium', fallback: '' });
+// Meaning-based search for the knowledge base.
+const embed = ref({ providerId: '', model: '' });
+const embedNote = ref('');
+const embedProviders = computed(() => providers.value.filter((p) => p.enabled && (p.type === 'openai' || p.type === 'ollama')));
+const EMBED_HINTS: Record<string, string> = { ollama: 'nomic-embed-text', openai: 'text-embedding-3-small' };
+async function testEmbed() {
+  embedNote.value = 'Testing…';
+  try {
+    const r = await api('/knowledge/embeddings/test', { method: 'POST', body: embed.value });
+    embedNote.value = `Works: ${r.dims} dimensions, ${r.ms} ms.`;
+  } catch (e: any) {
+    embedNote.value = e.message;
+  }
+}
+async function saveEmbed() {
+  try {
+    await api('/settings', { method: 'PUT', body: { embedProviderId: embed.value.providerId || null, embedModel: embed.value.providerId ? embed.value.model : '' } });
+    const r = embed.value.providerId ? await api('/knowledge/reindex', { method: 'POST' }) : { note: 'Meaning search is off; keyword search still works' };
+    embedNote.value = r.note;
+    app.toast('Saved');
+  } catch (e: any) {
+    embedNote.value = e.message;
+  }
+}
 const timeZones = (Intl as any).supportedValuesOf?.('timeZone') ?? ['UTC', 'America/Jamaica'];
 
 async function load() {
@@ -23,6 +47,7 @@ async function load() {
   const s = settings.value!;
   limit.value = { cap: s.spendCapUsd == null ? '' : String(s.spendCapUsd), warnAtPct: s.warnAtPct, pauseAtCap: s.pauseAtCap, timeZone: s.timeZone };
   defaults.value = { providerId: s.defaultProviderId ?? '', model: s.defaultModel, effort: s.defaultEffort, fallback: s.defaultFallbackModel ?? '' };
+  embed.value = { providerId: s.embedProviderId ?? '', model: s.embedModel ?? '' };
 }
 onMounted(load);
 
@@ -226,6 +251,32 @@ function onSaved() {
           <span class="hint">Takes over when a run fails or its provider is off.</span>
         </label>
         <div><button class="btn primary" @click="saveDefaults">Save</button></div>
+      </div>
+
+      <div class="card">
+        <h2>Meaning-based search</h2>
+        <p class="small muted">
+          Agents find knowledge-base passages by keyword already. An embedding model also finds passages that mean the same thing in other words.
+          Use Ollama on your own computer (free: <span class="mono">ollama pull nomic-embed-text</span>, then add it as an OpenAI-compatible provider at <span class="mono">http://localhost:11434/v1</span>), or OpenAI or Voyage.
+        </p>
+        <div class="grid" style="grid-template-columns: 1fr 1fr">
+          <label class="field">
+            <span>Provider</span>
+            <select v-model="embed.providerId" class="select">
+              <option value="">Off: keyword search only</option>
+              <option v-for="p in embedProviders" :key="p.id" :value="p.id">{{ p.name }}</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Embedding model</span>
+            <input v-model="embed.model" class="input mono" :disabled="!embed.providerId" :placeholder="EMBED_HINTS[embedProviders.find((p) => p.id === embed.providerId)?.type ?? 'openai']" />
+          </label>
+        </div>
+        <p v-if="embedNote" class="small">{{ embedNote }}</p>
+        <div class="row">
+          <button class="btn" :disabled="!embed.providerId || !embed.model" @click="testEmbed">Test</button>
+          <button class="btn primary" @click="saveEmbed">Save and index</button>
+        </div>
       </div>
     </div>
   </div>

@@ -138,6 +138,8 @@ export const ProposedRisk = z.object({
   likelihood: z.number().int().min(1).max(5),
   impact: z.number().int().min(1).max(5),
   rationale: z.string().max(600),
+  // Knowledge-base passages (K-ids) the risk rests on. Checked by the server.
+  sources: z.array(z.string().max(12)).max(6).default([]),
 });
 export type ProposedRisk = z.infer<typeof ProposedRisk>;
 
@@ -151,6 +153,9 @@ export const Classification = z.object({
   risks: z.array(ProposedRisk).min(1).max(8),
   openQuestions: z.array(z.string().max(300)).max(6),
   frameworkRefs: z.array(z.string().max(80)).max(8),
+  tierSources: z.array(z.string().max(12)).max(6).default([]),
+  // The passages the agent cited, copied at run time so the reviewer reads exactly what it saw.
+  sourcePassages: z.array(z.any()).default([]),
 });
 export type Classification = z.infer<typeof Classification>;
 
@@ -188,6 +193,7 @@ export interface Card {
   design: import('./grc.js').ControlDesign | null;
   createdBy: string | null;
   drafts: import('./grc.js').CardDrafts;
+  decisions: import('./grc.js').CardDecisions;
   latestRunId: string | null;
   costUsd: number;
   createdAt: string;
@@ -410,6 +416,9 @@ export const WorkspaceSettings = z.object({
   defaultModel: z.string().max(120),
   defaultEffort: Effort,
   defaultFallbackModel: z.string().max(120).nullable(),
+  // Meaning-based search: an OpenAI-compatible or Ollama provider and its embedding model.
+  embedProviderId: z.string().uuid().nullable(),
+  embedModel: z.string().max(120),
 });
 export type WorkspaceSettings = z.infer<typeof WorkspaceSettings>;
 

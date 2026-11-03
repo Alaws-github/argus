@@ -298,6 +298,13 @@ function exportTests() {
           <p v-if="selected.draft.actual" class="small"><strong>Actual:</strong> {{ selected.draft.actual }}</p>
           <p class="small"><strong>Exceptions:</strong> {{ selected.draft.exceptions }} · <strong>Relied on:</strong> <span class="mono">{{ selected.draft.evidenceKeys.join(' ') || 'nothing' }}</span></p>
           <p class="small muted">{{ selected.draft.reasoning }}</p>
+          <div v-if="selected.draft.sourcePassages?.length" class="stack" style="gap: 6px">
+            <span class="label-caps">Guidance it applied</span>
+            <details v-for="p in selected.draft.sourcePassages" :key="p.id" class="small">
+              <summary style="cursor: pointer"><span class="mono">{{ p.id }}</span> {{ p.title }}</summary>
+              <blockquote class="passage">{{ p.text }}</blockquote>
+            </details>
+          </div>
           <div v-if="app.can('prepare') && selected.draft.actual"><button class="btn sm" @click="useDraft">Start from this draft</button></div>
         </div>
         <p v-else-if="selected.draft?.used" class="small faint">The preparer started from the Control Tester's draft ({{ PROPOSED[selected.draft.proposed] }}). That's in the audit trail.</p>

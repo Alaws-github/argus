@@ -20,6 +20,7 @@ import { callStructured, callText } from './llm.js';
 import { costUsd, priceFor } from './agents/pricing.js';
 import { QUALITY_CASES, RED_TEAM_CASES } from './library.js';
 import { getEngagement } from './store.js';
+import { indexEvidence, scheduleEmbedding } from './kb.js';
 
 type Wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => void;
 const httpError = (status: number, message: string) => Object.assign(new Error(message), { status });
@@ -521,6 +522,9 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
       await logAudit(q, actorOf(req), 'evidence.added', `evidence:E-${out.rows[0].number}`, { title: b.title, kind: b.kind, sha256: hash });
       return out;
     });
+    // Agents can now retrieve it (notes and text files).
+    await indexEvidence(db, rows[0]).catch((e) => console.warn(`[kb] evidence not indexed: ${e.message}`));
+    scheduleEmbedding(db);
     res.status(201).json(toEvidence(rows[0]));
   }));
 

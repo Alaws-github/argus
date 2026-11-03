@@ -35,8 +35,10 @@ async function toEvidence(key) {
   const c = (await board()).find((x) => x.key === key);
   await riley('POST', `/cards/${c.id}/actions`, { action: 'approve' });
   await waitFor(key, (x) => x.stage === 'classify' && x.status === 'needs_approval', 'classify');
+  await riley('POST', `/cards/${c.id}/decisions`, { rest: 'accept' });
   await riley('POST', `/cards/${c.id}/actions`, { action: 'approve' });
   await waitFor(key, (x) => x.stage === 'design' && x.status === 'needs_approval', 'design');
+  await riley('POST', `/cards/${c.id}/decisions`, { rest: 'accept' });
   await riley('POST', `/cards/${c.id}/actions`, { action: 'approve' });
   return c.id;
 }
@@ -76,13 +78,17 @@ d = await waitFor('AI-2', (x) => x.stage === 'validate' && x.status === 'needs_a
 const v = d.card.drafts.validate;
 ok(v && v.challenges.some((c) => c.ref === failDraft.key || /notes only/.test(c.finding)), `Review assistant raised ${v?.challenges.length} challenges (${v?.readiness})`);
 await expectErr(pat('POST', `/cards/${id2}/actions`, { action: 'approve' }), 403, 'preparer cannot sign off Validate');
+await expectErr(riley('POST', `/cards/${id2}/actions`, { action: 'approve', note: 'x' }), 409, 'cannot sign off Validate before weighing each challenge');
+await riley('POST', `/cards/${id2}/decisions`, { rest: 'accept' });
 await riley('POST', `/cards/${id2}/actions`, { action: 'approve', note: 'Challenges read; failed test tracked' });
 d = await waitFor('AI-2', (x) => x.stage === 'report' && x.status === 'needs_approval', 'report draft');
 ok(!!d.card.drafts.report?.headline && !d.card.drafts.report.approvedBy, `Report Writer drafted: "${d.card.drafts.report?.headline}"`);
 ok(/not ready/.test(d.card.drafts.report.headline) && /failed/.test(d.card.drafts.report.headline), 'the summary says a control failed, not "complete"');
+await riley('POST', `/cards/${id2}/decisions`, { item: 'summary', decision: 'edit', edit: { headline: 'Customer service chatbot: one control failed; fix before wider rollout' }, reason: 'Plainer for the board' });
 await riley('POST', `/cards/${id2}/actions`, { action: 'approve' });
 d = await waitFor('AI-2', (x) => x.stage === 'closed', 'closed');
 ok(d.card.drafts.report.approvedBy === 'Riley Reviewer', 'approved summary records the person who approved it');
+ok(d.card.drafts.report.headline.startsWith('Customer service chatbot: one control failed') && d.card.drafts.report.editedBy === 'Riley Reviewer', "the reviewer's edit to the summary is what was approved");
 
 // ---- Guardrails on a live model (mock)
 const prov = await admin('POST', '/providers', { type: 'openai', name: 'Mock', baseUrl: 'http://localhost:4401/v1', apiKey: 'x', billed: false, models: ['mock-good', 'mock-bad'] });
@@ -118,6 +124,7 @@ await riley('POST', `/cards/${id1}/actions`, { action: 'advance' });
 d = await waitFor('AI-1', (x) => x.stage === 'validate' && x.status === 'needs_approval', 'AI-1 validate');
 ok(d.card.drafts.validate.challenges.some((c) => /notes only/.test(c.finding)) && d.card.drafts.validate.challenges.some((c) => /Mock:/.test(c.finding)), `rule findings kept alongside the model's (${d.card.drafts.validate.challenges.length})`);
 ok(d.card.drafts.validate.readiness === 'not_ready', 'model said ready, but high rule findings keep it not ready');
+await riley('POST', `/cards/${id1}/decisions`, { rest: 'accept' });
 await riley('POST', `/cards/${id1}/actions`, { action: 'approve' });
 d = await waitFor('AI-1', (x) => x.stage === 'report' && x.status === 'failed', 'bad report rejected');
 ok(/figures that aren't in the data: (97|14|250000)/.test(d.card.statusNote), 'invented figures rejected: ' + d.card.statusNote);

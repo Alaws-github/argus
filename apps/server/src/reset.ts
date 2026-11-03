@@ -5,6 +5,7 @@ import { existsSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { DATA_DIR, getDb, migrate } from './db.js';
 import { ensureBaseline, seed } from './seed.js';
+import { cancelEmbedding } from './kb.js';
 
 // The embedded database allows one program at a time. Resetting it while the
 // app is running damages it, so refuse.
@@ -27,13 +28,14 @@ if (!process.env.DATABASE_URL) {
 
 const db = await getDb();
 await db.exec(`
-  DROP TABLE IF EXISTS assessments, eval_runs, eval_cases, eval_suites, issues, evidence, tests, inventory, soa, control_risks,
+  DROP TABLE IF EXISTS kb_chunks, kb_sources, assessments, eval_runs, eval_cases, eval_suites, issues, evidence, tests, inventory, soa, control_risks,
     obligations, run_events, runs, controls, control_library, risks, agents, cards, engagements, providers, audit_log, settings,
     sessions, users CASCADE;
-  DROP SEQUENCE IF EXISTS run_seq, risk_seq, control_seq, inventory_seq, test_seq, evidence_seq, issue_seq, suite_seq;
+  DROP SEQUENCE IF EXISTS run_seq, risk_seq, control_seq, inventory_seq, test_seq, evidence_seq, issue_seq, suite_seq, kb_seq;
 `);
 await migrate(db);
 await seed(db);
 await ensureBaseline(db);
 console.log(`[reset] ${db.kind} database rebuilt with the Client Zero demo. Open the app and create the first admin.`);
+cancelEmbedding();
 await db.close();

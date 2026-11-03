@@ -23,6 +23,7 @@ const OWNERS: [RegExp, string][] = [
   [/^\/agents\/([^/]+)/, `SELECT engagement_id AS id FROM agents WHERE id = $1`],
   [/^\/evals\/([^/]+)/, `SELECT engagement_id AS id FROM eval_suites WHERE id = $1`],
   [/^\/eval-cases\/([^/]+)/, `SELECT s.engagement_id AS id FROM eval_cases c JOIN eval_suites s ON s.id = c.suite_id WHERE c.id = $1`],
+  [/^\/knowledge\/([0-9a-f-]{36})$/, `SELECT engagement_id AS id FROM kb_sources WHERE id = $1`],
   [/^\/eval-runs\/([^/]+)/, `SELECT s.engagement_id AS id FROM eval_runs r JOIN eval_suites s ON s.id = r.suite_id WHERE r.id = $1`],
 ];
 

@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { extract } from './extract.js';
 import { readControls } from './control-import.js';
+import { getEvidence, putEvidence } from './storage.js';
 import { checkRun } from './monitoring.js';
 import { resolve } from 'node:path';
 import type { NextFunction, Request, Response, Router } from 'express';
@@ -171,8 +172,7 @@ async function runSuite(db: Db, suiteId: string, runId: string, actor: string) {
     await db.tx(async (q) => {
       await q.query(`UPDATE eval_runs SET status='completed', passed=$2, total=$3, cost_usd=$4, ended_at=now() WHERE id=$1`, [runId, passed, results.length, cost]);
       // The run is evidence: hash it and attach it to the controls it tests.
-      mkdirSync(EVIDENCE_DIR, { recursive: true });
-      writeFileSync(resolve(EVIDENCE_DIR, hash), body);
+      await putEvidence(hash, body);
       const codes = suite.kind === 'red_team' ? ['SEC-01', 'SEC-04', 'OVS-03'] : ['MOD-01', 'MOD-03', 'MOD-04'];
       const { rows: inv } = suite.inventory_id ? await q.query(`SELECT card_ids FROM inventory WHERE id = $1`, [suite.inventory_id]) : { rows: [] as any[] };
       const cardIds: string[] = inv[0]?.card_ids ?? [];
@@ -567,9 +567,7 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
       if (buf.length > 10 * 1024 * 1024) throw httpError(413, 'Files up to 10 MB');
       hash = sha256(buf);
       size = buf.length;
-      mkdirSync(EVIDENCE_DIR, { recursive: true });
-      const path = resolve(EVIDENCE_DIR, hash);
-      if (!existsSync(path)) writeFileSync(path, buf);
+      await putEvidence(hash, buf);
       // Read PDFs, spreadsheets, Word and text files so agents can use them.
       read = await extract(buf, b.filename, b.mime ?? '');
     } else if (b.kind === 'link') {
@@ -602,8 +600,8 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
     if (!e) throw httpError(404, 'Evidence not found');
     let actual: string | null = null;
     if (e.kind === 'file' || e.kind === 'run') {
-      const path = resolve(EVIDENCE_DIR, e.sha256);
-      actual = existsSync(path) ? sha256(readFileSync(path)) : null;
+      const stored = await getEvidence(e.sha256);
+      actual = stored ? sha256(stored) : null;
     } else actual = sha256(e.kind === 'link' ? e.url : e.note);
     res.json({ ok: actual === e.sha256, recorded: e.sha256, actual, message: actual === e.sha256 ? 'Unchanged since it was collected' : actual ? 'The stored content no longer matches its recorded hash' : 'The stored file is missing' });
   }));
@@ -612,11 +610,11 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
     const { rows } = await db.query(`SELECT * FROM evidence WHERE id = $1`, [req.params.id]);
     const e = rows[0];
     if (!e || !['file', 'run'].includes(e.kind)) throw httpError(404, 'No file for this evidence');
-    const path = resolve(EVIDENCE_DIR, e.sha256);
-    if (!existsSync(path)) throw httpError(404, 'The stored file is missing');
+    const stored = await getEvidence(e.sha256);
+    if (!stored) throw httpError(404, 'The stored file is missing');
     res.setHeader('content-type', e.mime || 'application/octet-stream');
     res.setHeader('content-disposition', `attachment; filename="${String(e.filename || 'evidence').replace(/[^\w.-]/g, '_')}"`);
-    res.send(readFileSync(path));
+    res.send(stored);
   }));
 
   // ------------------------------------------------------------------ issues

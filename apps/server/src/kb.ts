@@ -7,6 +7,7 @@
 // "GOVERN 1.6") and, when an embedding provider is set, vector similarity for
 // meaning. The two rankings are merged with reciprocal rank fusion.
 import { existsSync, readFileSync, statSync } from 'node:fs';
+import { getEvidence } from './storage.js';
 import { resolve } from 'node:path';
 import type { SourcePassage } from '@gh/shared';
 import { DATA_DIR, vectorAvailable, type Db, type Queryable } from './db.js';
@@ -191,8 +192,8 @@ export async function indexEvidence(q: Queryable, e: any) {
   if (e.kind === 'note') text = e.note ?? '';
   else if (e.text_content) text = e.text_content;
   else if (e.kind === 'file' && (TEXTY.test(e.mime ?? '') || /\.(txt|csv|md|json|log)$/i.test(e.filename ?? ''))) {
-    const path = resolve(DATA_DIR, 'evidence', e.sha256);
-    if (existsSync(path) && statSync(path).size < 400_000) text = readFileSync(path, 'utf8');
+    const buf = await getEvidence(e.sha256).catch(() => null);
+    if (buf && buf.length < 400_000) text = buf.toString('utf8');
   }
   if (!text.trim()) return;
   await upsertSource(q, { engagementId: e.engagement_id, kind: 'evidence', ref: `E-${e.number}`, title: `E-${e.number} ${e.title}`, text, origin: 'evidence', evidenceId: e.id, createdBy: e.collected_by });

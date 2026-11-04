@@ -4,7 +4,7 @@ Context for Claude working on this project. Read this first.
 
 ## What this is
 
-**ARGUS** (v1.2.2), the Assurance, Risk & Governance Unified System (formerly Governance Harness): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report), shown to people as five steps (`PHASES` / `PHASE_OF` in shared: Intake, Assess risk, Controls, Test, Sign-off & report). The engine, exit criteria, agents and tests all still work on the eight stages. Seven AI agents draft the work (the Use Case Planner drafts the intake brief, six more draft each later stage), and a lead can add more per stage; named people make every decision; everything is written to a hash-chained audit log.
+**ARGUS** (v1.3), the Assurance, Risk & Governance Unified System (formerly Governance Harness): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report), shown to people as five steps (`PHASES` / `PHASE_OF` in shared: Intake, Assess risk, Controls, Test, Sign-off & report). The engine, exit criteria, agents and tests all still work on the eight stages. Seven AI agents draft the work (the Use Case Planner drafts the intake brief, six more draft each later stage), and a lead can add more per stage; named people make every decision; everything is written to a hash-chained audit log.
 
 It was rebuilt from **GoldenEye**, the owner's AI delivery harness, keeping its board-and-gate engine, Models page, tabbed Settings, account menu and look. GoldenEye is a reference only: never change anything in it.
 
@@ -96,6 +96,7 @@ apps/server/src
   routes-testing.ts agent testing API and POST /cards/:id/verify
   assistant.ts    the assistant: context builder (ids it may refer to), suggestion whitelist and checks, rules and live answers
   routes-assistant.ts conversation per person and context; apply (replayed through the API as the person) and discard
+  storage.ts      evidence files: data/evidence, plus Cloudflare R2 when R2_* is set (write-through, read-back on a wiped disk)
   extract.ts      text from PDF (unpdf), Excel (exceljs), Word (mammoth) and text files, for evidence and uploads
   routes-incidents.ts incidents, notification clocks (NOTIFY_CLOCKS in shared), timeline, closing rules
   monitoring.ts   scheduler tick (suites and connectors), checkRun: below threshold, drift, run failed
@@ -123,6 +124,10 @@ data/             database, evidence files, secret.key (gitignored; back up toge
 - **Writing (UI text, docs, comments):** plain English, short sentences, active voice, no jargon a non-technical reader wouldn't know, no marketing language, and no em dashes. Say what a thing does and why.
 - **Comments:** each file starts with a short comment saying what it is for. Comment the why (a rule, a guardrail, a gotcha), not the obvious.
 - **Testing:** every behaviour change gets a check in `smoke.mjs` or `agents-test.mjs`, including the negative case (the thing that must be refused). Run typecheck, both suites and a browser pass before handing over.
+
+## Hosting (Cloudflare)
+
+`Dockerfile` (root) builds the server only. `deploy/cloudflare/` is a Worker: static assets from `apps/web/dist`, `/api` and `/socket.io` forwarded to one Cloudflare Container (`ArgusServer`, `max_instances: 1`, sleeps after 30m, hourly cron wake). Hosted state lives outside the container: `DATABASE_URL` (Neon Postgres with pgvector) and R2 (`storage.ts`). Secrets via `wrangler secret put`; never commit them. Any new code that writes files must go through `storage.ts`, never straight to `data/`, or it will be lost when the container restarts. Runbook: `docs/runbooks/deploy-to-cloudflare.md`.
 
 ## Versions and GitHub
 

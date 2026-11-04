@@ -4,6 +4,7 @@
 // reference and figure they return before anyone sees it.
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
+import { getEvidence } from '../storage.js';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { z } from 'zod';
@@ -61,6 +62,8 @@ async function evidenceOf(q: Queryable, controls: Ctl[]): Promise<Ev[]> {
     `SELECT e.* FROM evidence e WHERE e.control_id = ANY($1) OR e.test_id IN (SELECT id FROM tests WHERE control_id = ANY($1)) ORDER BY e.number`,
     [ids],
   );
+  // A hosted server's disk can be wiped: fetch any file back from storage first.
+  for (const r of rows) if (r.kind === 'file' && r.sha256 && !r.text_content) await getEvidence(r.sha256).catch(() => null);
   return rows.map((r: any) => ({ id: r.id, key: `E-${r.number}`, title: r.title, kind: r.kind, controlId: r.control_id, testId: r.test_id, text: readable(r) }));
 }
 

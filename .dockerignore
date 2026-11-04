@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+data
+data-backups
+demos
+docs
+apps/web/dist
+_to_delete
+.git
+*.log
+deploy

@@ -16,6 +16,7 @@ import { DATA_DIR, type Db } from './db.js';
 import { logAudit } from './audit.js';
 import { decrypt } from './crypto.js';
 import { extract } from './extract.js';
+import { putEvidence } from './storage.js';
 import { indexEvidence, scheduleEmbedding } from './kb.js';
 import { emit } from './realtime.js';
 import { getSettings } from './store.js';
@@ -101,9 +102,7 @@ export async function pull(db: Db, connectorId: string, actor: string): Promise<
       const fromHeader = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(got.disposition)?.[1];
       const fromPath = decodeURIComponent(got.url.pathname.split('/').pop() || '');
       const filename = (fromHeader || (/\.\w{2,5}$/.test(fromPath) ? fromPath : `${r.name.replace(/[^\w-]+/g, '-').toLowerCase()}.${extFor(got.mime)}`)).slice(0, 180);
-      const dir = resolve(DATA_DIR, 'evidence');
-      mkdirSync(dir, { recursive: true });
-      if (!existsSync(resolve(dir, hash))) writeFileSync(resolve(dir, hash), got.buf);
+      await putEvidence(hash, got.buf);
       const read = await extract(got.buf, filename, got.mime);
       const title = `${r.name}, pulled ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`;
       const ev = await db.tx(async (q) => {

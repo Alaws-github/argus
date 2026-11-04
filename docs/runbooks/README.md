@@ -26,6 +26,7 @@ Step-by-step instructions for common jobs. Each one says who can do it and what 
 | [Finish an engagement](finish-an-engagement.md) | Leads scoring, signing off and archiving |
 | [Archive or delete an engagement](archive-or-delete.md) | Leads and admins |
 | [An agent is misbehaving](agent-misbehaving.md) | Anyone who sees an agent doing something wrong |
+| [Put ARGUS online with Cloudflare](deploy-to-cloudflare.md) | Whoever runs ARGUS: a live site with Cloudflare Workers, Containers and R2 |
 | [Back up and restore](backup-and-restore.md) | Whoever runs the app |
 | [Reset and recovery](reset-and-recovery.md) | When sign-in fails or you want a clean start |
 | [Run the tests](running-the-tests.md) | Developers, before a release |

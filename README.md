@@ -4,6 +4,8 @@
 
 An AI governance, risk and assurance workbench. AI use cases move across a board from Intake to Board report. Agents draft the work at each stage; a named person approves at each gate; every action lands in a hash-chained audit trail.
 
+v1.3 can run online: a `Dockerfile` for the server and a Cloudflare Worker in `deploy/cloudflare/` (screens as static assets, the server as a Cloudflare Container, Postgres for data and R2 for evidence files). See `docs/runbooks/deploy-to-cloudflare.md`.
+
 v1.2.2 puts Controls and the Knowledge Base in the top bar, adds icons to every menu item, uses title case for menus and board labels, lines up the workflow table, keeps Sign Out reachable in the account menu, adds **Upload Controls** (CSV or Excel, with a preview), and adds a step-by-step "Your path" chapter to the manual.
 
 v1.2 renamed the app **ARGUS** (Assurance, Risk & Governance Unified System), with a Great Argus pheasant logo, and makes it simpler: five steps on the board (the eight stages and all their checks are unchanged underneath), six places in the top bar with AI as one of them, optional modules per engagement, plainer wording, a responsive layout, blinking status dots for anything that needs a person, and file buttons for uploads. The demo is now five engagements for fictional clients facing real kinds of AI risk, built from one file each in `scripts/demo/engagements/` so you can add your own. Every release is a git tag; `npm run versions` goes back and forward.

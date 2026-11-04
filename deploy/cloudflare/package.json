@@ -1,0 +1,20 @@
+{
+  "name": "argus-cloudflare",
+  "private": true,
+  "type": "module",
+  "description": "Puts ARGUS on Cloudflare: the screens as static assets, the server in a Cloudflare Container.",
+  "scripts": {
+    "build:web": "npm run build --prefix ../.. -w apps/web",
+    "deploy": "npm run build:web && wrangler deploy",
+    "logs": "wrangler tail",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "^0.3.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261104.1",
+    "typescript": "^5.7.3",
+    "wrangler": "^4.157.0"
+  }
+}

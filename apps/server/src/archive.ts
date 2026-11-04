@@ -4,6 +4,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { Db } from './db.js';
 import { existsSync, unlinkSync } from 'node:fs';
+import { deleteEvidence } from './storage.js';
 import { resolve } from 'node:path';
 import type { Router } from 'express';
 import { z } from 'zod';
@@ -168,11 +169,7 @@ export function archiveRoutes(r: Router, db: Db, actorOf: (req: Request) => stri
     let removed = 0;
     for (const f of files) {
       const { rows } = await db.query(`SELECT 1 FROM evidence WHERE sha256 = $1 LIMIT 1`, [f.sha256]);
-      const path = resolve(DATA_DIR, 'evidence', f.sha256);
-      if (!rows.length && existsSync(path)) {
-        unlinkSync(path);
-        removed++;
-      }
+      if (!rows.length && (await deleteEvidence(f.sha256))) removed++;
     }
     emit('engagement:deleted', { id: e.id });
     res.json({ ok: true, removed: counts, filesRemoved: removed });

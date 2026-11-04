@@ -9,3 +9,6 @@ docs/.manual.html
 data-backups/
 _to_delete/
 demos/
+deploy/cloudflare/node_modules/
+.wrangler/
+deploy/cloudflare/.wrangler/

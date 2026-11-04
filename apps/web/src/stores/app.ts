@@ -30,7 +30,7 @@ export function applyTheme(t: Theme) {
   if (t === 'system') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', t);
 }
-applyTheme((local.get('gh.theme') as Theme) || 'system');
+applyTheme((local.get('gh.theme') as Theme) || 'dark');
 let wired = false;
 
 export const useApp = defineStore('app', {
@@ -47,7 +47,7 @@ export const useApp = defineStore('app', {
     user: null as User | null,
     needsSetup: false,
     authChecked: false,
-    theme: ((local.get('gh.theme') as Theme) || 'system') as Theme,
+    theme: ((local.get('gh.theme') as Theme) || 'dark') as Theme,
     notify: local.get('gh.notify') === 'on',
     // The assistant panel: what it is about. A card drawer sets its card;
     // otherwise it follows the page.

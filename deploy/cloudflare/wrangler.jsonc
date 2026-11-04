@@ -5,45 +5,70 @@
 // files). Secrets are set with `npx wrangler secret put NAME`, never here.
 // Steps: docs/runbooks/deploy-to-cloudflare.md
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "argus",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-10-01",
-  "compatibility_flags": ["nodejs_compat"],
-  "observability": { "enabled": true },
-
-  // The screens. Anything that isn't /api or /socket.io is a file from here,
-  // and unknown paths get index.html so the app's own routes work.
-  "assets": {
-    "directory": "../../apps/web/dist",
-    "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/socket.io/*"]
-  },
-
-  // The server. One instance: live updates and the background schedulers
-  // assume a single server. "basic" is 1/4 vCPU and 1 GiB; use "standard-1"
-  // if it feels slow with a real AI model and many users.
-  "containers": [
-    {
-      "class_name": "ArgusServer",
-      "image": "../../Dockerfile",
-      "instance_type": "basic",
-      "max_instances": 1
-    }
-  ],
-  "durable_objects": {
-    "bindings": [{ "name": "ARGUS", "class_name": "ArgusServer" }]
-  },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ArgusServer"] }],
-
-  // Wakes the server once an hour so scheduled evaluations and connector
-  // pulls still run when nobody has visited. Remove to save cost.
-  "triggers": { "crons": ["17 * * * *"] },
-
-  // Not secret. PUBLIC_URL is the site's address, for single sign-on.
-  "vars": {
-    "R2_BUCKET": "argus-evidence",
-    "PUBLIC_URL": ""
-  }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "argus",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"observability": {
+		"enabled": true
+	},
+	// The screens. Anything that isn't /api or /socket.io is a file from here,
+	// and unknown paths get index.html so the app's own routes work.
+	"assets": {
+		"directory": "../../apps/web/dist",
+		"binding": "ASSETS",
+		"not_found_handling": "single-page-application",
+		"run_worker_first": [
+			"/api/*",
+			"/socket.io/*"
+		]
+	},
+	// The server. One instance: live updates and the background schedulers
+	// assume a single server. "basic" is 1/4 vCPU and 1 GiB; use "standard-1"
+	// if it feels slow with a real AI model and many users.
+	"containers": [
+		{
+			"class_name": "ArgusServer",
+			"image": "../../Dockerfile",
+			"instance_type": "basic",
+			"max_instances": 1
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "ARGUS",
+				"class_name": "ArgusServer"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"ArgusServer"
+			]
+		}
+	],
+	// Wakes the server once an hour so scheduled evaluations and connector
+	// pulls still run when nobody has visited. Remove to save cost.
+	"triggers": {
+		"crons": [
+			"17 * * * *"
+		]
+	},
+	// Not secret. PUBLIC_URL is the site's address, for single sign-on.
+	"vars": {
+		"R2_BUCKET": "argus-evidence",
+		"PUBLIC_URL": ""
+	},
+	"r2_buckets": [
+		{
+			"bucket_name": "argus-evidence",
+			"binding": "argus_evidence"
+		}
+	]
 }

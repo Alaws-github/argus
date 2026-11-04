@@ -80,6 +80,7 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run test:assistant` | Assistant tests (27 checks): offline and live, dropped citations and suggestions, apply under the person's role, discard, spend cap, JSON fallback. Fresh database |
 | `npm run test:operations` | Operations tests (58 checks): file reading, incidents, monitoring and drift, connectors and the private-network guard, members-only access, SSO against a mock provider. Fresh database |
 | `npm run test:v12` | v1.2 tests: modules per engagement, and the five steps still running every stage check. Fresh database |
+| `npm run demo:build` / `demo:list` / `demo:load -- <copy>` / `demo:save -- <name>` | Saved demo copies: `all` and one per client; build, list, switch (app stopped; current data backed up first), or save the current state |
 | `npm run demo -- --list` | List the demo engagements; `--only=<name>` builds one (plus Northshore) |
 | `npm run versions` | List versions; `-- use v1.1` switches (backing up data); `-- latest` returns |
 | `npm run test:v11` | v1.1 tests (65 checks): the Use Case Planner on rules and a mock model, new agents and routing, act as, provider service names, Overview activity. Fresh database |

@@ -5,7 +5,11 @@
 //   npm run demo                      all engagements
 //   npm run demo -- --list            list them
 //   npm run demo -- --only=kestrel    just the ones whose file name contains "kestrel"
-//                                     (the first engagement, Northshore, always runs: it uses the seeded engagement)
+//                                     (comma-separate several: --only=kestrel,palmcrest)
+//
+// Saved copies of the demo (all clients together, or one client alone) that
+// you can switch between are made by scripts/demo/library.mjs: see
+// npm run demo:build, demo:list and demo:load.
 //
 // Needs a FRESH database and the app running: stop the app, npm run db:reset,
 // start it, then npm run demo. Uses the offline rules: free, no keys needed.
@@ -16,7 +20,8 @@ import { B, PEOPLE, PW, client, engagementCtx, step } from './lib.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const only = args.find((a) => a.startsWith('--only='))?.slice(7).toLowerCase();
+const only = args.find((a) => a.startsWith('--only='))?.slice(7).toLowerCase().split(',').filter(Boolean);
+const picked = (f) => !only || only.some((o) => f.toLowerCase().includes(o));
 const files = readdirSync(resolve(here, 'engagements')).filter((f) => f.endsWith('.mjs') && !f.startsWith('_')).sort();
 const scenarios = [];
 for (const f of files) scenarios.push({ file: f, ...(await import(pathToFileURL(resolve(here, 'engagements', f)).href)) });
@@ -46,12 +51,15 @@ console.log('People: Andrew (admin), Jordan (lead), Riley (reviewer), Sam (prepa
 
 // ---- Engagements
 const rules = (await andrew('GET', '/providers')).find((p) => p.type === 'rules');
-for (const [i, s] of scenarios.entries()) {
-  if (i > 0 && only && !s.file.toLowerCase().includes(only)) continue;
+const seededId = (await andrew('GET', '/engagements'))[0].id;
+let seededUsed = false;
+for (const s of scenarios) {
+  if (!picked(s.file)) continue;
   const t0 = Date.now();
   let E;
   if (s.engagement.useSeeded) {
-    E = (await andrew('GET', '/engagements'))[0].id;
+    E = seededId;
+    seededUsed = true;
     await andrew('PATCH', `/engagements/${E}`, { name: s.engagement.name, client: s.engagement.client });
   } else {
     const e = s.engagement;
@@ -74,6 +82,15 @@ for (const [i, s] of scenarios.entries()) {
   await ctx.allAgentsOn();
   await s.build(ctx, { rules, step });
   console.log(`  (${Math.round((Date.now() - t0) / 1000)}s)`);
+}
+
+// The database starts with one engagement (Northshore's use cases). When the
+// demo doesn't build Northshore, remove it so only the chosen clients remain.
+if (!seededUsed) {
+  const e = (await andrew('GET', '/engagements')).find((x) => x.id === seededId);
+  await andrew('POST', `/engagements/${seededId}/archive`, { reason: 'Not part of this demo' });
+  await andrew('DELETE', `/engagements/${seededId}`, { confirm: e.name });
+  console.log('\n(The starting engagement was removed: this demo has only the clients you picked.)');
 }
 
 // ---- Workspace: act as on, so one person can run the whole flow in a demo

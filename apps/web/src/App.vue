@@ -27,6 +27,8 @@ async function actAsPerson(userId: string | null) {
 }
 const menu = ref<'' | 'reg' | 'ai' | 'set' | 'me' | 'eng'>('');
 const navOpen = ref(false);
+// The switcher names the client first ("Kestrel Bay Telecom"), the engagement second.
+const clientName = (c: string) => c.replace(/\s*\(demo\)\s*$/i, '') || c;
 const initials = computed(() =>
   (app.user?.name || '?')
     .split(/\s+/)
@@ -123,12 +125,12 @@ onBeforeUnmount(() => {
         <span v-if="app.engagement" class="menu-host">
           <button class="switcher" :aria-expanded="menu === 'eng'" aria-haspopup="menu" @click="menu = menu === 'eng' ? '' : 'eng'">
             <span class="swatch" :style="{ background: app.engagement.color }">{{ app.engagement.prefix[0] }}</span>
-            <span class="switcher-name">{{ app.engagement.name }}</span><span class="faint">▾</span>
+            <span class="switcher-name" :title="`${app.engagement.client} · ${app.engagement.name}`">{{ clientName(app.engagement.client) }}</span><span class="faint">▾</span>
           </button>
           <div v-if="menu === 'eng'" class="menu" role="menu" style="min-width: 260px">
             <button v-for="e in app.active" :key="e.id" role="menuitemradio" :aria-checked="e.id === app.engagementId" class="eng-item" @click="pick(e.id)">
               <span class="swatch" :style="{ background: e.color }">{{ e.prefix[0] }}</span>
-              <span class="grow"><span>{{ e.name }}</span><span class="small faint" style="display: block">{{ e.client }}</span></span>
+              <span class="grow"><span>{{ clientName(e.client) }}</span><span class="small faint" style="display: block">{{ e.name }}</span></span>
               <span v-if="e.id === app.engagementId" aria-hidden="true">✓</span>
             </button>
             <template v-if="app.archived.length">
@@ -136,7 +138,7 @@ onBeforeUnmount(() => {
               <span class="label-caps menu-label">Archived · read-only</span>
               <button v-for="e in app.archived" :key="e.id" role="menuitemradio" :aria-checked="e.id === app.engagementId" class="eng-item" style="opacity: 0.75" @click="pick(e.id)">
                 <span class="swatch" :style="{ background: e.color, filter: 'grayscale(1)' }">{{ e.prefix[0] }}</span>
-                <span class="grow"><span>{{ e.name }}</span><span class="small faint" style="display: block">{{ e.client }}</span></span>
+                <span class="grow"><span>{{ clientName(e.client) }}</span><span class="small faint" style="display: block">{{ e.name }}</span></span>
                 <span v-if="e.id === app.engagementId" aria-hidden="true">✓</span>
               </button>
             </template>

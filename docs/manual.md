@@ -128,7 +128,9 @@ To explore with realistic data: stop the app, `npm run db:reset`, `npm run dev`,
 
 Sign in as andrew@example.com (admin) and use **Act as** in the account menu to work as the others, or sign in as jordan@ (lead), riley@ (reviewer), sam@ (preparer) or dana@ (viewer), all @example.com.
 
-**Build your own demo.** Each engagement is one file in `scripts/demo/engagements/`. Copy `_template.mjs`, fill in the client and its use cases with the helpers it lists, and run it alone with `npm run demo -- --only=<file name>`. See the runbook *Load the demo, and build your own*.
+All five clients are in the one demo: switch between them with the engagement switcher (top left), which lists each client by name. You can also keep **saved copies** (every client together, or one client alone) and switch between them with the app stopped: `npm run demo:build` makes them, `npm run demo:list` lists them, `npm run demo:load -- palmcrest` loads one, and `npm run demo:save -- my-copy` keeps what you have now. Loading a copy saves your current database to `data-backups/` first.
+
+**Build your own demo.** Each engagement is one file in `scripts/demo/engagements/`. Copy `_template.mjs`, fill in the client and its use cases with the helpers it lists, and run it alone with `npm run demo -- --only=<file name>`, or save it as its own copy with `npm run demo:build -- <first word of the file name>`. See the runbook *Load the demo, and build your own*.
 
 ## 5. Signing in and finding your way
 

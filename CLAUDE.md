@@ -46,7 +46,8 @@ npm install
 npm run dev          # web http://localhost:5173, API http://localhost:4300
 npm run typecheck
 npm run db:reset     # STOP THE APP FIRST. Rebuilds data/pglite with the demo
-npm run demo         # on a FRESH db with the app running: realistic Client Zero engagement, 5 people (scripts/demo-data.mjs)
+npm run demo         # on a FRESH db with the app running: 5 people, 5 client engagements (scripts/demo/run.mjs; --only=a,b picks; the seeded engagement is removed if Northshore isn't picked)
+npm run demo:build   # app STOPPED: saved copies in demos/ (all + one per client); demo:list, demo:load -- <copy>, demo:save -- <name> (scripts/demo/library.mjs; backs up data/ first, never copies secret.key)
 npm run smoke        # 66 API checks; needs a fresh db and a running server
 npm run test:agents  # 30 drafting-agent checks incl. a cheating mock model
 npm run test:grounding # 31 checks: knowledge base, citations, decisions, meaning search, temperature

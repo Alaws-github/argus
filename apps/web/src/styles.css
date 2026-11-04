@@ -486,7 +486,7 @@ button.switcher:hover { border-color: var(--line-hover); background: var(--hover
 .ask-top { padding-left: 8px; padding-right: 10px; }
 /* v0.9: keep the top bar on one line on laptop screens: the logo stands in
    for the product name, so the assistant keeps its label. */
-@media (max-width: 1100px) { .brand-text { display: none; } }
+/* (brand name now stays visible down to the phone layout) */
 @media (max-width: 1100px) { .ask-top .ask-label { display: none; } .ask-top { padding-right: 8px; } }
 @media (max-width: 1440px) { .nav a, .nav-more { padding: 6px 7px; } }
 
@@ -664,8 +664,8 @@ details.notice > summary { cursor: pointer; }
 .account-menu { max-height: calc(100vh - 64px); overflow-y: auto; overscroll-behavior: contain; }
 /* Narrower screens: first drop the extras, then show menu icons only (each has a tooltip). */
 @media (width <= 1720px) and (width > 980px) {
-  .bar .badge, .ask-top .ask-label, .brand-text { display: none; }
-  .switcher-name { max-width: 150px; }
+  .bar .badge, .ask-top .ask-label { display: none; }
+  .switcher-name { max-width: 128px; }
   .nav a, .nav-more { padding: 6px 7px; gap: 5px; }
 }
 @media (width <= 1360px) and (width > 980px) {
@@ -694,3 +694,8 @@ details.notice > summary { cursor: pointer; }
 td.num, .nowrap { white-space: nowrap; }
 .toolbar .row { flex-wrap: wrap; }
 .kb-fill { margin-bottom: 16px; font-size: 13.5px; }
+/* The ARGUS wordmark, like GoldenEye's: always shown beside the mark on a laptop or larger */
+.brand { gap: 9px; margin-right: 2px; }
+.brand-text { font-size: 16px; font-weight: 750; letter-spacing: 0.1em; }
+@media (width <= 1360px) and (width > 980px) { .switcher-name { max-width: 110px; } .bar-inner { gap: 10px; } }
+@media (width <= 1470px) and (width > 1360px) { .add-label { display: none; } .nav-more > .icon:last-child { display: none; } }

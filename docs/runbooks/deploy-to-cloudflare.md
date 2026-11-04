@@ -83,14 +83,22 @@ Open the address. The very first visit starts the server and creates the databas
 
 ## Step 5. Load the demo (optional)
 
-From the project folder on your computer (not `deploy/cloudflare`), with the site's address:
+From the project folder on your computer (not `deploy/cloudflare`), in PowerShell, with your site's address:
 
-**PowerShell**
 ```
-$env:BASE_URL="https://argus.<your-subdomain>.workers.dev"; $env:DEMO_PASSWORD="choose-a-strong-one"; npm run demo
+$env:BASE_URL="https://argus.<your-subdomain>.workers.dev"
+$env:DEMO_PASSWORD="choose-a-strong-one"
+$env:DEMO_ADMIN_EMAIL="the-admin-email-you-created"
+$env:DEMO_ADMIN_PASSWORD="that-admin's-password"
+npm run demo
 ```
 
-This only works on a new site with no accounts yet. Set `DEMO_PASSWORD`: the demo accounts are on the internet now, so don't use the default password.
+- It adds all five demo clients and the four demo people (Jordan, Riley, Sam, Dana, with the `DEMO_PASSWORD` you set). The demo accounts are on the internet, so don't use the default password.
+- If you haven't created an admin on the site yet, leave out the two `DEMO_ADMIN_` lines: the demo creates andrew@example.com as the admin, with your `DEMO_PASSWORD`.
+- A hosted server is slower than your laptop, and the first request may wait while it wakes up. The demo waits and retries.
+- If it stops part way (for example your connection drops), run the same command again: clients already on the site are skipped.
+- Northshore Financial Group, the full-feature client, builds on the engagement a new site starts with ("Client Zero"). If you renamed, archived or worked in Client Zero first, Northshore is skipped; the other four still load.
+- The environment settings last until you close that PowerShell window.
 
 ## Step 6. Your own address (optional)
 

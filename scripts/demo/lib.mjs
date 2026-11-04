@@ -10,13 +10,23 @@ export const step = (s) => console.log(`  - ${s}`);
 export function client() {
   let cookie = '';
   return async (m, p, b) => {
-    const r = await fetch(B + p, { method: m, headers: { 'content-type': 'application/json', cookie }, body: b ? JSON.stringify(b) : undefined });
-    const sc = r.headers.get('set-cookie');
-    if (sc) cookie = sc.split(';')[0];
-    const t = await r.text();
-    let j; try { j = JSON.parse(t); } catch { j = t; }
-    if (!r.ok) throw new Error(`${m} ${p} -> ${r.status} ${JSON.stringify(j)}`);
-    return j;
+    // A hosted server may be waking up (502/503/504) or briefly unreachable: retry a few times.
+    for (let attempt = 1; ; attempt++) {
+      let r;
+      try {
+        r = await fetch(B + p, { method: m, headers: { 'content-type': 'application/json', cookie }, body: b ? JSON.stringify(b) : undefined });
+      } catch (e) {
+        if (attempt < 6) { await sleep(3000 * attempt); continue; }
+        throw new Error(`${m} ${p}: can't reach ${B} (${e.cause?.code ?? e.message})`);
+      }
+      if ([502, 503, 504].includes(r.status) && attempt < 6) { await sleep(3000 * attempt); continue; }
+      const sc = r.headers.get('set-cookie');
+      if (sc) cookie = sc.split(';')[0];
+      const t = await r.text();
+      let j; try { j = JSON.parse(t); } catch { j = t; }
+      if (!r.ok) { const e = new Error(`${m} ${p} -> ${r.status} ${JSON.stringify(j)}`); e.status = r.status; throw e; }
+      return j;
+    }
   };
 }
 
@@ -32,7 +42,8 @@ export const PEOPLE = [
 export function engagementCtx(E, people) {
   const { andrew, jordan, riley, sam } = people;
   const card = async (key) => andrew('GET', `/cards/${key}`);
-  const waitFor = async (key, pred, label, ms = 45000) => {
+  // Hosted servers are slower than a laptop, so wait up to two minutes for an agent.
+  const waitFor = async (key, pred, label, ms = Number(process.env.DEMO_WAIT_MS || 120000)) => {
     const t0 = Date.now();
     while (Date.now() - t0 < ms) { const d = await card(key); if (pred(d.card)) return d; await sleep(300); }
     const d = await card(key);

@@ -87,7 +87,7 @@ async function build(names) {
     try {
       for (let i = 0; i < 60 && !(await running()); i++) await sleep(1000);
       if (!(await running())) throw new Error('The app did not start');
-      await run(['run', 'demo', '--', ...(t.only ? [`--only=${t.only}`] : [])]);
+      await run(['run', 'demo', '--', ...(t.only ? [`--only=${t.only}`, '--alone'] : [])]);
     } finally {
       stop(server);
       for (let i = 0; i < 30 && (await running()); i++) await sleep(500);

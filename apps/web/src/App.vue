@@ -7,6 +7,7 @@ import { useApp } from './stores/app';
 import { api } from './api';
 import SignIn from './components/SignIn.vue';
 import ArgusLogo from './components/ArgusLogo.vue';
+import Icon from './components/Icon.vue';
 import AssistantPanel from './components/AssistantPanel.vue';
 
 const app = useApp();
@@ -42,23 +43,21 @@ const initials = computed(() =>
 // plus Settings. Optional modules appear only when switched on for the
 // engagement (Engagement settings > General > Modules).
 const REGISTERS = computed(() => [
-  { to: '/risks', label: 'Risks' },
-  { to: '/controls', label: 'Controls' },
-  { to: '/testing', label: 'Tests and evidence' },
-  { to: '/issues', label: app.mod('incidents') ? 'Issues and incidents' : 'Issues', match: ['/issues', '/incidents'] },
-  ...(app.mod('inventory') ? [{ to: '/inventory', label: 'AI inventory' }] : []),
+  { to: '/risks', label: 'Risks', icon: 'risks' },
+  { to: '/testing', label: 'Tests and Evidence', icon: 'tests' },
+  { to: '/issues', label: app.mod('incidents') ? 'Issues and Incidents' : 'Issues', icon: 'issues', match: ['/issues', '/incidents'] },
+  ...(app.mod('inventory') ? [{ to: '/inventory', label: 'AI Inventory', icon: 'inventory' }] : []),
 ]);
 const AI_MENU = computed(() => [
-  { to: '/settings/agents', label: 'AI agents', hint: 'Who drafts each step, and on which model' },
-  { to: '/knowledge', label: 'Knowledge base', hint: 'Everything the AI may cite' },
-  { to: '/runs', label: 'AI runs', hint: 'Every run, its steps and cost' },
-  ...(app.mod('evals') ? [{ to: '/evals', label: 'AI testing and monitoring', hint: 'Evals, red teaming, drift alerts' }] : []),
-  ...(app.mod('advanced_ai') ? [{ to: '/agent-testing/golden', label: 'Checking the AI', hint: 'Golden dataset and the Verifier', match: '/agent-testing' }] : []),
+  { to: '/settings/agents', label: 'AI Agents', icon: 'agents', hint: 'Who drafts each step, and on which model' },
+  { to: '/runs', label: 'AI Runs', icon: 'runs', hint: 'Every run, its steps and cost' },
+  ...(app.mod('evals') ? [{ to: '/evals', label: 'AI Testing and Monitoring', icon: 'evals', hint: 'Evals, red teaming, drift alerts' }] : []),
+  ...(app.mod('advanced_ai') ? [{ to: '/agent-testing/golden', label: 'Checking the AI', icon: 'checking', hint: 'Golden dataset and the Verifier', match: '/agent-testing' }] : []),
 ]);
 const SETTINGS = [
-  { to: '/settings/general', label: 'Engagement settings', match: '/settings/(general|workflow|integrations|access)' },
-  { to: '/workspace/models', label: 'Workspace settings', match: '/workspace' },
-  { to: '/audit', label: 'Audit log' },
+  { to: '/settings/general', label: 'Engagement Settings', icon: 'engagement', match: '/settings/(general|workflow|integrations|access)' },
+  { to: '/workspace/models', label: 'Workspace Settings', icon: 'workspace', match: '/workspace' },
+  { to: '/audit', label: 'Audit Log', icon: 'audit' },
 ];
 const isOn = (items: { to: string; match?: string | string[] }[]) =>
   items.some((m) => [m.match ?? m.to].flat().some((x) => new RegExp(`^${x}`).test(route.path)));
@@ -152,26 +151,28 @@ onBeforeUnmount(() => {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path :d="navOpen ? 'M6 6l12 12M18 6L6 18' : 'M4 7h16M4 12h16M4 17h16'" /></svg>
         </button>
         <nav class="nav" :class="{ open: navOpen }" aria-label="Main">
-          <RouterLink to="/overview">Overview</RouterLink>
-          <RouterLink to="/" exact-active-class="router-link-active" active-class="">Use cases</RouterLink>
+          <RouterLink title="Overview" to="/overview"><Icon name="overview" /><span class="nl">Overview</span></RouterLink>
+          <RouterLink title="Use Cases" to="/" exact-active-class="router-link-active" active-class=""><Icon name="usecases" /><span class="nl">Use Cases</span></RouterLink>
+          <RouterLink title="Controls" to="/controls" :class="{ 'router-link-active': $route.path.startsWith('/controls') }"><Icon name="controls" /><span class="nl">Controls</span></RouterLink>
           <span class="menu-host">
-            <button class="nav-more" :class="{ 'router-link-active': isOn(REGISTERS) }" :aria-expanded="menu === 'reg'" @click="menu = menu === 'reg' ? '' : 'reg'">Registers ▾</button>
+            <button class="nav-more" title="Registers" :class="{ 'router-link-active': isOn(REGISTERS) }" :aria-expanded="menu === 'reg'" @click="menu = menu === 'reg' ? '' : 'reg'"><Icon name="registers" /><span class="nl">Registers</span><Icon name="chevron" :size="13" /></button>
             <div v-if="menu === 'reg'" class="menu" role="menu">
-              <RouterLink v-for="m in REGISTERS" :key="m.to" :to="m.to" role="menuitem">{{ m.label }}</RouterLink>
+              <RouterLink v-for="m in REGISTERS" :key="m.to" :to="m.to" role="menuitem" class="menu-icon"><Icon :name="m.icon" />{{ m.label }}</RouterLink>
             </div>
           </span>
           <span class="menu-host">
-            <button class="nav-more" :class="{ 'router-link-active': isOn(AI_MENU) }" :aria-expanded="menu === 'ai'" @click="menu = menu === 'ai' ? '' : 'ai'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true" style="margin-right: 4px; vertical-align: -2px; color: var(--accent-text)"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" /></svg>AI ▾</button>
-            <div v-if="menu === 'ai'" class="menu" role="menu" style="min-width: 250px">
-              <button role="menuitem" class="menu-rich" @click="menu = ''; askAi()"><strong>Ask the assistant</strong><span class="small faint">About the page you're on</span></button>
-              <RouterLink v-for="m in AI_MENU" :key="m.to" :to="m.to" role="menuitem" class="menu-rich"><strong>{{ m.label }}</strong><span class="small faint">{{ m.hint }}</span></RouterLink>
+            <button class="nav-more nav-ai" title="AI" :class="{ 'router-link-active': isOn(AI_MENU) }" :aria-expanded="menu === 'ai'" @click="menu = menu === 'ai' ? '' : 'ai'"><Icon name="ai" /><span class="nl">AI</span><Icon name="chevron" :size="13" /></button>
+            <div v-if="menu === 'ai'" class="menu" role="menu" style="min-width: 270px">
+              <button role="menuitem" class="menu-rich" @click="menu = ''; askAi()"><Icon name="assistant" /><span><strong>Ask the Assistant</strong><span class="small faint">About the page you're on</span></span></button>
+              <RouterLink v-for="m in AI_MENU" :key="m.to" :to="m.to" role="menuitem" class="menu-rich"><Icon :name="m.icon" /><span><strong>{{ m.label }}</strong><span class="small faint">{{ m.hint }}</span></span></RouterLink>
             </div>
           </span>
-          <RouterLink to="/report">Report</RouterLink>
+          <RouterLink title="Knowledge Base" to="/knowledge"><Icon name="knowledge" /><span class="nl">Knowledge Base</span></RouterLink>
+          <RouterLink title="Report" to="/report"><Icon name="report" /><span class="nl">Report</span></RouterLink>
           <span class="menu-host">
-            <button class="nav-more" :class="{ 'router-link-active': isOn(SETTINGS) }" :aria-expanded="menu === 'set'" @click="menu = menu === 'set' ? '' : 'set'">Settings ▾</button>
+            <button class="nav-more" title="Settings" :class="{ 'router-link-active': isOn(SETTINGS) }" :aria-expanded="menu === 'set'" @click="menu = menu === 'set' ? '' : 'set'"><Icon name="settings" /><span class="nl">Settings</span><Icon name="chevron" :size="13" /></button>
             <div v-if="menu === 'set'" class="menu" role="menu">
-              <RouterLink v-for="m in SETTINGS" :key="m.to" :to="m.to" role="menuitem">{{ m.label }}</RouterLink>
+              <RouterLink v-for="m in SETTINGS" :key="m.to" :to="m.to" role="menuitem" class="menu-icon"><Icon :name="m.icon" />{{ m.label }}</RouterLink>
             </div>
           </span>
         </nav>
@@ -180,7 +181,7 @@ onBeforeUnmount(() => {
           {{ app.health.runtime === 'live' ? 'Live agents' : 'Dry run' }}
         </span>
         <button class="btn ask-ai ask-top" title="Ask the assistant about this page" aria-label="Ask the assistant about this page" @click="askAi"><span class="ai-mark" style="font-size: 10px; padding: 1px 4px">AI</span><span class="ask-label">Ask AI</span></button>
-        <button v-if="app.can('prepare')" class="btn primary" @click="router.push({ path: '/plan', query: { new: String(Date.now()) } })">+<span class="add-label"> Add use case</span></button>
+        <button v-if="app.can('prepare')" class="btn primary" @click="router.push({ path: '/plan', query: { new: String(Date.now()) } })"><Icon name="plus" /><span class="add-label">Add Use Case</span></button>
         <span class="menu-host">
           <button class="avatar" :title="app.user.name" :aria-expanded="menu === 'me'" @click="menu = menu === 'me' ? '' : 'me'">{{ initials }}</button>
           <div v-if="menu === 'me'" class="menu right account-menu" role="menu">
@@ -188,12 +189,12 @@ onBeforeUnmount(() => {
               <strong>{{ app.user.name }}</strong>
               <span class="small faint">{{ app.user.email }}</span>
             </div>
-            <RouterLink to="/account" role="menuitem">Your account</RouterLink>
-            <RouterLink v-if="app.can('manage_users')" to="/workspace/people" role="menuitem">People and roles</RouterLink>
-            <RouterLink to="/audit" role="menuitem">Audit log</RouterLink>
+            <RouterLink to="/account" role="menuitem" class="menu-icon"><Icon name="account" />Your Account</RouterLink>
+            <RouterLink v-if="app.can('manage_users')" to="/workspace/people" role="menuitem" class="menu-icon"><Icon name="people" />People and Roles</RouterLink>
+            <RouterLink to="/audit" role="menuitem" class="menu-icon"><Icon name="audit" />Audit Log</RouterLink>
             <template v-if="actAs">
               <div class="menu-sep" />
-              <span class="label-caps menu-label">Act as</span>
+              <span class="label-caps menu-label">Act As</span>
               <button v-for="p in actAs.people" :key="p.id" role="menuitemradio" :aria-checked="p.id === app.user.id" class="eng-item act-as-item" @click="actAsPerson(p.id === (app.user.realUser?.id ?? app.user.id) ? null : p.id)">
                 <span class="grow">{{ p.name }}<span class="small faint" style="display: block">{{ p.role }}{{ p.id === (app.user.realUser?.id ?? app.user.id) ? ' · you' : '' }}</span></span>
                 <span v-if="p.id === app.user.id" aria-hidden="true">✓</span>
@@ -208,10 +209,10 @@ onBeforeUnmount(() => {
             </div>
             <div class="menu-sep" />
             <button class="switch notify-toggle" :class="{ on: app.notify }" role="switch" :aria-checked="app.notify" @click="app.setNotify(!app.notify)">
-              <span class="track" /><span>Desktop notifications</span>
+              <span class="track" /><span>Desktop Notifications</span>
             </button>
             <p class="small faint menu-note">When a use case needs your approval and this tab is in the background, from any engagement.</p>
-            <button class="btn signout" @click="signOut">Sign out</button>
+            <button class="btn signout" @click="signOut"><Icon name="signout" />Sign Out</button>
           </div>
         </span>
       </div>

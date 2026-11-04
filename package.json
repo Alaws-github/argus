@@ -1,7 +1,7 @@
 {
   "name": "governance-harness",
   "private": true,
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "AI governance, risk and assurance harness: a gated board where agents draft and people decide.",
   "workspaces": [
     "packages/*",

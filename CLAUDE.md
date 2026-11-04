@@ -4,7 +4,7 @@ Context for Claude working on this project. Read this first.
 
 ## What this is
 
-**ARGUS** (v1.2), the Assurance, Risk & Governance Unified System (formerly Governance Harness): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report), shown to people as five steps (`PHASES` / `PHASE_OF` in shared: Intake, Assess risk, Controls, Test, Sign-off & report). The engine, exit criteria, agents and tests all still work on the eight stages. Seven AI agents draft the work (the Use Case Planner drafts the intake brief, six more draft each later stage), and a lead can add more per stage; named people make every decision; everything is written to a hash-chained audit log.
+**ARGUS** (v1.2.2), the Assurance, Risk & Governance Unified System (formerly Governance Harness): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report), shown to people as five steps (`PHASES` / `PHASE_OF` in shared: Intake, Assess risk, Controls, Test, Sign-off & report). The engine, exit criteria, agents and tests all still work on the eight stages. Seven AI agents draft the work (the Use Case Planner drafts the intake brief, six more draft each later stage), and a lead can add more per stage; named people make every decision; everything is written to a hash-chained audit log.
 
 It was rebuilt from **GoldenEye**, the owner's AI delivery harness, keeping its board-and-gate engine, Models page, tabbed Settings, account menu and look. GoldenEye is a reference only: never change anything in it.
 
@@ -53,7 +53,7 @@ npm run test:agents  # 30 drafting-agent checks incl. a cheating mock model
 npm run test:grounding # 31 checks: knowledge base, citations, decisions, meaning search, temperature
 npm run test:operations # 58 checks: PDF/Excel/Word reading, incidents, monitoring and drift, connectors, members-only access, SSO (mock IdP)
 npm run test:assistant # 27 checks: assistant offline/live, dropped citations and suggestions, apply under own role, discard, spend cap, JSON fallback
-npm run test:v12       # modules per engagement; five steps still run the stage checks
+npm run test:v12       # modules per engagement; five steps still run the stage checks; upload controls (CSV/Excel preview, import, audit)
 npm run versions       # list git tags; -- use vX.Y (backs up data/), -- latest
 npm run test:v11       # 65 checks: Use Case Planner (rules and mock model), new agents and routing, act as, provider service names, activity charts
 npm run test:verifier  # 36 checks: golden runs, regressions, Verifier quote check, calibration, live checks, spend cap
@@ -76,6 +76,7 @@ apps/server/src
   routes-config.ts settings, providers, agents, engagement create and update
   routes-auth.ts  sign-in, sessions, your account, people, act as
   planner.ts      Use Case Planner (offline rules and live); routes-plans.ts plans API; cards.ts createCard
+  control-import.ts CSV/Excel parsing for POST /engagements/:id/controls/import (preview: true saves nothing)
   routes-grc.ts   library, SoA, controls, inventory, tests, evidence, issues, traceability, evals, assessment, report, kill switch
   archive.ts      read-only guard, archive, restore, export, delete
   auth.ts         scrypt passwords, sessions (12 h idle, 7 days), permission RULES, isMe, requireDifferentPerson
@@ -107,7 +108,7 @@ apps/web/src
   App.vue         shell, engagement switcher, account menu (theme, notifications), archived banner
   stores/app.ts   session, engagement, cards, permissions (can() is false for writes on archived engagements)
   pages/          one file per page; components/CardDrawer.vue is the use case side panel
-  components/     AssistantPanel (Ask), StandardsTab (plain-English framework coverage), ProviderForm (presets), VerifierBar, DraftItem
+  components/     Icon (inline line icons for menus and buttons), ControlUpload, AssistantPanel (Ask), StandardsTab (plain-English framework coverage), ProviderForm (presets), VerifierBar, DraftItem
   styles.css      GoldenEye design tokens (dark first, light via data-theme or system)
 docs/             plain-language docs, runbooks, diagrams (Mermaid source) and images
 scripts/          smoke.mjs, agents-test.mjs, grounding-test.mjs, verifier-test.mjs, assistant-test.mjs, operations-test.mjs, mock-model.cjs, demo-data.mjs

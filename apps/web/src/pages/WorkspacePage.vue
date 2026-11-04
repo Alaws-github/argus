@@ -15,8 +15,8 @@ import SsoSettings from '../components/SsoSettings.vue';
 const app = useApp();
 const route = useRoute();
 const TABS = computed(() => ({
-  models: 'Models & keys',
-  ...(app.canRaw('manage_users') ? { people: 'People & roles', security: 'Sign-in & security' } : {}),
+  models: 'Models & Keys',
+  ...(app.canRaw('manage_users') ? { people: 'People & Roles', security: 'Sign-in & Security' } : {}),
 }));
 const tab = computed(() => (String(route.params.tab) in TABS.value ? String(route.params.tab) : 'models'));
 

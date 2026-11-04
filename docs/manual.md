@@ -1,8 +1,223 @@
 # ARGUS: User Manual
 
-Version 1.2 · November 2026
+Version 1.2.2 · November 2026
 
 This manual explains ARGUS, the Assurance, Risk & Governance Unified System: what it is for, how to set it up, and how a piece of work flows through it from the first request to the board report. It is written for assurance, risk and governance professionals, not for developers. Screenshots use the fictional demo engagement (Northshore Financial Group), which you can load yourself to follow along (section 4.4).
+
+---
+
+# Start Here: Your Path Through ARGUS
+
+This is the order to do things in, from an empty workspace to a signed board report. Each step says **who** does it, **where** to find it, and **what to do**. The rest of the manual explains each step in more depth; the section to read is given at the end of each step.
+
+| # | Step | Who |
+| --- | --- | --- |
+| 1 | Sign in | Everyone |
+| 2 | Connect an AI model | Admin |
+| 3 | Add your people | Admin |
+| 4 | Create the engagement | Lead or admin |
+| 5 | Switch on the modules you need | Lead |
+| 6 | Fill the Knowledge Base | Preparer or lead |
+| 7 | Check the AI agents | Lead |
+| 8 | Add a use case with the AI | Preparer |
+| 9 | Take it forward from Intake | Reviewer or lead |
+| 10 | Decide the AI's risk draft | Reviewer or lead |
+| 11 | Decide the controls | Reviewer or lead |
+| 12 | Collect evidence and test | Preparer, then a different reviewer |
+| 13 | Fix what failed | Issue owners, reviewer |
+| 14 | Sign off and report | Lead |
+| 15 | Prove it | Anyone |
+
+Steps 1 to 7 are done once per workspace or engagement. Steps 8 to 15 are done for each use case. To try the path without setting anything up, load the demo (section 4.4), sign in as Andrew and use **Act As** to play each role.
+
+## Step 1. Sign in
+
+**Who:** everyone. **Where:** the address your admin gave you.
+
+![Sign in](images/path/p01-sign-in.png)
+
+1. Enter your email and password, or click **Sign in with ...** if your firm uses single sign-on.
+2. The first person to open a new workspace creates the first admin account here.
+
+Read more: section 5.
+
+## Step 2. Connect an AI model
+
+**Who:** admin. **Where:** Settings > Workspace Settings > Models & Keys.
+
+![Models and keys](images/path/p02-models.png)
+
+1. Click **+ Add provider** and pick the service (for example Google Gemini or Anthropic).
+2. Paste the API key and click **Test and find models**. The key is encrypted on the server and never shown again.
+3. Set a **monthly spending limit**.
+4. Skip this step to start: ARGUS runs on its built-in offline rules, which are free and cautious, and you can connect a model later.
+
+Read more: section 6.
+
+## Step 3. Add your people
+
+**Who:** admin. **Where:** Settings > Workspace Settings > People & Roles.
+
+![People and roles](images/path/p03-people.png)
+
+1. Click **Add person** and give their name, email, role and a first password.
+2. Give each person the role for what they do: **preparer** (does the work), **reviewer** (checks and approves), **lead** (sets up engagements and signs off), **viewer** (reads only), **admin** (runs the workspace).
+3. Change a role later with the role list on their row.
+
+Read more: sections 3 and 8.
+
+## Step 4. Create the engagement
+
+**Who:** lead or admin. **Where:** the engagement switcher (top left) > **+ Add engagement**.
+
+![Add an engagement](images/path/p04-new-engagement.png)
+
+1. Enter the client, the engagement name and a short prefix for use case keys (for example AI, giving AI-1, AI-2).
+2. Describe the client: its sector, regulators and anything that changes how risk is judged. **Every AI agent reads this.**
+3. Pick the frameworks in scope, set the risk appetite, choose where people must approve, and choose the AI model for the agents.
+
+Read more: section 7.
+
+## Step 5. Switch on the modules you need
+
+**Who:** lead. **Where:** Settings > Engagement Settings > General > Modules.
+
+![Modules](images/path/p05-modules.png)
+
+1. The core flow is always on. Switch on extras only when the engagement needs them: AI testing and monitoring, incidents, the AI inventory, evidence connectors, the Statement of Applicability, advanced AI settings.
+2. Switching one off hides it and deletes nothing.
+
+Read more: section 7.1.
+
+## Step 6. Fill the Knowledge Base
+
+**Who:** preparer or lead. **Where:** **Knowledge Base** in the top bar.
+
+![Knowledge Base](images/path/p06-knowledge.png)
+
+This is the step people most often skip, and the one that most improves the AI's drafts. The standards and the control library are built in; the client's own material is not.
+
+1. Click **Add a Client Document**.
+2. Upload (PDF, Word, Excel, text) or paste: the client's AI policy, risk appetite statement, model risk and data protection policies, key vendor contracts, and any regulator letters.
+3. Use **Search as an agent would** to check the AI can find what matters (for example, "who must review loan declines").
+
+Read more: section 9.
+
+## Step 7. Check the AI agents
+
+**Who:** lead. **Where:** AI > AI Agents.
+
+![AI agents](images/path/p07-agents.png)
+
+1. Check each agent is on and uses the model you want. Each one drafts one step; none can approve anything.
+2. Add engagement instructions if the client needs something always considered (for example, "cite the central bank's guidance where it applies").
+3. Test the kill switch once and the date is recorded.
+
+Read more: sections 7.3 and 28.
+
+## Step 8. Add a use case with the AI
+
+**Who:** preparer. **Where:** **+ Add Use Case** (top right).
+
+![The Use Case Planner](images/path/p08-plan.png)
+
+1. Describe the AI use case in a sentence or two. The **Use Case Planner** asks a few questions and fills in the brief on the right; fields it filled carry an **AI** tag.
+2. Correct anything in the brief yourself. A field you type is yours; the AI won't change it.
+3. When nothing required is missing, click **Add to Intake**. It goes on the board under your name.
+4. Prefer to type it all? Click **Fill it in myself**.
+
+Read more: section 11.
+
+## Step 9. Take it forward from Intake
+
+**Who:** a reviewer or lead who didn't add it. **Where:** Use Cases > the card in **Intake**.
+
+![A use case in Intake](images/path/p09-intake.png)
+
+1. Open the card and read the brief.
+2. Click **Send to classification**, or drag the card to **Assess Risk**. Or **Don't take forward**, with a note.
+3. The Risk Classifier starts at once and drafts the risk tier and starting risks.
+
+Read more: section 11.
+
+## Step 10. Decide the AI's risk draft
+
+**Who:** reviewer or lead. **Where:** the card in **Assess Risk**.
+
+![The AI's risk draft, item by item](images/path/p10-risk-draft.png)
+
+1. Read each item: its reasons, its sources (click a K-number to see the passage) and the Verifier's check.
+2. **Accept**, **Edit** (with a reason) or **Reject** (with a reason) each item. **Accept the rest** takes everything still open.
+3. Click **Approve**. Only what you kept goes into the risk register.
+
+Read more: section 12.
+
+## Step 11. Decide the controls
+
+**Who:** reviewer or lead. **Where:** the card in **Controls**, and the **Controls** page.
+
+![The AI's control design](images/path/p11-control-draft.png)
+
+1. Decide each control the Control Designer proposed, as in step 10. Name a real owner for each.
+2. A risk scoring 12 or more must keep at least one control, or approval is blocked.
+3. Already have a control set? On **Controls > Our Controls**, click **Upload Controls** and pick a CSV or Excel file (download the template first). You see a preview, with the reason for any row that can't be added, before anything is saved.
+
+![Upload controls](images/path/p11b-upload-controls.png)
+
+Read more: sections 13 and 21.
+
+## Step 12. Collect evidence and test
+
+**Who:** preparer, then a different reviewer. **Where:** Registers > Tests and Evidence.
+
+![Tests](images/path/p12-tests.png)
+
+1. The Evidence Collector drafts what to ask the client for. Add each item to the **Evidence Vault** (files are fingerprinted when added).
+2. The Control Tester drafts a result for each test. The **preparer** concludes it (passed, failed, with exceptions) and a **different reviewer** reviews it.
+3. Every failed test needs an issue.
+
+![Evidence vault](images/path/p12b-evidence.png)
+
+Read more: sections 14, 15, 22 and 23.
+
+## Step 13. Fix what failed
+
+**Who:** issue owners, then a reviewer. **Where:** Registers > Issues.
+
+![Issues](images/path/p13-issues.png)
+
+1. Each issue has a severity, an owner, a due date and the management response.
+2. When the fix is in, retest the control. A reviewer closes the issue only after the retest passes.
+
+Read more: sections 16 and 24.
+
+## Step 14. Sign off and report
+
+**Who:** reviewer (final review), then lead. **Where:** the card in **Sign-off & Report**, then **Report**.
+
+![The Review assistant's challenges](images/path/p14-sign-off.png)
+
+1. The Review assistant lists challenges to the evidence pack. Weigh each one, then approve.
+2. The Report Writer drafts the board summary from the records. Decide it, then approve.
+3. On **Report**, score the seven areas and sign off. Whoever scored can't sign alone.
+
+![The report](images/path/p14b-report.png)
+
+Read more: sections 17, 18 and 27.
+
+## Step 15. Prove it
+
+**Who:** anyone. **Where:** Settings > Audit Log, and Overview.
+
+![The audit log](images/path/p15-audit.png)
+
+1. Every action, by a person or an agent, is in the audit log, with who, when and from where.
+2. Click **Verify the chain**: changing or deleting any entry breaks it.
+3. **Overview** shows coverage, open risk, what the AI did and what it cost.
+
+![Overview](images/path/p16-overview.png)
+
+Read more: sections 19 and 32.
 
 ---
 
@@ -146,15 +361,17 @@ From left to right:
 
 - **Logo**, the ARGUS pheasant (and the name on wide screens): back to the board.
 - **Engagement switcher**: the engagement you're working in. Admins and leads can **+ Add engagement** from here. Archived engagements are listed separately and are read-only.
-- **Navigation**, six places:
+- **Navigation**, eight places, each with its icon:
   - **Overview**: the engagement at a glance, with charts.
-  - **Use cases**: the board.
-  - **Registers**: Risks, Controls, Tests and evidence, Issues (and Incidents and the AI inventory when those modules are on).
-  - **AI**: ask the assistant, the AI agents and their models, the knowledge base the AI may cite, AI runs, and (when the modules are on) AI testing and monitoring and Checking the AI.
+  - **Use Cases**: the board.
+  - **Controls**: the standards in plain English, your controls (add, upload or download them), the control library, and (with the module on) what applies and traceability.
+  - **Registers**: Risks, Tests and Evidence, Issues (and Incidents and the AI Inventory when those modules are on).
+  - **AI**: Ask the Assistant, the AI Agents and their models, AI Runs, and (when the modules are on) AI Testing and Monitoring and Checking the AI.
+  - **Knowledge Base**: everything the AI may cite, including the client documents you add.
   - **Report**: the readiness assessment and board report.
-  - **Settings**: Engagement settings, Workspace settings and the Audit log.
+  - **Settings**: Engagement Settings, Workspace Settings and the Audit Log.
 
-  On a phone or narrow window the navigation folds into the menu button at the left.
+  On a narrower window the menu shows icons only (hover for the name); on a phone it folds into the menu button at the left.
 - **Dry run / Live agents**: whether agents use the offline rules or a real model.
 - **Ask AI**: opens the assistant for the page you're on (section 30).
 - **+ Add use case**: opens the Plan page, where the Use Case Planner helps you write the brief (section 11).
@@ -174,7 +391,7 @@ The harness works without any AI model, using built-in rules that are deliberate
 
 ### 6.1 Choosing a provider
 
-Go to **More > Workspace settings > Models & keys > + Add provider** and pick a service. The address and billing are filled in for you.
+Go to **Settings > Workspace Settings > Models & Keys > + Add provider** and pick a service. The address and billing are filled in for you.
 
 ![Adding Google Gemini](images/walkthrough/35-add-gemini.png)
 
@@ -198,9 +415,9 @@ Free tiers are fine for trying the harness and for demos with the fictional data
 
 ### 6.3 Pointing the harness at a model
 
-- **Agents**: **More > Engagement settings > Agents**. For each agent, choose the provider, model, effort and an optional fallback, then **Save agent**. New engagements can start from defaults set under Workspace settings > Models & keys.
+- **Agents**: **AI > AI Agents**. For each agent, choose the provider, model, effort and an optional fallback, then **Save agent**. New engagements can start from defaults set under Workspace settings > Models & keys.
 - **The assistant**: Models & keys page, **Assistant** card.
-- **The Verifier**: **More > Agent testing > Verifier**. Pick a model from a different company than the drafting agents.
+- **The Verifier**: **AI > Checking the AI > Verifier**. Pick a model from a different company than the drafting agents.
 - **Meaning-based search** (optional): Models & keys page. An embedding model lets agents find passages that say the same thing in other words.
 
 ![Agent settings](images/walkthrough/34-agents.png)
@@ -225,8 +442,8 @@ The wizard asks for the client, the engagement name and a short prefix for use c
 
 There are two levels of settings, as in GoldenEye's app and project settings:
 
-- **Workspace settings** (More > Workspace settings, admins and leads): what applies to every engagement. **Models & keys** (providers, spending limit, defaults for new agents, the assistant's model, meaning-based search), **People & roles**, and **Sign-in & security** (single sign-on, act as, and whether connectors may reach private networks).
-- **Engagement settings** (More > Engagement settings): one engagement. The engagements are listed on the left, with **+ Add engagement**; pick one to see its five tabs:
+- **Workspace settings** (Settings > Workspace Settings, admins and leads): what applies to every engagement. **Models & keys** (providers, spending limit, defaults for new agents, the assistant's model, meaning-based search), **People & roles**, and **Sign-in & security** (single sign-on, act as, and whether connectors may reach private networks).
+- **Engagement settings** (Settings > Engagement Settings): one engagement. The engagements are listed on the left, with **+ Add engagement**; pick one to see its five tabs:
   - **General**: name, client, prefix, frameworks, a description every agent reads with each use case (the client's sector, regulators and anything that changes how risk is judged), **Modules** (below), **Pause this engagement** and **Archive or delete**.
   - **Workflow & gates**: which stages stop for a person, and which agents work each stage. Drafting stages (Collect evidence, Test controls, Validate, Board report) always stop.
   - **Integrations**: the evidence connectors that pull reports from the client's systems (section 14.2).
@@ -296,7 +513,7 @@ The trade-off: segregation of duties checks names, so one real person switching 
 
 ## 9. The knowledge base
 
-**More > Knowledge base** holds everything the agents may use: summaries of the EU AI Act, ISO/IEC 42001, the NIST AI RMF, the Jamaica Data Protection Act 2020 and the OWASP LLM Top 10 (in the harness's own words, with links to the official text); the 31 library controls; method guidance (tiering, oversight, sampling, evidence strength, exceptions, findings, autonomous agents); and the engagement's own material.
+**Knowledge Base** (top bar) holds everything the agents may use: summaries of the EU AI Act, ISO/IEC 42001, the NIST AI RMF, the Jamaica Data Protection Act 2020 and the OWASP LLM Top 10 (in the harness's own words, with links to the official text); the 31 library controls; method guidance (tiering, oversight, sampling, evidence strength, exceptions, findings, autonomous agents); and the engagement's own material.
 
 ![Knowledge base](images/walkthrough/18-knowledge.png)
 
@@ -633,13 +850,13 @@ A suggestion changes nothing until you click **Apply**. Applying runs it under y
 
 The Verifier is a second AI that reads each item of a classification or control design next to the passages it cites and gives a verdict: supported, partly supported, not supported, or contradicted by its sources. A "supported" verdict must quote a cited passage word for word; the harness checks the quote, and doesn't trust a verdict whose quote isn't there. The Verifier is advisory: it never decides an item. If the same model wrote and checked a draft, the panel says so.
 
-On a draft, **Check with the Verifier** asks for a check. An admin can turn on automatic checks of every new draft under **More > Agent testing > Verifier**.
+On a draft, **Check with the Verifier** asks for a check. An admin can turn on automatic checks of every new draft under **AI > Checking the AI > Verifier**.
 
 ### 31.2 The golden dataset
 
 ![Golden dataset](images/walkthrough/19-golden.png)
 
-**More > Agent testing > Golden dataset** holds 15 fictional use cases with known right answers (10 for the Risk Classifier, including one with a hidden instruction, and 5 for the Control Designer). Before switching an agent's model or changing its rules, run it over the set: each case is scored check by check, and any case that passed last time and fails now is a **regression**. Admins can add their own cases.
+**AI > Checking the AI > Golden Dataset** holds 15 fictional use cases with known right answers (10 for the Risk Classifier, including one with a hidden instruction, and 5 for the Control Designer). Before switching an agent's model or changing its rules, run it over the set: each case is scored check by check, and any case that passed last time and fails now is a **regression**. Admins can add their own cases.
 
 ### 31.3 Can you trust the Verifier?
 
@@ -683,7 +900,7 @@ The audit log (account menu) can be searched and filtered by person, action, add
 
 ![Models and keys](images/walkthrough/22-models.png)
 
-**More > Workspace settings** has three tabs. **Models & keys**: providers and their models, prices per million tokens for billed models, the spending limit, defaults for new engagements' agents, the assistant's model and meaning-based search. **People & roles**: section 8. **Sign-in & security**: act as (section 8.1), whether connectors may reach private networks, and single sign-on.
+**Settings > Workspace Settings** has three tabs. **Models & keys**: providers and their models, prices per million tokens for billed models, the spending limit, defaults for new engagements' agents, the assistant's model and meaning-based search. **People & roles**: section 8. **Sign-in & security**: act as (section 8.1), whether connectors may reach private networks, and single sign-on.
 
 ![Sign-in and security](images/walkthrough/41-security.png)
 

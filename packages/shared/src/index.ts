@@ -22,13 +22,13 @@ export type Stage = z.infer<typeof Stage>;
 
 export const STAGE_LABELS: Record<Stage, string> = {
   intake: 'Intake',
-  classify: 'Classify risk',
-  design: 'Design controls',
-  evidence: 'Collect evidence',
-  test: 'Test controls',
+  classify: 'Classify Risk',
+  design: 'Design Controls',
+  evidence: 'Collect Evidence',
+  test: 'Test Controls',
   remediate: 'Remediate',
   validate: 'Validate',
-  report: 'Board report',
+  report: 'Board Report',
   closed: 'Closed',
 };
 
@@ -39,7 +39,7 @@ export const STAGE_LABELS: Record<Stage, string> = {
 export const PHASES = ['intake', 'assess', 'controls', 'test', 'signoff', 'closed'] as const;
 export type Phase = (typeof PHASES)[number];
 export const PHASE_LABELS: Record<Phase, string> = {
-  intake: 'Intake', assess: 'Assess risk', controls: 'Controls', test: 'Test', signoff: 'Sign-off & report', closed: 'Done',
+  intake: 'Intake', assess: 'Assess Risk', controls: 'Controls', test: 'Test', signoff: 'Sign-off & Report', closed: 'Done',
 };
 export const PHASE_OF: Record<Stage, Phase> = {
   intake: 'intake', classify: 'assess', design: 'controls', evidence: 'test', test: 'test', remediate: 'test', validate: 'signoff', report: 'signoff', closed: 'closed',
@@ -54,7 +54,7 @@ export const PHASE_HINTS: Record<Phase, string> = {
 };
 // The step inside a phase, shown on the card when a phase has more than one.
 export const STEP_LABELS: Partial<Record<Stage, string>> = {
-  evidence: 'Collecting evidence', test: 'Testing', remediate: 'Fixing findings', validate: 'Final review', report: 'Board report',
+  evidence: 'Collecting Evidence', test: 'Testing', remediate: 'Fixing Findings', validate: 'Final Review', report: 'Board Report',
 };
 
 // Optional parts of an engagement. The core flow is always on; these are
@@ -118,10 +118,10 @@ export type CardStatus = z.infer<typeof CardStatus>;
 export const STATUS_LABELS: Record<CardStatus, string> = {
   idle: 'Waiting',
   queued: 'Queued',
-  running: 'Agent working',
-  needs_approval: 'Needs your approval',
-  changes_requested: 'Changes requested',
-  failed: 'Run failed',
+  running: 'Agent Working',
+  needs_approval: 'Needs Your Approval',
+  changes_requested: 'Changes Requested',
+  failed: 'Run Failed',
 };
 
 export const Autonomy = z.enum(['assistive', 'human_in_loop', 'human_on_loop', 'autonomous']);

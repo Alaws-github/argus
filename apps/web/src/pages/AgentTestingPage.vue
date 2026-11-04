@@ -205,7 +205,7 @@ const verifierName = computed(() => {
       </div>
     </div>
     <nav class="tabs">
-      <RouterLink to="/agent-testing/golden" :class="{ active: tab === 'golden' }">Golden dataset</RouterLink>
+      <RouterLink to="/agent-testing/golden" :class="{ active: tab === 'golden' }">Golden Dataset</RouterLink>
       <RouterLink to="/agent-testing/verifier" :class="{ active: tab === 'verifier' }">Verifier</RouterLink>
       <RouterLink to="/agent-testing/history" :class="{ active: tab === 'history' }">History</RouterLink>
     </nav>

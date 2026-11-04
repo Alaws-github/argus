@@ -60,7 +60,7 @@ const counts = computed(() => ({
 }));
 
 // Who works each column, and where a person steps in.
-const gateOf = (p: Phase) => (p === 'intake' ? 'You triage' : p === 'closed' ? '' : stagesOf(p).some((s) => app.engagement?.gates[s]) ? 'You decide' : '');
+const gateOf = (p: Phase) => (p === 'intake' ? 'You Triage' : p === 'closed' ? '' : stagesOf(p).some((s) => app.engagement?.gates[s]) ? 'You Decide' : '');
 const ownerOf = (p: Phase) => {
   const on = agents.value.filter((a) => PHASE_OF[a.stage] === p && a.enabled && a.built);
   if (p === 'closed') return PHASE_HINTS.closed;
@@ -184,7 +184,7 @@ async function onDrop(p: Phase) {
             <span class="small faint col-owner" :title="ownerOf(s)">{{ ownerOf(s) }}</span>
           </div>
           <template v-if="s === 'intake' && app.can('prepare')">
-            <button class="quick-add" @click="quickAdd = true">+ Quick add</button>
+            <button class="quick-add" @click="quickAdd = true">+ Quick Add</button>
           </template>
           <button
             v-for="c in byPhase(s)" :key="c.id" class="board-card" :class="{ selected: selected === c.key, dragging: dragging?.id === c.id }"

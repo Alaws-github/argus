@@ -45,6 +45,7 @@ app.use((_req, res, next) => {
 });
 // Evidence uploads arrive as base64 JSON, so that one route takes a larger body.
 app.use('/api/evidence', express.json({ limit: '15mb' }));
+app.use(/^\/api\/engagements\/[^/]+\/controls\/import$/, express.json({ limit: '15mb' }));
 app.use(/^\/api\/engagements\/[^/]+\/knowledge$/, express.json({ limit: '15mb' }));
 app.use(express.json({ limit: '256kb' }));
 app.use('/api', authMiddleware(db));

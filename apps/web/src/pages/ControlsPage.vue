@@ -3,6 +3,8 @@
 // (reusable controls mapped to standards), the Statement of Applicability, and
 // the traceability matrix from obligation to evidence.
 import { computed, onMounted, ref, watch } from 'vue';
+import ControlUpload from '../components/ControlUpload.vue';
+import Icon from '../components/Icon.vue';
 import { useRoute } from 'vue-router';
 import {
   CONTROL_DOMAINS, DOMAIN_LABELS, FRAMEWORK_LABELS,
@@ -61,6 +63,7 @@ async function setOwner(c: EngagementControl, owner: string) {
 }
 
 const adding = ref(false);
+const uploading = ref(false);
 const form = ref({ title: '', objective: '', type: 'preventive', frequency: 'per change', owner: '', libraryId: '', cardId: '', riskIds: [] as string[] });
 const formError = ref('');
 const cardsForForm = computed(() => app.cards.filter((c) => c.tier));
@@ -156,9 +159,9 @@ function exportTrace() {
     </div>
     <nav class="tabs">
       <RouterLink to="/controls/standards" :class="{ active: tab === 'standards' }">Standards</RouterLink>
-      <RouterLink to="/controls/register" :class="{ active: tab === 'register' }">Our controls</RouterLink>
-      <RouterLink to="/controls/library" :class="{ active: tab === 'library' }">Control library</RouterLink>
-      <RouterLink v-if="app.mod('soa') || tab === 'soa'" to="/controls/soa" :class="{ active: tab === 'soa' }">What applies</RouterLink>
+      <RouterLink to="/controls/register" :class="{ active: tab === 'register' }">Our Controls</RouterLink>
+      <RouterLink to="/controls/library" :class="{ active: tab === 'library' }">Control Library</RouterLink>
+      <RouterLink v-if="app.mod('soa') || tab === 'soa'" to="/controls/soa" :class="{ active: tab === 'soa' }">What Applies</RouterLink>
       <RouterLink v-if="app.mod('soa') || tab === 'traceability'" to="/controls/traceability" :class="{ active: tab === 'traceability' }">Traceability</RouterLink>
     </nav>
 
@@ -175,7 +178,8 @@ function exportTrace() {
         </div>
         <div class="row">
           <button class="btn" :disabled="!controls.length" @click="exportRegister">Download CSV</button>
-          <button v-if="app.can('prepare')" class="btn primary" @click="adding = true">Add control</button>
+          <button v-if="app.can('prepare')" class="btn" @click="uploading = true"><Icon name="upload" />Upload Controls</button>
+          <button v-if="app.can('prepare')" class="btn primary" @click="adding = true"><Icon name="plus" />Add Control</button>
         </div>
       </div>
       <div v-if="!controls.length" class="card empty">
@@ -317,6 +321,7 @@ function exportTrace() {
       </div>
     </template>
 
+    <ControlUpload v-if="uploading" @close="uploading = false" @done="uploading = false; load()" />
     <template v-if="adding">
       <div class="backdrop" @click="adding = false" />
       <form class="modal" @submit.prevent="addControl">

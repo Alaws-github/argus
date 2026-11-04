@@ -35,5 +35,27 @@ await expectErr(admin('POST', `/cards/${c.id}/actions`, { action: 'advance' }), 
 const moved = await admin('POST', `/cards/${c.id}/actions`, { action: 'approve' });
 ok(moved.stage === 'classify', 'a reviewer\'s drop moves it to Assess risk (the classify stage)');
 void providers;
+
+console.log('\n# Upload controls');
+const csvText = 'Title,Objective,Type,Frequency,Owner,Use case,Library code,Risks\n"Model change approval","Changes need sign-off",preventive,per change,Head of Model Risk,AI-1,MOD-01,\n"Bad row",x,sideways,monthly,Someone,AI-99,,R-999\n"Comma, in title","Quoted ""text"" is fine",detective,monthly,Ops,,,\n';
+const b64 = Buffer.from(csvText).toString('base64');
+const before = (await admin('GET', `/engagements/${seed.id}/controls`)).length;
+const prev = await sam('POST', `/engagements/${seed.id}/controls/import`, { filename: 'controls.csv', dataBase64: b64, preview: true });
+ok(prev.rows.length === 3 && prev.willAdd === 2, `the preview reads every row and says which can be added (${prev.willAdd} of ${prev.rows.length})`);
+ok(/sideways/.test(prev.rows[1].why) && /AI-99/.test(prev.rows[1].why) && /R-999/.test(prev.rows[1].why), 'a bad row says exactly what is wrong with it');
+ok(prev.rows[2].title === 'Comma, in title' && prev.rows[2].objective === 'Quoted "text" is fine', 'quoted CSV cells with commas and quotes are read correctly');
+ok((await admin('GET', `/engagements/${seed.id}/controls`)).length === before, 'the preview saves nothing');
+const done = await sam('POST', `/engagements/${seed.id}/controls/import`, { filename: 'controls.csv', dataBase64: b64, preview: false });
+const after = await admin('GET', `/engagements/${seed.id}/controls`);
+ok(done.added.length === 2 && after.length === before + 2 && done.skipped.length === 1, 'importing adds the good rows and reports the skipped one');
+const lib = after.find((c) => c.title === 'Model change approval');
+ok(lib && lib.cardKey === 'AI-1' && lib.status === 'proposed', 'an uploaded control is linked to its use case and starts as proposed');
+const auditRows = (await admin('GET', '/audit?pageSize=50')).rows;
+ok(auditRows.filter((x) => x.action === 'control.added' && x.detail.uploadedFrom === 'controls.csv').length === 2, 'each uploaded control has its own audit entry, naming the file and row');
+await expectErr(client()('POST', `/engagements/${seed.id}/controls/import`, { filename: 'x.csv', dataBase64: b64, preview: true }), 401, 'you must be signed in to upload');
+const viewer = client(); await admin('POST', '/users', { name: 'Vee Viewer', email: 'vee@example.com', role: 'viewer', password: 'correct-horse-9' }); await viewer('POST', '/auth/login', { email: 'vee@example.com', password: 'correct-horse-9' });
+await expectErr(viewer('POST', `/engagements/${seed.id}/controls/import`, { filename: 'x.csv', dataBase64: b64, preview: false }), 403, 'a viewer cannot upload controls');
+const noTitle = await sam('POST', `/engagements/${seed.id}/controls/import`, { filename: 'x.csv', dataBase64: Buffer.from('Owner,Type\nA,preventive\n').toString('base64'), preview: true });
+ok(noTitle.problems.some((p) => /Title/.test(p)), 'a file without a Title column is explained, not half-imported');
 console.log(fails ? `\n${fails} FAILED` : '\nAll v1.2 checks passed');
 process.exit(fails ? 1 : 0);

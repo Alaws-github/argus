@@ -4,6 +4,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { extract } from './extract.js';
+import { readControls } from './control-import.js';
 import { checkRun } from './monitoring.js';
 import { resolve } from 'node:path';
 import type { NextFunction, Request, Response, Router } from 'express';
@@ -355,6 +356,47 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
     });
     const { rows } = await db.query(`${CONTROL_SELECT} WHERE c.id = $1`, [id]);
     res.status(201).json(toControl(rows[0]));
+  }));
+
+  // Upload controls from a CSV or Excel file. preview: true saves nothing.
+  r.post('/engagements/:id/controls/import', wrap(async (req, res) => {
+    const b = z.object({ filename: z.string().max(200), dataBase64: z.string().max(14_000_000), preview: z.boolean().default(true) }).parse(req.body);
+    const { rows, problems } = await readControls(Buffer.from(b.dataBase64, 'base64'), b.filename);
+    const eid = req.params.id;
+    const cards = new Map((await db.query(`SELECT id, key FROM cards WHERE engagement_id = $1`, [eid])).rows.map((r: any) => [r.key.toUpperCase(), r.id]));
+    const risks = new Map((await db.query(`SELECT id, number, card_id FROM risks WHERE engagement_id = $1`, [eid])).rows.map((r: any) => [`R-${r.number}`, r]));
+    const lib = new Map((await db.query(`SELECT id, code FROM control_library`)).rows.map((r: any) => [r.code.toUpperCase(), r.id]));
+    const checked = rows.map((r) => {
+      const why: string[] = [];
+      if (r.title.length < 3) why.push('no title');
+      if (!['preventive', 'detective', 'corrective'].includes(r.type)) why.push(`type "${r.type}" should be preventive, detective or corrective`);
+      const cardId = r.useCase ? cards.get(r.useCase.toUpperCase()) : null;
+      if (r.useCase && !cardId) why.push(`no use case ${r.useCase}`);
+      const libraryId = r.libraryCode ? lib.get(r.libraryCode.toUpperCase()) : null;
+      if (r.libraryCode && !libraryId) why.push(`no library control ${r.libraryCode}`);
+      const riskIds: string[] = [];
+      for (const k of r.risks) { const x: any = risks.get(k); if (!x) why.push(`no risk ${k}`); else riskIds.push(x.id); }
+      return { ...r, cardId: cardId ?? null, libraryId: libraryId ?? null, riskIds, ok: !why.length, why: why.join('; ') };
+    });
+    if (b.preview) return res.json({ rows: checked, problems, willAdd: checked.filter((r) => r.ok).length });
+    const good = checked.filter((r) => r.ok);
+    if (!good.length) throw httpError(422, 'No row can be added. Fix the rows marked in the preview.');
+    const added = await db.tx(async (q) => {
+      const keys: string[] = [];
+      for (const r of good) {
+        let refs = {};
+        if (r.libraryId) refs = (await q.query(`SELECT refs FROM control_library WHERE id = $1`, [r.libraryId])).rows[0]?.refs ?? {};
+        const { rows: ins } = await q.query(
+          `INSERT INTO controls (engagement_id, card_id, library_id, title, objective, type, frequency, owner, status, framework_refs) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'proposed',$9) RETURNING id, number`,
+          [eid, r.cardId, r.libraryId, r.title.slice(0, 200), r.objective.slice(0, 2000), r.type, r.frequency.slice(0, 60), r.owner.slice(0, 120), JSON.stringify(refs)]);
+        for (const rid of r.riskIds) await q.query(`INSERT INTO control_risks VALUES ($1,$2) ON CONFLICT DO NOTHING`, [ins[0].id, rid]);
+        await logAudit(q, actorOf(req), 'control.added', `control:C-${ins[0].number}`, { title: r.title, risks: r.riskIds.length, uploadedFrom: b.filename, row: r.row });
+        keys.push(`C-${ins[0].number}`);
+      }
+      return keys;
+    });
+    emit('controls', { engagementId: eid });
+    res.status(201).json({ added, skipped: checked.filter((r) => !r.ok).map((r) => ({ row: r.row, why: r.why })) });
   }));
 
   r.patch('/controls/:id', wrap(async (req, res) => {

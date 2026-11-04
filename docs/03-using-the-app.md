@@ -1,6 +1,6 @@
 # Using the app
 
-A tour of every page. The top bar shows the ARGUS logo and the engagement switcher (left), six places (Overview, Use cases, Registers, AI, Report, Settings), **+ Add use case**, and your account menu (your initials, right). On a phone the places fold into the menu button.
+A tour of every page. The top bar shows the ARGUS logo and the engagement switcher (left), eight places, each with an icon (Overview, Use Cases, Controls, Registers, AI, Knowledge Base, Report, Settings), **+ Add use case**, and your account menu (your initials, right). On a phone the places fold into the menu button.
 
 A new engagement starts simple. Pages for optional **modules** (AI testing and monitoring, incidents, the AI inventory, evidence connectors, the Statement of Applicability, advanced AI settings) appear only when a lead switches them on under Engagement settings > General > Modules.
 

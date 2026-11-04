@@ -193,7 +193,7 @@ function exportTests() {
     </div>
     <nav class="tabs">
       <RouterLink to="/testing/tests" :class="{ active: tab === 'tests' }">Tests</RouterLink>
-      <RouterLink to="/testing/evidence" :class="{ active: tab === 'evidence' }">Evidence vault</RouterLink>
+      <RouterLink to="/testing/evidence" :class="{ active: tab === 'evidence' }">Evidence Vault</RouterLink>
       <RouterLink v-if="app.mod('connectors') || tab === 'connectors'" to="/testing/connectors" :class="{ active: tab === 'connectors' }">Connectors</RouterLink>
     </nav>
     <div v-if="loading" class="muted">Loading…</div>

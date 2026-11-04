@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Icon from '../components/Icon.vue';
 // The knowledge base: everything the AI agents ground their drafts in, a
 // search box that finds passages the way an agent does, and uploads for the
 // client's own documents (policies, procedures, minutes).
@@ -84,10 +85,17 @@ const KIND: Record<string, string> = { framework: 'Framework', control: 'Library
   <div class="page">
     <div class="page-head">
       <div>
-        <h1>Knowledge base</h1>
+        <h1>Knowledge Base</h1>
         <p>What the AI agents ground their drafts in. Every proposed risk, control and evidence request cites the passages it rests on, and the harness rejects any citation an agent wasn't given.</p>
       </div>
-      <button v-if="app.can('prepare')" class="btn primary" @click="adding = true">Add a client document</button>
+      <button v-if="app.can('prepare')" class="btn primary" @click="adding = true"><Icon name="upload" />Add a Client Document</button>
+    </div>
+
+    <div class="notice kb-fill" :class="count('upload') ? '' : 'warn'">
+      <strong>{{ count('upload') ? `${count('upload')} client document${count('upload') === 1 ? '' : 's'} added.` : 'Start here: the AI only knows what you give it.' }}</strong>
+      The standards and the control library are built in. Add the client's own material so the agents can cite it:
+      their AI policy, risk appetite statement, model risk or data protection policy, vendor contracts, and any regulator letters.
+      The better this is, the better every draft.
     </div>
 
     <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); margin-bottom: 16px">

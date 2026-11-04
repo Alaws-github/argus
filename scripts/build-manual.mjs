@@ -65,7 +65,7 @@ strong { color: #141a26; }
   <h1>ARGUS</h1>
   <div class="sub">Assurance, Risk &amp; Governance Unified System</div>
   <div class="sub">User manual: the full flow, from first request to board report</div>
-  <div class="meta">Version 1.2 · November 2026 · Prepared by Andrew Lawrence</div>
+  <div class="meta">Version 1.2.2 · November 2026 · Prepared by Andrew Lawrence</div>
   <div class="intro">${intro}</div>
 </section>
 <section class="toc"><h1 style="page-break-before: avoid">Contents</h1><ol>${'__TOC__'}</ol></section>
@@ -83,7 +83,7 @@ await page.goto(pathToFileURL(tmp).href, { waitUntil: 'networkidle' });
 await page.pdf({
   path: resolve(docs, 'manual.pdf'), format: 'A4', printBackground: true, displayHeaderFooter: true,
   headerTemplate: '<div></div>',
-  footerTemplate: '<div style="font-size:8px;color:#8a91a1;width:100%;padding:0 18mm;display:flex;justify-content:space-between"><span>ARGUS · User manual · v1.2</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>',
+  footerTemplate: '<div style="font-size:8px;color:#8a91a1;width:100%;padding:0 18mm;display:flex;justify-content:space-between"><span>ARGUS · User manual · v1.2.2</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>',
   margin: { top: '18mm', bottom: '20mm', left: '18mm', right: '18mm' },
 });
 await browser.close();

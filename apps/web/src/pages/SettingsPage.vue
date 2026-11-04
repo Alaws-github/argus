@@ -21,7 +21,7 @@ const app = useApp();
 const route = useRoute();
 const router = useRouter();
 const TABS = computed(() => ({
-  general: 'General', workflow: 'Workflow', agents: 'AI agents',
+  general: 'General', workflow: 'Workflow', agents: 'AI Agents',
   ...(app.mod('connectors') ? { integrations: 'Integrations' } : {}),
   access: 'Access',
 }));
@@ -416,32 +416,31 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
 
     <!-- Workflow & gates -->
     <section v-else-if="tab === 'workflow'" class="card">
-      <div class="spread"><h2>Workflow</h2><RouterLink to="/settings/agents" class="small">Edit the AI agents</RouterLink></div>
+      <div class="spread"><h2>Workflow</h2><RouterLink to="/settings/agents" class="small">Edit the AI Agents</RouterLink></div>
       <p class="small muted">A gate means a named person acts before the use case leaves the stage. The agent drafts; it never approves.</p>
-      <div class="table-wrap">
+      <div class="table-wrap workflow-table">
         <table>
-          <thead><tr><th>Stage</th><th>Agent</th><th>A person decides</th><th>What you do</th></tr></thead>
+          <thead><tr><th>Stage</th><th>AI Agent</th><th>Status</th><th>A Person Decides</th><th>What You Do</th></tr></thead>
           <tbody>
-            <tr v-for="s in STAGES.filter((x) => x !== 'closed')" :key="s">
-              <td><strong>{{ STAGE_LABELS[s] }}</strong></td>
-              <td>
-                <template v-if="agentFor(s)">
-                  <span v-for="a in agents.filter((x) => x.stage === s)" :key="a.id" style="display: block">
-                    {{ a.name }}
-                    <span class="badge" :class="a.enabled ? 'ok' : ''" style="margin-left: 4px">{{ a.enabled ? 'On' : a.built ? 'Off' : 'Not built yet' }}</span>
-                    <span v-if="a.route !== 'all'" class="small faint"> · {{ ROUTE_LABELS[a.route].toLowerCase() }}</span>
-                  </span>
-                </template>
-                <span v-else class="faint">A person</span>
-              </td>
-              <td>
-                <span v-if="s === 'intake'" class="badge warn">Always</span>
-                <button v-else class="switch" :class="{ on: app.engagement?.gates[s] }" role="switch" :aria-checked="!!app.engagement?.gates[s]" @click="toggleGate(s)">
-                  <span class="track" />{{ app.engagement?.gates[s] ? 'You act' : 'Automatic' }}
-                </button>
-              </td>
-              <td class="small muted">{{ app.engagement?.gates[s] ? youDo[s] : '—' }}</td>
-            </tr>
+            <template v-for="s in STAGES.filter((x) => x !== 'closed')" :key="s">
+              <tr v-for="(a, i) in (agentFor(s) ? agents.filter((x) => x.stage === s) : [null])" :key="a?.id ?? s" :class="{ 'wf-cont': i > 0 }">
+                <td data-label="Stage"><strong v-if="i === 0">{{ STAGE_LABELS[s] }}</strong></td>
+                <td data-label="AI Agent">
+                  <template v-if="a">{{ a.name }}<span v-if="a.route !== 'all'" class="small faint" style="display: block">{{ ROUTE_LABELS[a.route] }}</span></template>
+                  <span v-else class="faint">A person</span>
+                </td>
+                <td data-label="Status"><span v-if="a" class="badge" :class="a.enabled ? 'ok' : ''">{{ a.enabled ? 'On' : a.built ? 'Off' : 'Not Built Yet' }}</span><span v-else class="faint">—</span></td>
+                <td data-label="A Person Decides">
+                  <template v-if="i === 0">
+                    <span v-if="s === 'intake'" class="badge warn">Always</span>
+                    <button v-else class="switch" :class="{ on: app.engagement?.gates[s] }" role="switch" :aria-checked="!!app.engagement?.gates[s]" @click="toggleGate(s)">
+                      <span class="track" />{{ app.engagement?.gates[s] ? 'You Act' : 'Automatic' }}
+                    </button>
+                  </template>
+                </td>
+                <td data-label="What You Do" class="small muted"><template v-if="i === 0">{{ app.engagement?.gates[s] || s === 'intake' ? youDo[s] : '—' }}</template></td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>

@@ -27,7 +27,9 @@
     "demo:list": "node scripts/demo/library.mjs list",
     "demo:load": "node scripts/demo/library.mjs load",
     "demo:save": "node scripts/demo/library.mjs save",
-    "manual": "node scripts/build-manual.mjs"
+    "manual": "node scripts/build-manual.mjs",
+    "lessons": "node scripts/lessons-index.mjs --write",
+    "check:lessons": "node scripts/lessons-index.mjs && node scripts/checks/lesson-checks.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

@@ -1,14 +1,26 @@
 <script setup lang="ts">
-// The assistant: ask about the use case or register you're looking at. It
-// explains, checks and suggests. Each suggestion is a proposed change you
+// The assistant: ask about the page, use case or register you're looking at.
+// It explains, checks and suggests. Each suggestion is a proposed change you
 // apply or discard; applying it runs under your own name and permissions.
+// Conversations are kept per person: start a new one, or find an old one and
+// carry on. Each question sends the page you're on and the text on screen, so
+// "what's on this page?" has an answer.
 import { computed, nextTick, ref, watch } from 'vue';
-import type { AssistantMessage, AssistantSuggestion } from '@gh/shared';
+import { useRoute } from 'vue-router';
+import type { AssistantConversation, AssistantMessage, AssistantSuggestion } from '@gh/shared';
 import { api } from '../api';
 import { useApp } from '../stores/app';
+import Icon from './Icon.vue';
 
 const app = useApp();
+const route = useRoute();
 const messages = ref<AssistantMessage[]>([]);
+const conversation = ref<AssistantConversation | null>(null);
+const fresh = ref(false);
+const listOpen = ref(false);
+const convs = ref<AssistantConversation[]>([]);
+const search = ref('');
+const searchBox = ref<HTMLInputElement | null>(null);
 const model = ref<string | null>(null);
 const question = ref('');
 const busy = ref(false);
@@ -21,18 +33,79 @@ const STARTERS: Record<string, string[]> = {
   risks: ['Which risks need attention first?', 'Which high risks have no control?', 'Which risks have no owner?'],
   controls: ['Which controls have no test yet?', 'Which controls have no owner?', 'Summarise the control register for a director'],
   issues: ['Which issues are overdue or high severity?', 'Summarise open issues for the board'],
-  engagement: ['Where does this engagement stand?', 'What should the team do next?', 'Explain the EU AI Act tiers in plain English'],
+  engagement: ['What is on this page, and what can I do here?', 'Where does this engagement stand?', 'What should the team do next?'],
 };
 const title = computed(() => (a.value.kind === 'card' ? a.value.label : { risks: 'Risk register', controls: 'Controls', issues: 'Issues', engagement: app.engagement?.name ?? 'This engagement' }[a.value.kind]));
 
+const base = () => `/engagements/${app.engagementId}/assistant`;
+// Opening the panel picks up your latest conversation about this record or page.
 async function load() {
   if (!a.value.open || !app.engagementId) return;
-  const r = await api(`/engagements/${app.engagementId}/assistant?kind=${a.value.kind}&contextId=${encodeURIComponent(a.value.contextId)}`).catch(() => null);
+  listOpen.value = false;
+  const r = await api(`${base()}?kind=${a.value.kind}&contextId=${encodeURIComponent(a.value.contextId)}`).catch(() => null);
+  conversation.value = r?.conversation ?? null;
   messages.value = r?.messages ?? [];
   model.value = r?.model ?? null;
+  fresh.value = !conversation.value;
   scroll();
 }
 watch(() => [a.value.open, a.value.kind, a.value.contextId, app.engagementId], load, { immediate: true });
+
+async function openConversation(id: string) {
+  const r = await api(`${base()}/conversations/${id}`).catch((e) => (app.toast(e.message, 'error'), null));
+  if (!r) return;
+  conversation.value = r.conversation;
+  messages.value = r.messages;
+  model.value = r.model;
+  fresh.value = false;
+  listOpen.value = false;
+  scroll();
+}
+function newConversation() {
+  conversation.value = null;
+  messages.value = [];
+  fresh.value = true;
+  listOpen.value = false;
+}
+let timer: ReturnType<typeof setTimeout> | undefined;
+async function loadList() {
+  convs.value = (await api(`${base()}/conversations${search.value.trim() ? `?q=${encodeURIComponent(search.value.trim())}` : ''}`).catch(() => [])) ?? [];
+}
+watch(search, () => { clearTimeout(timer); timer = setTimeout(loadList, 250); });
+async function toggleList() {
+  listOpen.value = !listOpen.value;
+  if (listOpen.value) {
+    search.value = '';
+    await loadList();
+    nextTick(() => searchBox.value?.focus());
+  }
+}
+const groups = computed(() => {
+  const today = new Date().toDateString();
+  const out: { label: string; items: AssistantConversation[] }[] = [{ label: 'Today', items: [] }, { label: 'Earlier', items: [] }];
+  for (const c of convs.value) out[new Date(c.updatedAt).toDateString() === today ? 0 : 1].items.push(c);
+  return out.filter((g) => g.items.length);
+});
+function ago(at: string) {
+  const m = Math.round((Date.now() - new Date(at).getTime()) / 60000);
+  if (m < 1) return 'now';
+  if (m < 60) return `${m}m`;
+  if (m < 1440) return `${Math.round(m / 60)}h`;
+  return new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+// The text on screen, without the top bar, menus and this panel. An open use
+// case panel comes first, since that is what the person is looking at.
+function snapshot(): string {
+  const parts: string[] = [];
+  const drawer = document.querySelector<HTMLElement>('aside.panel[role="dialog"]');
+  if (drawer) parts.push(drawer.innerText);
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>('#app > *'))) {
+    if (el.matches('header, .assistant-panel, .assistant-backdrop, .toast-host')) continue;
+    parts.push(drawer && el.contains(drawer) ? (el.innerText || '').replace(drawer.innerText, '') : el.innerText);
+  }
+  return parts.join('\n').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').slice(0, 8000);
+}
 const scroll = () => nextTick(() => list.value?.scrollTo({ top: list.value.scrollHeight }));
 
 async function send(text?: string) {
@@ -43,8 +116,9 @@ async function send(text?: string) {
   messages.value.push({ id: 'pending', role: 'user', text: q, citations: [], passages: [], suggestions: [], dropped: [], model: null, runtime: null, author: app.user?.name ?? '', at: new Date().toISOString() });
   scroll();
   try {
-    await api(`/engagements/${app.engagementId}/assistant`, { method: 'POST', body: { kind: a.value.kind, contextId: a.value.contextId, question: q } });
-    await load();
+    const page = { path: route.fullPath, snapshot: snapshot() };
+    const [, reply] = await api(base(), { method: 'POST', body: { kind: a.value.kind, contextId: a.value.contextId, question: q, page, ...(conversation.value ? { conversationId: conversation.value.id } : { newConversation: true }) } });
+    await openConversation(reply.conversationId);
   } catch (e: any) {
     messages.value = messages.value.filter((m) => m.id !== 'pending');
     question.value = q;
@@ -62,7 +136,8 @@ async function act(m: AssistantMessage, s: AssistantSuggestion, what: 'apply' | 
   } catch (e: any) {
     app.toast(e.message, 'error');
   }
-  await load();
+  if (conversation.value) await openConversation(conversation.value.id);
+  else await load();
 }
 
 const KIND: Record<string, string> = { decide_item: 'Decision on a draft item', update_risk: 'Change a risk', update_control: 'Change a control', raise_issue: 'Raise an issue', rerun_agent: 'Send back to the agent' };
@@ -85,16 +160,33 @@ const STATUS: Record<string, string> = { applied: 'Applied', discarded: 'Discard
     <aside class="assistant-panel" role="dialog" aria-label="Assistant">
       <header class="assistant-head">
         <span class="ai-mark">AI</span>
-        <div class="grow">
-          <strong>Assistant</strong>
+        <div class="grow" style="min-width: 0">
+          <button class="conv-pick" :aria-expanded="listOpen" aria-haspopup="true" title="Your conversations" @click="toggleList">
+            <strong class="conv-title">{{ conversation?.title ?? 'New conversation' }}</strong><Icon name="chevron" :size="14" />
+          </button>
           <div class="small faint">About: {{ title }} · {{ model ?? 'offline (no model set)' }}</div>
         </div>
-        <button class="btn ghost sm" aria-label="Close the assistant" @click="app.assistant.open = false">✕</button>
+        <button class="btn ghost sm icon-btn" title="New conversation" aria-label="New conversation" @click="newConversation"><Icon name="plus" /></button>
+        <button class="btn ghost sm icon-btn" aria-label="Close the assistant" @click="app.assistant.open = false">✕</button>
+        <div v-if="listOpen" class="menu conv-menu" role="menu">
+          <input ref="searchBox" v-model="search" class="input" type="search" placeholder="Search conversations" aria-label="Search conversations" />
+          <div class="conv-scroll">
+            <template v-for="g in groups" :key="g.label">
+              <div class="label-caps menu-label">{{ g.label }}</div>
+              <button v-for="c in g.items" :key="c.id" role="menuitem" class="conv-item" :class="{ on: c.id === conversation?.id }" @click="openConversation(c.id)">
+                <span class="conv-row"><span class="conv-name">{{ c.title }}</span><span class="small faint">{{ ago(c.updatedAt) }}</span></span>
+                <span v-if="c.match" class="small faint conv-match">{{ c.match }}</span>
+              </button>
+            </template>
+            <p v-if="!convs.length" class="small faint" style="padding: 6px 8px">{{ search ? 'No conversation matches.' : 'No conversations yet.' }}</p>
+          </div>
+          <button class="btn sm conv-new" @click="newConversation"><Icon name="plus" />New conversation</button>
+        </div>
       </header>
 
       <div ref="list" class="assistant-list">
         <div v-if="!messages.length" class="stack" style="gap: 8px">
-          <p class="small muted">Ask about {{ a.kind === 'card' ? 'this use case' : 'this page' }}. Answers draw on the record and the knowledge base. Anything the assistant suggests changes nothing until you apply it, under your own name.</p>
+          <p class="small muted">Ask about {{ a.kind === 'card' ? 'this use case' : 'this page' }}. The assistant sees the page you're on. Answers draw on the record and the knowledge base. Anything the assistant suggests changes nothing until you apply it, under your own name.</p>
           <button v-for="s in STARTERS[a.kind]" :key="s" class="btn sm starter" @click="send(s)">{{ s }}</button>
         </div>
         <div v-for="m in messages" :key="m.id" class="msg" :class="m.role === 'user' ? 'me' : 'ai'">

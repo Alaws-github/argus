@@ -633,7 +633,7 @@ details.notice > summary { cursor: pointer; }
   .bar .badge { display: none; }
 }
 @media (width <= 560px) {
-  .add-label { display: none; }
+  .add-label, .ask-top .ask-label { display: none; }
   .switcher-name { max-width: 110px; }
   .page { padding-left: 12px; padding-right: 12px; }
   .page-head { flex-wrap: wrap; }
@@ -664,12 +664,12 @@ details.notice > summary { cursor: pointer; }
 .account-menu { max-height: calc(100vh - 64px); overflow-y: auto; overscroll-behavior: contain; }
 /* Narrower screens: first drop the extras, then show menu icons only (each has a tooltip). */
 @media (width <= 1720px) and (width > 980px) {
-  .bar .badge, .ask-top .ask-label { display: none; }
+  .bar .badge { display: none; }
   .switcher-name { max-width: 128px; }
   .nav a, .nav-more { padding: 6px 7px; gap: 5px; }
 }
 @media (width <= 1360px) and (width > 980px) {
-  .add-label { display: none; }
+  .add-label, .ask-top .ask-label { display: none; }
   .nav .nl { display: none; }
   .nav a .nl, .nav-more .nl { display: none; }
   .nav-more > .icon:last-child { display: none; }
@@ -699,3 +699,18 @@ td.num, .nowrap { white-space: nowrap; }
 .brand-text { font-size: 16px; font-weight: 750; letter-spacing: 0.1em; }
 @media (width <= 1360px) and (width > 980px) { .switcher-name { max-width: 110px; } .bar-inner { gap: 10px; } }
 @media (width <= 1470px) and (width > 1360px) { .add-label { display: none; } .nav-more > .icon:last-child { display: none; } }
+/* v1.4 assistant conversations: a picker in the header, a new-conversation button, search. */
+.assistant-head { position: relative; }
+.conv-pick { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; background: none; border: 0; padding: 0; color: var(--text); cursor: pointer; font: inherit; }
+.conv-pick:hover .conv-title { text-decoration: underline; }
+.conv-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icon-btn { padding: 4px 7px; }
+.conv-menu { position: absolute; margin-top: 0; top: calc(100% - 4px); left: 12px; right: 12px; display: flex; flex-direction: column; gap: 6px; padding: 10px; z-index: 5; }
+.conv-scroll { max-height: min(360px, 55vh); overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.conv-item { display: flex; flex-direction: column; gap: 2px; align-items: stretch; text-align: left; background: none; border: 0; border-radius: 8px; padding: 7px 8px; color: var(--text); cursor: pointer; font: inherit; }
+.conv-item:hover, .conv-item.on { background: var(--hover); }
+.conv-item.on .conv-name { color: var(--accent-text); }
+.conv-row { display: flex; justify-content: space-between; gap: 8px; }
+.conv-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv-match { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv-new { justify-content: center; display: inline-flex; align-items: center; gap: 6px; }

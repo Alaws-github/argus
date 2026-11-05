@@ -692,3 +692,32 @@ ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS real_actor text;
 ALTER TABLE engagements ADD COLUMN IF NOT EXISTS modules jsonb;
 UPDATE engagements SET modules = '{"evals":true,"incidents":true,"inventory":true,"connectors":true,"soa":true,"advanced_ai":true}' WHERE modules IS NULL;
 ALTER TABLE engagements ALTER COLUMN modules SET DEFAULT '{"evals":false,"incidents":false,"inventory":false,"connectors":false,"soa":false,"advanced_ai":false}';
+
+-- v1.4: assistant conversations. A person can start a new conversation, find an
+-- old one and carry on. Each message still records the page or record it was
+-- asked about. Threads from before v1.4 become one conversation each.
+CREATE TABLE IF NOT EXISTS assistant_conversations (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  engagement_id  uuid NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  user_id        uuid NOT NULL,
+  title          text NOT NULL,
+  context_kind   text NOT NULL DEFAULT 'engagement',
+  context_id     text NOT NULL DEFAULT '',
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS assistant_conv_list ON assistant_conversations (engagement_id, user_id, updated_at DESC);
+ALTER TABLE assistant_messages ADD COLUMN IF NOT EXISTS conversation_id uuid REFERENCES assistant_conversations(id) ON DELETE CASCADE;
+ALTER TABLE assistant_messages ADD COLUMN IF NOT EXISTS page text;
+CREATE INDEX IF NOT EXISTS assistant_conv_msgs ON assistant_messages (conversation_id, created_at);
+WITH threads AS (
+  SELECT engagement_id, user_id, context_kind, context_id, min(created_at) AS first_at, max(created_at) AS last_at,
+         left(coalesce((array_agg(text ORDER BY created_at) FILTER (WHERE role = 'user'))[1], 'Conversation'), 80) AS title
+  FROM assistant_messages WHERE conversation_id IS NULL GROUP BY engagement_id, user_id, context_kind, context_id
+), made AS (
+  INSERT INTO assistant_conversations (engagement_id, user_id, title, context_kind, context_id, created_at, updated_at)
+  SELECT engagement_id, user_id, title, context_kind, context_id, first_at, last_at FROM threads
+  RETURNING id, engagement_id, user_id, context_kind, context_id
+)
+UPDATE assistant_messages m SET conversation_id = made.id FROM made
+WHERE m.conversation_id IS NULL AND m.engagement_id = made.engagement_id AND m.user_id = made.user_id AND m.context_kind = made.context_kind AND m.context_id = made.context_id;

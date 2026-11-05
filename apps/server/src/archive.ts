@@ -90,6 +90,7 @@ const TABLES: [string, string][] = [
   ['runs', `SELECT r.* FROM runs r JOIN cards c ON c.id = r.card_id WHERE c.engagement_id = $1 ORDER BY r.started_at`],
   ['runEvents', `SELECT ev.* FROM run_events ev JOIN runs r ON r.id = ev.run_id JOIN cards c ON c.id = r.card_id WHERE c.engagement_id = $1 ORDER BY ev.id`],
   ['incidents', `SELECT * FROM incidents WHERE engagement_id = $1 ORDER BY number`],
+  ['assistantConversations', `SELECT * FROM assistant_conversations WHERE engagement_id = $1 ORDER BY created_at`],
   ['assistantMessages', `SELECT * FROM assistant_messages WHERE engagement_id = $1 ORDER BY created_at`],
 ];
 

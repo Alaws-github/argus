@@ -805,6 +805,7 @@ export type AssistantSuggestion = z.infer<typeof AssistantSuggestion> & {
 
 export interface AssistantMessage {
   id: string;
+  conversationId?: string | null;
   role: 'user' | 'assistant';
   text: string;
   citations: string[];
@@ -817,6 +818,18 @@ export interface AssistantMessage {
   runtime: 'rules' | 'live' | null;
   author: string;
   at: string;
+}
+
+// One conversation with the assistant. It belongs to the person who started it.
+export interface AssistantConversation {
+  id: string;
+  title: string;
+  kind: 'card' | 'risks' | 'controls' | 'issues' | 'engagement';
+  contextId: string;
+  createdAt: string;
+  updatedAt: string;
+  messages?: number;
+  match?: string | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,49 @@
+# General lessons
+
+Read for every change. How the owner works, how changes reach his machine, and conventions that cut across the code.
+
+## Working with the owner
+
+### keep-work-proportionate-to-usage `correction`
+Do the smallest change that meets the request and don't redo work that already passes. Batch tool calls, read only the parts of files you need, and don't regenerate screenshots, PDFs or demo copies unless the change affects them. **Why:** the owner pays for usage and asked for it to be kept down.
+**Enforced by:** none - judgement on each task
+
+### never-handle-secrets-in-chat `correction`
+Never ask for, accept or echo API keys, tokens, passwords or connection strings in chat. Keys go on the Models & Keys page, Cloudflare secrets through `npx wrangler secret put`, GitHub pushes through the owner's own sign-in. If a secret appears in chat, don't repeat it and tell the owner to rotate it.
+**Enforced by:** none - conversational rule
+
+### goldeneye-is-read-only `correction`
+GoldenEye is a reference only. You may look at it or click through it, but never change, save or delete anything there.
+**Enforced by:** none - outside this repository
+
+### generic-names-only `correction`
+No trademarked service or product names belonging to a client firm, in the app, the docs or the demo data. Demo companies are fictional and marked "(demo)"; scenarios may follow public cases without naming the companies.
+**Enforced by:** none - needs judgement on each name (rule 11 in CLAUDE.md)
+
+### keep-the-qa-framing `design`
+Tests have preparers and reviewers, issues have a defect-style lifecycle, and evaluations are test suites. Keep that language and structure when adding features. **Why:** the owner is a QA engineer and the product is pitched on that framing.
+**Enforced by:** none - product judgement
+
+## Delivering changes
+
+### check-the-owners-copy-before-overwriting `correction`
+Before writing files into the owner's working copy, compare md5 sums with the copy last delivered. If a file differs, find out why (his own edit, a git operation, an `npm install`) before overwriting it. `package-lock.json` usually differs after his `npm install`; leave it out of deliveries unless dependencies changed.
+**Enforced by:** none - delivery step
+
+### uncommitted-delivery-can-be-undone-by-git `bug`
+A delivered change that the owner hasn't committed is lost if he later runs `git checkout`, `git switch` with a discard, `git restore` or `git stash` without popping it. After each delivery, tell him to commit, and before the next one check `git status` and confirm earlier fixes are still there. **Why:** a deploy fix, the demo fixes and dark mode were all found reverted one release later.
+**Enforced by:** none - check git status before delivering
+
+### work-on-a-release-branch-not-main `correction`
+Changes go on a release branch (`release/vX.Y`), never straight to `main`. The owner merges to `main` and tags the release; deploys are made from the tag. Check the current branch before delivering and say which branch the change landed on.
+**Enforced by:** none - check `git branch --show-current` before delivering
+
+### device-folder-has-no-delete `bug`
+The connected folder on the owner's machine refuses deletes. Extract archives with `tar --overwrite`, move unwanted files into `_to_delete/` with `mv -n`, and tell the owner what is there to remove.
+**Enforced by:** none - environment constraint
+
+## Writing
+
+### plain-english-title-case-no-em-dashes `correction`
+UI text, docs and comments use plain English and no em dashes. Menu items, page titles, buttons, badges and the main options on cards use Title Case ("Use Cases", "Knowledge Base", "Needs Your Approval"). A lone "—" as an empty-value placeholder in a table cell is fine.
+**Enforced by:** none - review the text

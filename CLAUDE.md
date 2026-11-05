@@ -1,10 +1,14 @@
 # CLAUDE.md
 
-Context for Claude working on this project. Read this first.
+Context for Claude working on this project. Read this first, then:
+
+- [`AGENTS.md`](AGENTS.md): how to work here (planning, recording lessons, branches and delivery, testing, writing).
+- [`docs/LESSONS.md`](docs/LESSONS.md): pitfalls and decisions already found. Read `docs/lessons/general.md` and the area files for what you change, and add a lesson whenever you fix a bug or the owner corrects you.
+- [`docs/context/project-history.md`](docs/context/project-history.md): who ARGUS is for, how the owner works, what was decided and why, and every version.
 
 ## What this is
 
-**ARGUS** (v1.3), the Assurance, Risk & Governance Unified System (formerly Governance Harness): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report), shown to people as five steps (`PHASES` / `PHASE_OF` in shared: Intake, Assess risk, Controls, Test, Sign-off & report). The engine, exit criteria, agents and tests all still work on the eight stages. Seven AI agents draft the work (the Use Case Planner drafts the intake brief, six more draft each later stage), and a lead can add more per stage; named people make every decision; everything is written to a hash-chained audit log.
+**ARGUS** (v1.4), the Assurance, Risk & Governance Unified System (formerly Governance Harness): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report), shown to people as five steps (`PHASES` / `PHASE_OF` in shared: Intake, Assess risk, Controls, Test, Sign-off & report). The engine, exit criteria, agents and tests all still work on the eight stages. Seven AI agents draft the work (the Use Case Planner drafts the intake brief, six more draft each later stage), and a lead can add more per stage; named people make every decision; everything is written to a hash-chained audit log.
 
 It was rebuilt from **GoldenEye**, the owner's AI delivery harness, keeping its board-and-gate engine, Models page, tabbed Settings, account menu and look. GoldenEye is a reference only: never change anything in it.
 
@@ -29,7 +33,7 @@ These are the product. Any change must keep them, and the tests check them.
 12. **Drafts are decided item by item** (`decisions.ts`): approving classify, design, validate or report needs a decision on every item; only kept items reach the registers; edits and rejections need a reason; the audit log keeps the AI's original. Undecided items count as accepted only when the engine auto-advances an ungated stage.
 13. **Agents are grounded** (`kb.ts`): they get knowledge-base passages, must cite them by K-id, and `strayCitations` rejects any id they weren't given. Cited passages are snapshotted onto the draft. Drafting calls use temperature 0 (`postDeterministic` in `llm.ts`).
 14. **The Verifier is advisory** (`verifier.ts`). Its verdicts sit in `cards.verification`, never in `decisions`, and never block or allow an approval. A "supported" or "partly" verdict must quote a cited passage word for word or it is downgraded. Live checks are off by default. Billed Verifier, golden and calibration calls go into `ai_spend`, which the spend cap counts.
-15. **The assistant only suggests** (`assistant.ts`, `routes-assistant.ts`). Suggestion kinds are a whitelist (`AssistantSuggestion` in shared): decide_item, update_risk, update_control, raise_issue, rerun_agent. No approve, sign-off, conclude, accept-risk or close kinds, ever. Suggestions must name ids from the context it was shown (`checkSuggestion`). Apply replays the change through the API with the person's own cookie (and their client IP via `INTERNAL_TOKEN`), so RULES, SoD, exit criteria and audit apply unchanged.
+15. **The assistant only suggests** (`assistant.ts`, `routes-assistant.ts`). Conversations belong to the person who started them (404 for anyone else); each question carries the page and on-screen text, which is data like client content (`assistant-pages.ts` describes each page). Suggestion kinds are a whitelist (`AssistantSuggestion` in shared): decide_item, update_risk, update_control, raise_issue, rerun_agent. No approve, sign-off, conclude, accept-risk or close kinds, ever. Suggestions must name ids from the context it was shown (`checkSuggestion`). Apply replays the change through the API with the person's own cookie (and their client IP via `INTERNAL_TOKEN`), so RULES, SoD, exit criteria and audit apply unchanged.
 16. **Per-engagement access is enforced centrally** (`access.ts`, before `archiveGuard`): every request, reads included, is mapped to its engagement through `OWNERS` in `archive.ts`; non-members of a members-only engagement get 404. A new route whose URL doesn't start with `/engagements/:id/` must be added to `OWNERS`. Lists (`/engagements`, `/runs`, `/audit`, judge labels) filter with `visibleIds`; `emit()` in `realtime.ts` filters live updates; `logAudit` tags `audit_log.engagement_id` (outside the hash).
 17. **Connectors only read** (`connectors.ts`): GET only, credentials encrypted and never returned or audited, private and loopback addresses refused unless the admin setting `connectorsAllowPrivate` is on, every address on a redirect re-checked.
 18. **SSO never creates accounts or changes roles** (`sso.ts`): pre-provisioned users only, matched by email; state, nonce and PKCE; ID token signature, issuer, audience and expiry checked with `jose`; admins always keep password sign-in.
@@ -52,7 +56,9 @@ npm run smoke        # 66 API checks; needs a fresh db and a running server
 npm run test:agents  # 30 drafting-agent checks incl. a cheating mock model
 npm run test:grounding # 31 checks: knowledge base, citations, decisions, meaning search, temperature
 npm run test:operations # 58 checks: PDF/Excel/Word reading, incidents, monitoring and drift, connectors, members-only access, SSO (mock IdP)
-npm run test:assistant # 27 checks: assistant offline/live, dropped citations and suggestions, apply under own role, discard, spend cap, JSON fallback
+npm run test:assistant # 39 checks: assistant offline/live, conversations (new, list, search, private), page questions, workspace-default model, dropped citations and suggestions, apply under own role, discard, spend cap, JSON fallback
+npm run lessons        # rebuild the index in docs/LESSONS.md after adding a lesson
+npm run check:lessons  # lesson format and index, plus the code checks in scripts/checks/lesson-checks.mjs
 npm run test:v12       # modules per engagement; five steps still run the stage checks; upload controls (CSV/Excel preview, import, audit)
 npm run versions       # list git tags; -- use vX.Y (backs up data/), -- latest
 npm run test:v11       # 65 checks: Use Case Planner (rules and mock model), new agents and routing, act as, provider service names, activity charts
@@ -94,8 +100,9 @@ apps/server/src
   verifier.ts     the Verifier (LLM-as-a-judge): claims from a draft, rules or live judge, quote check, verifyCard
   golden.ts       golden dataset and judge labels (seeded), golden runner and scoring, calibration (kappa, false passes)
   routes-testing.ts agent testing API and POST /cards/:id/verify
-  assistant.ts    the assistant: context builder (ids it may refer to), suggestion whitelist and checks, rules and live answers
-  routes-assistant.ts conversation per person and context; apply (replayed through the API as the person) and discard
+  assistant.ts    the assistant: context builder (page, ids it may refer to), suggestion whitelist and checks, rules and live answers
+  assistant-pages.ts what each page is for (keep in step with the router)
+  routes-assistant.ts conversations per person (new, list, search, rename); apply (replayed through the API as the person) and discard
   storage.ts      evidence files: data/evidence, plus Cloudflare R2 when R2_* is set (write-through, read-back on a wiped disk)
   extract.ts      text from PDF (unpdf), Excel (exceljs), Word (mammoth) and text files, for evidence and uploads
   routes-incidents.ts incidents, notification clocks (NOTIFY_CLOCKS in shared), timeline, closing rules
@@ -131,7 +138,7 @@ data/             database, evidence files, secret.key (gitignored; back up toge
 
 ## Versions and GitHub
 
-The owner's working copy is a git repository with one commit and tag per release (v0.3 ... v1.2), rebuilt from the delivery archives. Remote: https://github.com/Alaws-github/argus (the owner pushes with his own sign-in; never ask for a token). Tag each release: `git tag -a vX.Y -m "vX.Y: ..."`. Runbook: `docs/runbooks/versions-and-github.md`.
+The owner's working copy is a git repository with one tag per release (v0.3 ... v1.3). Work happens on a release branch (`release/vX.Y`), never on `main`; the owner merges and tags. Remote: https://github.com/Alaws-github/argus (the owner pushes with his own sign-in; never ask for a token). Tag each release: `git tag -a vX.Y -m "vX.Y: ..."`. Runbook: `docs/runbooks/versions-and-github.md`.
 
 ## Delivering to the owner's computer
 

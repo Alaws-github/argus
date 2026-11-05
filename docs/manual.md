@@ -373,7 +373,7 @@ From left to right:
 
   On a narrower window the menu shows icons only (hover for the name); on a phone it folds into the menu button at the left.
 - **Dry run / Live agents**: whether agents use the offline rules or a real model.
-- **Ask AI**: opens the assistant for the page you're on (section 30).
+- **Ask**: opens the assistant for the page you're on (section 30). On narrower screens it shows the AI mark only.
 - **+ Add use case**: opens the Plan page, where the Use Case Planner helps you write the brief (section 11).
 - **Your initials**: the account menu.
 
@@ -835,14 +835,18 @@ Search works by **keyword** (exact terms such as "Article 14") and, if an embedd
 
 ![The assistant](images/walkthrough/08-assistant.png)
 
-**Ask about this** on a use case, or **Ask AI** in the top bar, opens the assistant for that use case or page. It answers in plain English from the record and the knowledge base, shows the passages it used, and may suggest changes:
+**Ask about this** on a use case, or **Ask** in the top bar, opens the assistant for that use case or page. It sees the page you're on, so you can ask "What's on this page?" or "What can I do here?". It answers in plain English from the page, the record and the knowledge base, shows the passages it used, and may suggest changes:
 
 - a decision on a draft item;
 - a change to a risk or a control;
 - a new issue;
 - sending a draft back to its agent with a note.
 
-A suggestion changes nothing until you click **Apply**. Applying runs it under your own name and role, exactly as if you'd made the change by hand, so a preparer can't apply a decision only a reviewer may make. The audit log records the change and that the assistant proposed it. **Discard** sets it aside. The assistant can never approve a stage, sign off, conclude a test, accept a risk or close an issue. Anything it gets wrong (a passage it wasn't given, a record it wasn't shown) is removed and listed. Viewers can read but not ask. With no model chosen, the assistant runs offline and reports what the harness can check by itself.
+A suggestion changes nothing until you click **Apply**. Applying runs it under your own name and role, exactly as if you'd made the change by hand, so a preparer can't apply a decision only a reviewer may make. The audit log records the change and that the assistant proposed it. **Discard** sets it aside. The assistant can never approve a stage, sign off, conclude a test, accept a risk or close an issue. Anything it gets wrong (a passage it wasn't given, a record it wasn't shown) is removed and listed. Viewers can read but not ask.
+
+**Conversations.** The title at the top of the assistant is the conversation you're in. Click it to see your conversations (Today and Earlier), search them by any word in them, and open one to carry on. The **+** button starts a new conversation. Your conversations are yours: nobody else can read them.
+
+**Which model answers.** The assistant uses the model picked for it on Models & Keys, or the workspace default if none is picked. With neither, it runs offline and reports what the harness can check by itself.
 
 ## 31. The Verifier and agent testing
 

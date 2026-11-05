@@ -16,6 +16,14 @@ if (running) {
   process.exit(1);
 }
 
+// A hosted database (the live site's Neon database, say) is wiped only on purpose.
+const url = process.env.DATABASE_URL;
+if (url && !/@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(url) && process.env.RESET_HOSTED !== 'yes') {
+  console.error('[reset] DATABASE_URL points at a hosted database. Resetting would delete everything on that site.');
+  console.error('[reset] For local work, close this terminal and open a new one without DATABASE_URL. To really wipe it, set RESET_HOSTED=yes.');
+  process.exit(1);
+}
+
 if (!process.env.DATABASE_URL) {
   // Embedded database: start from an empty folder, which also recovers one
   // that was damaged. Evidence files go too, since their records do.
@@ -28,7 +36,7 @@ if (!process.env.DATABASE_URL) {
 
 const db = await getDb();
 await db.exec(`
-  DROP TABLE IF EXISTS engagement_members, connectors, monitor_alerts, incidents, assistant_messages, ai_spend, judge_calibrations, judge_labels, golden_runs, golden_cases, kb_chunks, kb_sources, assessments, eval_runs, eval_cases, eval_suites, issues, evidence, tests, inventory, soa, control_risks,
+  DROP TABLE IF EXISTS engagement_members, connectors, monitor_alerts, incidents, assistant_messages, assistant_conversations, ai_spend, judge_calibrations, judge_labels, golden_runs, golden_cases, kb_chunks, kb_sources, assessments, eval_runs, eval_cases, eval_suites, issues, evidence, tests, inventory, soa, control_risks,
     obligations, run_events, runs, controls, control_library, risks, agents, cards, engagements, providers, audit_log, settings,
     sessions, users CASCADE;
   DROP SEQUENCE IF EXISTS run_seq, risk_seq, control_seq, inventory_seq, test_seq, evidence_seq, issue_seq, suite_seq, kb_seq, golden_seq, golden_run_seq, judge_label_seq, judge_cal_seq, incident_seq, alert_seq, connector_seq;

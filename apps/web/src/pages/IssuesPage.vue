@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Issues, handled like defects: severity, owner, due date, management response,
 // and a lifecycle that needs a passed retest before closing.
+import { useUnsaved } from '../lib/unsaved';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { ISSUE_STATUS_LABELS, SEVERITIES, type Issue, type IssueStatus } from '@gh/shared';
 import { api, csv, day, downloadText, socket } from '../api';
@@ -54,11 +55,13 @@ const allowed = (to: IssueStatus) => (to === 'closed' ? app.can('approve') : to 
 
 const sel = ref<Issue | null>(null);
 const draft = ref({ owner: '', dueDate: '', managementResponse: '', severity: 'medium' });
+const du = useUnsaved(draft);
 const err = ref('');
 function open(i: Issue) {
   sel.value = i;
   err.value = '';
   draft.value = { owner: i.owner, dueDate: i.dueDate ?? '', managementResponse: i.managementResponse, severity: i.severity };
+  du.mark();
 }
 async function patch(body: Record<string, unknown>) {
   err.value = '';
@@ -70,7 +73,10 @@ async function patch(body: Record<string, unknown>) {
     err.value = e.message;
   }
 }
-const saveDetails = () => patch({ owner: draft.value.owner, dueDate: draft.value.dueDate || null, managementResponse: draft.value.managementResponse, severity: draft.value.severity });
+async function saveDetails() {
+  await patch({ owner: draft.value.owner, dueDate: draft.value.dueDate || null, managementResponse: draft.value.managementResponse, severity: draft.value.severity });
+  if (!err.value) du.mark();
+}
 function move(to: IssueStatus) {
   if (to === 'risk_accepted') {
     const note = window.prompt('Why is the risk accepted? This is recorded with your name.');
@@ -176,7 +182,7 @@ function exportCsv() {
           <label class="field"><span>Severity</span><select v-model="draft.severity" class="select" :disabled="!app.can('prepare')"><option v-for="s in SEVERITIES" :key="s" :value="s">{{ s }}</option></select></label>
           <label class="field"><span>Management response</span><textarea v-model="draft.managementResponse" class="textarea" :disabled="!app.can('prepare')" placeholder="What the owner will do, and by when" /></label>
           <p v-if="err" class="error">{{ err }}</p>
-          <div v-if="app.can('prepare')"><button class="btn" @click="saveDetails">Save</button></div>
+          <div v-if="app.can('prepare')"><button class="btn" :disabled="!du.dirty.value" @click="saveDetails">Save</button></div>
         </section>
       </aside>
     </template>

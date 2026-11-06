@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Testing: control tests (procedure, sample, expected and actual result,
 // preparer and reviewer, agent drafts) and the evidence vault.
+import { useUnsaved } from '../lib/unsaved';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { TEST_STATUS_LABELS, type ControlTest, type EngagementControl, type Evidence } from '@gh/shared';
@@ -48,6 +49,7 @@ const pill: Record<string, string> = { not_started: '', in_progress: 'blue', pas
 
 const selected = ref<ControlTest | null>(null);
 const draft = ref({ procedure: '', population: '', sampleSize: null as number | null, expected: '', actual: '', exceptions: 0 });
+const du = useUnsaved(draft);
 // Set when the preparer starts from the Control Tester's draft; recorded in the audit trail.
 const fromDraft = ref(false);
 function useDraft() {
@@ -65,6 +67,7 @@ function select(t: ControlTest) {
   fromDraft.value = false;
   err.value = '';
   draft.value = { procedure: t.procedure, population: t.population, sampleSize: t.sampleSize, expected: t.expected, actual: t.actual, exceptions: t.exceptions };
+  du.mark();
 }
 async function save(conclude?: 'passed' | 'failed' | 'in_progress') {
   if (!selected.value) return;
@@ -76,6 +79,7 @@ async function save(conclude?: 'passed' | 'failed' | 'in_progress') {
     if (conclude === 'passed') body.exceptions = draft.value.exceptions || 0;
     if ((conclude === 'passed' || conclude === 'failed') && fromDraft.value) body.fromDraft = true;
     selected.value = await api(`/tests/${selected.value.id}`, { method: 'PATCH', body });
+    du.mark();
     app.toast(conclude && conclude !== 'in_progress' ? `${selected.value!.key} ${conclude}. Someone else now reviews it.` : 'Saved');
     await load();
   } catch (e: any) {
@@ -330,7 +334,7 @@ function exportTests() {
           <label class="field"><span>Exceptions found</span><input v-model.number="draft.exceptions" type="number" min="0" class="input" style="max-width: 120px" :disabled="!!selected.reviewedBy" /></label>
           <p v-if="err" class="error">{{ err }}</p>
           <div v-if="!selected.reviewedBy && app.can('prepare')" class="row" style="flex-wrap: wrap">
-            <button class="btn" :disabled="busy" @click="save()">Save</button>
+            <button class="btn" :disabled="busy || !du.dirty.value" @click="save()">Save</button>
             <button class="btn primary" :disabled="busy || draft.exceptions > 0" :title="draft.exceptions > 0 ? 'A test with exceptions can\'t pass' : ''" @click="save('passed')">Conclude: passed</button>
             <button class="btn danger" :disabled="busy" @click="save('failed')">Conclude: failed</button>
           </div>

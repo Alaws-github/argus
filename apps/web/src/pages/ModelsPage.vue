@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Models and keys: AI providers, their keys (stored encrypted, shown masked),
 // models and prices, and the monthly spending limit.
+import { useUnsaved } from '../lib/unsaved';
 import { computed, onMounted, ref } from 'vue';
 import { EFFORTS, PROVIDER_TYPE_LABELS, type Provider, type WorkspaceSettings } from '@gh/shared';
 import { api, ago, money } from '../api';
@@ -31,10 +32,13 @@ const defaults = ref({ providerId: '', model: '', effort: 'medium', fallback: ''
 const embed = ref({ providerId: '', model: '' });
 // The assistant's model: any enabled model provider, or the offline assistant.
 const assist = ref({ providerId: '', model: '' });
+// Each card's Save stays off until that card has a change.
+const limitU = useUnsaved(limit), defaultsU = useUnsaved(defaults), embedU = useUnsaved(embed), assistU = useUnsaved(assist);
 const assistProviders = computed(() => providers.value.filter((p) => p.enabled && p.type !== 'rules'));
 async function saveAssist() {
   try {
     await api('/settings', { method: 'PUT', body: { assistantProviderId: assist.value.providerId || null, assistantModel: assist.value.providerId ? assist.value.model : '' } });
+    assistU.mark();
     app.toast(assist.value.providerId ? `The assistant now uses ${assist.value.model}` : 'The assistant is offline');
   } catch (e: any) {
     app.toast(e.message, 'error');
@@ -57,6 +61,7 @@ async function saveEmbed() {
     await api('/settings', { method: 'PUT', body: { embedProviderId: embed.value.providerId || null, embedModel: embed.value.providerId ? embed.value.model : '' } });
     const r = embed.value.providerId ? await api('/knowledge/reindex', { method: 'POST' }) : { note: 'Meaning search is off; keyword search still works' };
     embedNote.value = r.note;
+    embedU.mark();
     app.toast('Saved');
   } catch (e: any) {
     embedNote.value = e.message;
@@ -72,6 +77,7 @@ async function load() {
   defaults.value = { providerId: s.defaultProviderId ?? '', model: s.defaultModel, effort: s.defaultEffort, fallback: s.defaultFallbackModel ?? '' };
   embed.value = { providerId: s.embedProviderId ?? '', model: s.embedModel ?? '' };
   assist.value = { providerId: s.assistantProviderId ?? '', model: s.assistantModel ?? '' };
+  limitU.mark(); defaultsU.mark(); embedU.mark(); assistU.mark();
 }
 onMounted(load);
 
@@ -126,6 +132,7 @@ async function saveLimit() {
       method: 'PUT',
       body: { spendCapUsd: cap === '' ? null : Number(cap), warnAtPct: Number(limit.value.warnAtPct), pauseAtCap: limit.value.pauseAtCap, timeZone: limit.value.timeZone },
     });
+    limitU.mark();
     app.toast('Spending limit saved');
   } catch (e: any) {
     app.toast(e.message, 'error');
@@ -137,6 +144,7 @@ async function saveDefaults() {
       method: 'PUT',
       body: { defaultProviderId: defaults.value.providerId || null, defaultModel: defaults.value.model, defaultEffort: defaults.value.effort, defaultFallbackModel: defaults.value.fallback || null },
     });
+    defaultsU.mark();
     app.toast('Saved. New agents start with these.');
   } catch (e: any) {
     app.toast(e.message, 'error');
@@ -245,7 +253,7 @@ function onSaved() {
           <select v-model="limit.timeZone" class="select"><option v-for="t in timeZones" :key="t" :value="t">{{ t }}</option></select>
           <span class="hint">Where the month starts for the cap.</span>
         </label>
-        <div><button class="btn primary" @click="saveLimit">Save</button></div>
+        <div><button class="btn primary" :disabled="!limitU.dirty.value" @click="saveLimit">Save</button></div>
       </div>
 
       <div class="card">
@@ -276,7 +284,7 @@ function onSaved() {
           </select>
           <span class="hint">Takes over when a run fails or its provider is off.</span>
         </label>
-        <div><button class="btn primary" @click="saveDefaults">Save</button></div>
+        <div><button class="btn primary" :disabled="!defaultsU.dirty.value" @click="saveDefaults">Save</button></div>
       </div>
 
       <div class="card">
@@ -293,7 +301,7 @@ function onSaved() {
             <select v-model="assist.model" class="select" :disabled="!assist.providerId"><option v-for="m in assistProviders.find((p) => p.id === assist.providerId)?.models ?? []" :key="m" :value="m">{{ m }}</option></select>
           </label>
         </div>
-        <div><button class="btn primary" @click="saveAssist">Save</button></div>
+        <div><button class="btn primary" :disabled="!assistU.dirty.value" @click="saveAssist">Save</button></div>
       </div>
 
       <div class="card">
@@ -318,7 +326,7 @@ function onSaved() {
         <p v-if="embedNote" class="small">{{ embedNote }}</p>
         <div class="row">
           <button class="btn" :disabled="!embed.providerId || !embed.model" @click="testEmbed">Test</button>
-          <button class="btn primary" @click="saveEmbed">Save and index</button>
+          <button class="btn primary" :disabled="!embedU.dirty.value" @click="saveEmbed">Save and index</button>
         </div>
       </div>
     </div>

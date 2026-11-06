@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Evidence connectors: read-only pulls from a client's systems. Each pull is
 // fingerprinted and filed in the evidence vault against a control.
+import { useUnsaved } from '../lib/unsaved';
 import { onMounted, ref } from 'vue';
 import type { Connector, EngagementControl } from '@gh/shared';
 import { api, ago } from '../api';
@@ -21,11 +22,13 @@ onMounted(load);
 
 const blank = () => ({ name: '', url: '', auth: 'none', headerName: '', secret: '', controlId: '', schedule: 'manual' });
 const form = ref(blank());
+const u = useUnsaved(form);
 const editing = ref<Connector | null>(null);
 const open = ref(false);
 function start(c?: Connector) {
   editing.value = c ?? null;
   form.value = c ? { name: c.name, url: c.url, auth: c.auth, headerName: c.headerName, secret: '', controlId: c.controlId ?? '', schedule: c.schedule } : blank();
+  u.mark();
   open.value = true;
 }
 async function save() {
@@ -112,7 +115,7 @@ const STATUS: Record<string, string> = { never: 'Not pulled yet', added: 'New ev
           <label class="field"><span>File against control</span><select v-model="form.controlId" class="select"><option value="">None</option><option v-for="c in props.controls" :key="c.id" :value="c.id">{{ c.key }} {{ c.title }}</option></select></label>
           <label class="field"><span>Pull</span><select v-model="form.schedule" class="select"><option value="manual">On request</option><option value="daily">Daily</option><option value="weekly">Weekly</option></select></label>
         </div>
-        <div class="row"><button class="btn primary">Save</button><button type="button" class="btn" @click="open = false">Cancel</button></div>
+        <div class="row"><button class="btn primary" :disabled="!u.dirty.value">Save</button><button type="button" class="btn" @click="open = false">Cancel</button></div>
       </form>
     </template>
   </div>

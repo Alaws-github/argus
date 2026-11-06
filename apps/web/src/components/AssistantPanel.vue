@@ -11,6 +11,8 @@ import type { AssistantConversation, AssistantMessage, AssistantSuggestion } fro
 import { api } from '../api';
 import { useApp } from '../stores/app';
 import Icon from './Icon.vue';
+import ArgusLogo from './ArgusLogo.vue';
+import { renderMarkdown } from '../markdown';
 
 const app = useApp();
 const route = useRoute();
@@ -28,14 +30,51 @@ const openSource = ref('');
 const list = ref<HTMLElement | null>(null);
 const a = computed(() => app.assistant);
 
-const STARTERS: Record<string, string[]> = {
-  card: ['Explain this draft in plain English', 'What should I check before approving?', 'Which items look weakest, and why?'],
-  risks: ['Which risks need attention first?', 'Which high risks have no control?', 'Which risks have no owner?'],
-  controls: ['Which controls have no test yet?', 'Which controls have no owner?', 'Summarise the control register for a director'],
-  issues: ['Which issues are overdue or high severity?', 'Summarise open issues for the board'],
-  engagement: ['What is on this page, and what can I do here?', 'Where does this engagement stand?', 'What should the team do next?'],
+// Starting points for an empty conversation, by what the person is looking at.
+type Starter = { icon: string; title: string; sub: string; q: string };
+const PAGE: Starter = { icon: 'overview', title: 'Explain this page', sub: "What's on it and what I can do here", q: "What's on this page, and what can I do here?" };
+const STARTERS: Record<string, Starter[]> = {
+  card: [
+    { icon: 'usecases', title: 'Explain this draft', sub: 'In plain English', q: 'Explain this draft in plain English' },
+    { icon: 'controls', title: 'Before I approve', sub: 'What should I check first?', q: 'What should I check before approving?' },
+    { icon: 'risks', title: 'Weakest items', sub: 'Which look weakest, and why', q: 'Which items look weakest, and why?' },
+  ],
+  risks: [PAGE,
+    { icon: 'risks', title: 'Needs attention', sub: 'Which risks to look at first', q: 'Which risks need attention first?' },
+    { icon: 'controls', title: 'Uncovered risks', sub: 'High risks with no control', q: 'Which high risks have no control?' },
+    { icon: 'people', title: 'Missing owners', sub: 'Risks nobody owns yet', q: 'Which risks have no owner?' },
+  ],
+  controls: [PAGE,
+    { icon: 'tests', title: 'Untested controls', sub: 'Controls with no test yet', q: 'Which controls have no test yet?' },
+    { icon: 'people', title: 'Missing owners', sub: 'Controls nobody owns yet', q: 'Which controls have no owner?' },
+    { icon: 'report', title: 'Summary for a director', sub: 'The control register in brief', q: 'Summarise the control register for a director' },
+  ],
+  issues: [PAGE,
+    { icon: 'issues', title: 'Overdue or severe', sub: 'Issues to chase first', q: 'Which issues are overdue or high severity?' },
+    { icon: 'report', title: 'Board summary', sub: 'Open issues in brief', q: 'Summarise open issues for the board' },
+  ],
+  engagement: [PAGE,
+    { icon: 'engagement', title: 'Where we stand', sub: 'This engagement at a glance', q: 'Where does this engagement stand?' },
+    { icon: 'runs', title: 'Next steps', sub: 'What the team should do next', q: 'What should the team do next?' },
+    { icon: 'knowledge', title: 'EU AI Act tiers', sub: 'Explained in plain English', q: 'Explain the EU AI Act risk tiers in plain English' },
+  ],
 };
-const title = computed(() => (a.value.kind === 'card' ? a.value.label : { risks: 'Risk register', controls: 'Controls', issues: 'Issues', engagement: app.engagement?.name ?? 'This engagement' }[a.value.kind]));
+const greeting = computed(() => {
+  const h = new Date().getHours();
+  const first = (app.user?.name ?? '').split(' ')[0];
+  return `${h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'}${first ? `, ${first}` : ''}.`;
+});
+const wide = ref(false);
+const box = ref<HTMLTextAreaElement | null>(null);
+// The question box grows with what you type, up to about six lines.
+function grow() {
+  const el = box.value;
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
+}
+watch(question, () => nextTick(grow));
+const title = computed(() => (a.value.kind === 'card' ? a.value.label : { risks: 'Risk register', controls: 'Controls', issues: 'Issues', engagement: 'This page' }[a.value.kind]));
 
 const base = () => `/engagements/${app.engagementId}/assistant`;
 // Opening the panel picks up your latest conversation about this record or page.
@@ -157,17 +196,16 @@ const STATUS: Record<string, string> = { applied: 'Applied', discarded: 'Discard
 <template>
   <template v-if="a.open">
     <div class="assistant-backdrop" @click="app.assistant.open = false" />
-    <aside class="assistant-panel" role="dialog" aria-label="Assistant">
-      <header class="assistant-head">
-        <span class="ai-mark">AI</span>
-        <div class="grow" style="min-width: 0">
-          <button class="conv-pick" :aria-expanded="listOpen" aria-haspopup="true" title="Your conversations" @click="toggleList">
-            <strong class="conv-title">{{ conversation?.title ?? 'New conversation' }}</strong><Icon name="chevron" :size="14" />
-          </button>
-          <div class="small faint">About: {{ title }} · {{ model ?? 'offline (no model set)' }}</div>
+    <aside class="assistant-panel" :class="{ wide }" role="dialog" aria-label="Assistant" @keydown.esc="listOpen ? (listOpen = false) : (app.assistant.open = false)">
+      <header class="ap-head">
+        <button class="conv-pick" :aria-expanded="listOpen" aria-haspopup="true" title="Your conversations" @click="toggleList">
+          <span class="conv-title">{{ conversation?.title ?? 'New conversation' }}</span><Icon name="chevron" :size="15" />
+        </button>
+        <div class="ap-tools">
+          <button class="ap-icon" title="New conversation" aria-label="New conversation" @click="newConversation"><Icon name="plus" :size="17" /></button>
+          <button class="ap-icon hide-phone" :title="wide ? 'Make narrower' : 'Make wider'" :aria-label="wide ? 'Make narrower' : 'Make wider'" @click="wide = !wide"><Icon :name="wide ? 'collapse' : 'expand'" :size="16" /></button>
+          <button class="ap-icon" title="Close" aria-label="Close the assistant" @click="app.assistant.open = false"><Icon name="close" :size="17" /></button>
         </div>
-        <button class="btn ghost sm icon-btn" title="New conversation" aria-label="New conversation" @click="newConversation"><Icon name="plus" /></button>
-        <button class="btn ghost sm icon-btn" aria-label="Close the assistant" @click="app.assistant.open = false">✕</button>
         <div v-if="listOpen" class="menu conv-menu" role="menu">
           <input ref="searchBox" v-model="search" class="input" type="search" placeholder="Search conversations" aria-label="Search conversations" />
           <div class="conv-scroll">
@@ -184,15 +222,27 @@ const STATUS: Record<string, string> = { applied: 'Applied', discarded: 'Discard
         </div>
       </header>
 
-      <div ref="list" class="assistant-list">
-        <div v-if="!messages.length" class="stack" style="gap: 8px">
-          <p class="small muted">Ask about {{ a.kind === 'card' ? 'this use case' : 'this page' }}. The assistant sees the page you're on. Answers draw on the record and the knowledge base. Anything the assistant suggests changes nothing until you apply it, under your own name.</p>
-          <button v-for="s in STARTERS[a.kind]" :key="s" class="btn sm starter" @click="send(s)">{{ s }}</button>
+      <div ref="list" class="ap-list">
+        <div v-if="!messages.length" class="ap-empty">
+          <ArgusLogo class="ap-logo" />
+          <h2>{{ greeting }}</h2>
+          <p class="muted">What are we doing today?</p>
+          <div class="ap-starters">
+            <button v-for="st in STARTERS[a.kind]" :key="st.title" class="ap-starter" :disabled="!app.can('prepare')" @click="send(st.q)">
+              <span class="ap-starter-icon"><Icon :name="st.icon" :size="16" /></span>
+              <span><strong>{{ st.title }}</strong><span class="small faint">{{ st.sub }}</span></span>
+            </button>
+          </div>
+          <p class="small faint ap-note">I see the page you're on, the records and the knowledge base. Anything I suggest changes nothing until you apply it, under your own name.</p>
         </div>
-        <div v-for="m in messages" :key="m.id" class="msg" :class="m.role === 'user' ? 'me' : 'ai'">
-          <div class="msg-text">{{ m.text }}</div>
-          <template v-if="m.role === 'assistant'">
-            <div v-if="m.passages.length" class="row" style="flex-wrap: wrap; gap: 4px">
+
+        <template v-for="m in messages" :key="m.id">
+          <div v-if="m.role === 'user'" class="ap-me">{{ m.text }}</div>
+          <div v-else class="ap-ai">
+            <div class="ap-who">Assistant</div>
+            <div class="ap-md" v-html="renderMarkdown(m.text)" />
+            <div v-if="m.passages.length" class="ap-sources">
+              <span class="small faint">Sources</span>
               <button v-for="p in m.passages" :key="p.id" class="source-chip" :class="{ on: openSource === m.id + p.id }" @click="openSource = openSource === m.id + p.id ? '' : m.id + p.id">{{ p.id }} · {{ p.title.slice(0, 40) }}</button>
             </div>
             <template v-for="p in m.passages" :key="'q' + p.id"><blockquote v-if="openSource === m.id + p.id" class="passage small">{{ p.text }}</blockquote></template>
@@ -208,15 +258,23 @@ const STATUS: Record<string, string> = { applied: 'Applied', discarded: 'Discard
               </div>
             </div>
             <details v-if="m.dropped.length" class="small faint"><summary>{{ m.dropped.length }} thing{{ m.dropped.length === 1 ? '' : 's' }} the harness removed</summary><ul class="plain"><li v-for="d in m.dropped" :key="d">{{ d }}</li></ul></details>
-            <div class="small faint">{{ m.runtime === 'live' ? m.model : 'Offline assistant' }}</div>
-          </template>
-        </div>
-        <div v-if="busy" class="msg ai"><span class="small faint">Thinking…</span></div>
+            <div class="ap-meta">{{ m.runtime === 'live' ? m.model : 'Offline assistant' }}</div>
+          </div>
+        </template>
+        <div v-if="busy" class="ap-thinking" role="status"><ArgusLogo class="ap-thinking-logo" /><span>Thinking</span><span class="ap-dots"><i /><i /><i /></span></div>
       </div>
 
-      <form class="assistant-ask" @submit.prevent="send()">
-        <textarea v-model="question" class="textarea" rows="2" :placeholder="app.can('prepare') ? 'Ask a question' : 'Viewers can read but not ask'" :disabled="!app.can('prepare')" aria-label="Your question" @keydown.enter.exact.prevent="send()" />
-        <button class="btn primary" :disabled="busy || !app.can('prepare') || question.trim().length < 2">Ask</button>
+      <form class="ap-compose" @submit.prevent="send()">
+        <div class="ap-box">
+          <textarea ref="box" v-model="question" rows="1" :placeholder="app.can('prepare') ? 'Ask about this page, a record or a standard' : 'Viewers can read but not ask'" :disabled="!app.can('prepare')" aria-label="Your question" @keydown.enter.exact.prevent="send()" />
+          <div class="ap-box-foot">
+            <span class="ap-context small" :title="`About: ${title}`"><Icon name="assistant" :size="13" />{{ title }} · {{ model ?? 'offline' }}</span>
+            <button class="ap-send" :disabled="busy || !app.can('prepare') || question.trim().length < 2" :aria-label="busy ? 'Waiting for the answer' : 'Send'" :title="busy ? 'Waiting for the answer' : 'Send (Enter)'">
+              <span v-if="busy" class="ap-spin" /><Icon v-else name="send" :size="16" />
+            </button>
+          </div>
+        </div>
+        <p class="ap-hint small faint">Enter to send, Shift+Enter for a new line</p>
       </form>
     </aside>
   </template>

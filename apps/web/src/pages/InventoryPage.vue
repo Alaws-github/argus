@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // The AI inventory: systems, models, agents, datasets and vendor AI, each with
 // an owner; agents get an eight-point readiness checklist.
+import { useUnsaved } from '../lib/unsaved';
 import { computed, onMounted, ref } from 'vue';
 import { INVENTORY_KINDS, type InventoryItem, type InventoryKind } from '@gh/shared';
 import { api, csv, day, downloadText } from '../api';
@@ -34,7 +35,10 @@ function edit(i?: InventoryItem) {
   editing.value = i
     ? { id: i.id, f: { ...blank(), ...i, killSwitchTestedAt: i.killSwitchTestedAt?.slice(0, 10) ?? '', lastReviewAt: i.lastReviewAt?.slice(0, 10) ?? '' } as any }
     : { id: null, f: { ...blank(), kind: (kind.value || 'system') as InventoryKind } };
+  u.mark();
 }
+// Save stays off until the form differs from how it opened.
+const u = useUnsaved(() => editing.value?.f ?? null);
 async function save() {
   const { id, f } = editing.value!;
   const body = {
@@ -168,7 +172,7 @@ const CHECKS = [
             <label class="field"><span>Last independent review</span><input v-model="editing.f.lastReviewAt" type="date" class="input" /></label>
           </div>
         </template>
-        <div class="row"><button class="btn primary">Save</button><button type="button" class="btn" @click="editing = null">Cancel</button></div>
+        <div class="row"><button class="btn primary" :disabled="!u.dirty.value">Save</button><button type="button" class="btn" @click="editing = null">Cancel</button></div>
       </form>
     </template>
   </div>

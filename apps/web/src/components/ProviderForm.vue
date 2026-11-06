@@ -1,5 +1,6 @@
 <script setup lang="ts">
 // Add or edit a model provider. Keys are write-only: the server never sends one back.
+import { useUnsaved } from '../lib/unsaved';
 import { computed, reactive, ref } from 'vue';
 import { PROVIDER_PRESETS, type ModelPrice, type Provider, type ProviderType } from '@gh/shared';
 import { api } from '../api';
@@ -25,6 +26,8 @@ const error = ref('');
 const test = ref<{ ok: boolean; message: string } | null>(null);
 
 // Presets fill in the connector, address and billing for a known service.
+// Editing an existing provider: Save changes stays off until something changes.
+const u = useUnsaved(() => ({ ...form }));
 const preset = ref(editing ? '' : 'anthropic');
 const current = computed(() => PROVIDER_PRESETS.find((p) => p.id === preset.value) ?? null);
 const keyHint = computed(() => (current.value?.keyFrom ? `From ${current.value.keyFrom}` : form.type === 'openai' ? 'Optional for local servers' : 'Paste the key'));
@@ -176,7 +179,7 @@ async function save() {
     <p v-if="error" class="error">{{ error }}</p>
     <div class="row" style="justify-content: flex-end">
       <button type="button" class="btn" @click="emit('cancel')">Cancel</button>
-      <button class="btn primary" :disabled="busy">{{ editing ? 'Save changes' : 'Add provider' }}</button>
+      <button class="btn primary" :disabled="busy || (editing && !u.dirty.value)">{{ editing ? 'Save changes' : 'Add provider' }}</button>
     </div>
   </form>
 </template>

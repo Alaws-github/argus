@@ -62,6 +62,8 @@ const SETTINGS = [
 const isOn = (items: { to: string; match?: string | string[] }[]) =>
   items.some((m) => [m.match ?? m.to].flat().some((x) => new RegExp(`^${x}`).test(route.path)));
 // Monitor, sun and moon, drawn inline so they take the text colour.
+// Shown under Sign Out, so anyone can tell which release they are looking at.
+const VERSION = `${__ARGUS_VERSION__}${__ARGUS_COMMIT__ ? ` · ${__ARGUS_COMMIT__}` : ''}`;
 const THEMES = [
   { id: 'system', label: 'System', icon: 'M3 4h18v12H3zM8 20h8M12 16v4' },
   { id: 'light', label: 'Light', icon: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4' },
@@ -213,6 +215,7 @@ onBeforeUnmount(() => {
             </button>
             <p class="small faint menu-note">When a use case needs your approval and this tab is in the background, from any engagement.</p>
             <button class="btn signout" @click="signOut"><Icon name="signout" />Sign Out</button>
+            <div class="app-version" :title="`ARGUS version ${VERSION}`">ARGUS {{ VERSION }}</div>
           </div>
         </span>
       </div>

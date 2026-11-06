@@ -2,6 +2,7 @@
 // Agent testing: regression tests for the AI agents themselves. A golden set
 // of use cases with known right answers, and the Verifier (an AI that checks
 // drafts against their sources), itself measured against people's judgement.
+import { useUnsaved } from '../lib/unsaved';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { AGENT_ROLES, RiskCategory, TIER_LABELS, VERDICT_LABELS, type Calibration, type GoldenCase, type GoldenRun, type JudgeLabel, type Provider } from '@gh/shared';
@@ -29,6 +30,7 @@ async function load() {
   try {
     [data.value, providers.value] = await Promise.all([api<Data>('/agent-testing'), api<Provider[]>('/providers')]);
     vform.value = { providerId: data.value.verifier.providerId ?? '', model: data.value.verifier.model, live: data.value.verifier.live };
+    vu.mark();
   } catch (e: any) {
     app.toast(e.message, 'error');
   } finally {
@@ -141,6 +143,7 @@ async function removeCase(c: GoldenCase) {
 
 // ---- Verifier
 const vform = ref({ providerId: '', model: '', live: false });
+const vu = useUnsaved(vform);
 async function saveVerifier() {
   try {
     await api('/settings', { method: 'PUT', body: { verifierProviderId: vform.value.providerId || null, verifierModel: vform.value.providerId ? vform.value.model : '', verifierLive: vform.value.live } });
@@ -290,7 +293,7 @@ const verifierName = computed(() => {
             <span class="track" /><span>Check every new classification and control design automatically</span>
           </button>
           <p class="small faint">Off by default. When off, anyone preparing work can ask for a check from the use case panel. Billed checks count towards the monthly spend cap.</p>
-          <button v-if="admin" class="btn primary" style="align-self: flex-start">Save</button>
+          <button v-if="admin" class="btn primary" style="align-self: flex-start" :disabled="!vu.dirty.value">Save</button>
         </form>
 
         <div class="card" style="gap: 10px">

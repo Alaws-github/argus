@@ -6,9 +6,11 @@ Context for Claude working on this project. Read this first, then:
 - [`docs/LESSONS.md`](docs/LESSONS.md): pitfalls and decisions already found. Read `docs/lessons/general.md` and the area files for what you change, and add a lesson whenever you fix a bug or the owner corrects you.
 - [`docs/context/project-history.md`](docs/context/project-history.md): who ARGUS is for, how the owner works, what was decided and why, and every version.
 
+**Every change updates its records** (checklist in AGENTS.md): `CHANGELOG.md`, the version in `package.json` for a release, the manual and its screenshots when the UI changes, this file and `README.md`, `assistant-pages.ts` for new pages, and a lesson for every bug, correction or design decision. **UI and UX are part of the job**: check every screen change in the browser, dark mode first, at desktop and phone widths.
+
 ## What this is
 
-**ARGUS** (v1.4), the Assurance, Risk & Governance Unified System (formerly Governance Harness): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report), shown to people as five steps (`PHASES` / `PHASE_OF` in shared: Intake, Assess risk, Controls, Test, Sign-off & report). The engine, exit criteria, agents and tests all still work on the eight stages. Seven AI agents draft the work (the Use Case Planner drafts the intake brief, six more draft each later stage), and a lead can add more per stage; named people make every decision; everything is written to a hash-chained audit log.
+**ARGUS** (v1.4.1), the Assurance, Risk & Governance Unified System (formerly Governance Harness): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report), shown to people as five steps (`PHASES` / `PHASE_OF` in shared: Intake, Assess risk, Controls, Test, Sign-off & report). The engine, exit criteria, agents and tests all still work on the eight stages. Seven AI agents draft the work (the Use Case Planner drafts the intake brief, six more draft each later stage), and a lead can add more per stage; named people make every decision; everything is written to a hash-chained audit log.
 
 It was rebuilt from **GoldenEye**, the owner's AI delivery harness, keeping its board-and-gate engine, Models page, tabbed Settings, account menu and look. GoldenEye is a reference only: never change anything in it.
 
@@ -52,7 +54,7 @@ npm run typecheck
 npm run db:reset     # STOP THE APP FIRST. Rebuilds data/pglite with the demo
 npm run demo         # app running: 5 people, 5 client engagements (scripts/demo/run.mjs; BASE_URL for a hosted site; DEMO_ADMIN_EMAIL/PASSWORD if accounts exist; clients already there are skipped; --only=a,b picks; --alone removes Client Zero)
 npm run demo:build   # app STOPPED: saved copies in demos/ (all + one per client); demo:list, demo:load -- <copy>, demo:save -- <name> (scripts/demo/library.mjs; backs up data/ first, never copies secret.key)
-npm run smoke        # 66 API checks; needs a fresh db and a running server
+npm run smoke        # 68 API checks; needs a fresh db and a running server
 npm run test:agents  # 30 drafting-agent checks incl. a cheating mock model
 npm run test:grounding # 31 checks: knowledge base, citations, decisions, meaning search, temperature
 npm run test:operations # 58 checks: PDF/Excel/Word reading, incidents, monitoring and drift, connectors, members-only access, SSO (mock IdP)
@@ -61,6 +63,7 @@ npm run lessons        # rebuild the index in docs/LESSONS.md after adding a les
 npm run check:lessons  # lesson format and index, plus the code checks in scripts/checks/lesson-checks.mjs
 npm run test:v12       # modules per engagement; five steps still run the stage checks; upload controls (CSV/Excel preview, import, audit)
 npm run versions       # list git tags; -- use vX.Y (backs up data/), -- latest
+npm run release -- X.Y.Z # set the version (root package.json, shown under Sign Out) and start the CHANGELOG section
 npm run test:v11       # 65 checks: Use Case Planner (rules and mock model), new agents and routing, act as, provider service names, activity charts
 npm run test:verifier  # 36 checks: golden runs, regressions, Verifier quote check, calibration, live checks, spend cap
 ```
@@ -116,7 +119,8 @@ apps/web/src
   App.vue         shell, engagement switcher, account menu (theme, notifications), archived banner
   stores/app.ts   session, engagement, cards, permissions (can() is false for writes on archived engagements)
   pages/          one file per page; components/CardDrawer.vue is the use case side panel
-  components/     Icon (inline line icons for menus and buttons), ControlUpload, AssistantPanel (Ask), StandardsTab (plain-English framework coverage), ProviderForm (presets), VerifierBar, DraftItem
+  markdown.ts     safe Markdown for model text (escape first); lib/unsaved.ts useUnsaved (Save disabled until a change)
+  components/     Icon (inline line icons for menus and buttons), FilterPill (board filters), ControlUpload, AssistantPanel (Ask), StandardsTab (plain-English framework coverage), ProviderForm (presets), VerifierBar, DraftItem
   styles.css      GoldenEye design tokens (dark first, light via data-theme or system)
 docs/             plain-language docs, runbooks, diagrams (Mermaid source) and images
 scripts/          smoke.mjs, agents-test.mjs, grounding-test.mjs, verifier-test.mjs, assistant-test.mjs, operations-test.mjs, mock-model.cjs, demo-data.mjs
@@ -138,7 +142,7 @@ data/             database, evidence files, secret.key (gitignored; back up toge
 
 ## Versions and GitHub
 
-The owner's working copy is a git repository with one tag per release (v0.3 ... v1.3). Work happens on a release branch (`release/vX.Y`), never on `main`; the owner merges and tags. Remote: https://github.com/Alaws-github/argus (the owner pushes with his own sign-in; never ask for a token). Tag each release: `git tag -a vX.Y -m "vX.Y: ..."`. Runbook: `docs/runbooks/versions-and-github.md`.
+The owner's working copy is a git repository with one tag per release (v0.3 ... v1.4). The version shown in the app comes from the root `package.json` (`npm run release`); changes are listed in `CHANGELOG.md`. Work happens on a release branch (`release/vX.Y`), never on `main`; the owner merges and tags. Remote: https://github.com/Alaws-github/argus (the owner pushes with his own sign-in; never ask for a token). Tag each release: `git tag -a vX.Y -m "vX.Y: ..."`. Runbook: `docs/runbooks/versions-and-github.md`.
 
 ## Delivering to the owner's computer
 

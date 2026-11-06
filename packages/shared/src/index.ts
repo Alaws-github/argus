@@ -292,6 +292,8 @@ export interface Card {
   classification: Classification | null;
   design: import('./grc.js').ControlDesign | null;
   createdBy: string | null;
+  /** The last person (not an agent) whose change to this card is in the audit log. */
+  updatedBy?: string | null;
   drafts: import('./grc.js').CardDrafts;
   decisions: import('./grc.js').CardDecisions;
   verification: import('./grc.js').CardVerification;

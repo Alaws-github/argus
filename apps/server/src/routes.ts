@@ -62,7 +62,13 @@ export function routes(db: Db) {
   r.get('/engagements/:id/board', wrap(async (req, res) => {
     const engagement = await getEngagement(db, req.params.id);
     if (!engagement) return res.status(404).json({ error: 'Engagement not found' });
-    const { rows } = await db.query(`SELECT * FROM cards WHERE engagement_id = $1 ORDER BY stage_entered_at`, [engagement.id]);
+    // updated_by: the last person (an account, not an agent) whose change to the card is in the audit log.
+    // Card keys are unique across engagements (each has its own prefix).
+    const { rows } = await db.query(
+      `SELECT c.*, (SELECT a.actor FROM audit_log a WHERE a.entity = 'card:' || c.key
+                      AND EXISTS (SELECT 1 FROM users u WHERE u.name = a.actor OR u.former_names ? a.actor)
+                    ORDER BY a.id DESC LIMIT 1) AS updated_by
+       FROM cards c WHERE c.engagement_id = $1 ORDER BY c.stage_entered_at`, [engagement.id]);
     const { rows: busy } = await db.query(`SELECT count(*)::int AS n FROM cards WHERE status = 'running'`);
     res.json({
       engagement,

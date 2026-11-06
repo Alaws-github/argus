@@ -2,6 +2,7 @@
 // Incidents on live AI systems: what happened, who must be told and by when,
 // what was done about it, and the lessons. Closing needs a reviewer or lead
 // who didn't report it, a root cause, lessons and every notice sent.
+import { useUnsaved } from '../lib/unsaved';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { NOTIFY_CLOCKS, SEVERITIES, type Incident, type InventoryItem, type NotifyClock } from '@gh/shared';
 import { api, day, socket } from '../api';
@@ -86,9 +87,11 @@ async function patch(body: Record<string, unknown>, ok?: string) {
 const note = ref('');
 const sentRef = ref<Record<string, string>>({});
 const rc = ref({ rootCause: '', lessons: '' });
+const rcU = useUnsaved(rc);
 function open(i: Incident) {
   selId.value = i.id;
   rc.value = { rootCause: i.rootCause, lessons: i.lessons };
+  rcU.mark();
   note.value = '';
 }
 const action = ref({ title: '', severity: 'high', owner: '' });
@@ -198,7 +201,7 @@ const CLOCKS = Object.entries(NOTIFY_CLOCKS) as [NotifyClock, (typeof NOTIFY_CLO
           <textarea v-model="rc.rootCause" class="textarea" placeholder="Why it happened" :disabled="sel.status === 'closed'" />
           <textarea v-model="rc.lessons" class="textarea" placeholder="What changes so it doesn't happen again" :disabled="sel.status === 'closed'" />
           <div v-if="sel.status !== 'closed' && app.can('prepare')" class="row" style="flex-wrap: wrap">
-            <button class="btn sm" @click="patch({ rootCause: rc.rootCause, lessons: rc.lessons }, 'Saved')">Save</button>
+            <button class="btn sm" :disabled="!rcU.dirty.value" @click="patch({ rootCause: rc.rootCause, lessons: rc.lessons }, 'Saved').then(() => rcU.mark())">Save</button>
             <button v-if="sel.status === 'open'" class="btn sm" @click="patch({ status: 'contained' })">Mark contained</button>
             <button v-if="sel.status !== 'resolved'" class="btn sm" @click="patch({ status: 'resolved' })">Mark resolved</button>
             <button v-if="app.can('approve')" class="btn sm primary" @click="patch({ status: 'closed', rootCause: rc.rootCause, lessons: rc.lessons }, 'Incident closed')">Close incident</button>

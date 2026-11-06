@@ -47,3 +47,13 @@ The connected folder on the owner's machine refuses deletes. Extract archives wi
 ### plain-english-title-case-no-em-dashes `correction`
 UI text, docs and comments use plain English and no em dashes. Menu items, page titles, buttons, badges and the main options on cards use Title Case ("Use Cases", "Knowledge Base", "Needs Your Approval"). A lone "—" as an empty-value placeholder in a table cell is fine.
 **Enforced by:** none - review the text
+
+## Keeping things in step
+
+### every-change-updates-its-records `correction`
+A change isn't done until the files that describe it are updated in the same delivery: `CHANGELOG.md` (what changed), the version in the root `package.json` for a new release (`npm run release`), `docs/manual.md` and its screenshots when anything a user sees changes (then `npm run manual`), `CLAUDE.md` and `README.md` when rules, layout, commands or endpoints change, `apps/server/src/assistant-pages.ts` when a page is added or renamed, `docs/context/project-history.md` when a release ships or a decision changes, and a lesson in `docs/lessons/` for every bug, correction or design decision. The checklist is in AGENTS.md.
+**Enforced by:** none - checklist in AGENTS.md
+
+### versioning `correction`
+The version lives in one place, the root `package.json`, and shows under Sign Out with the git commit. Each release: `npm run release -- X.Y.Z` on the release branch (sets the version and starts the CHANGELOG section), then merge and tag `vX.Y.Z`.
+**Enforced by:** none - release step

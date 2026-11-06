@@ -1,18 +1,21 @@
 <script setup lang="ts">
 // Single sign-on set-up (admins). OpenID Connect with the client's identity
 // provider. People still need an account here first; SSO only signs them in.
+import { useUnsaved } from '../lib/unsaved';
 import { onMounted, ref } from 'vue';
 import { api } from '../api';
 import { useApp } from '../stores/app';
 
 const app = useApp();
 const f = ref({ enabled: false, label: '', issuer: '', clientId: '', clientSecret: '', allowedDomains: '', passwordsForNonAdmins: true });
+const u = useUnsaved(f);
 const secretSet = ref(false);
 const redirectUri = ref(`${window.location.origin}/api/auth/sso/callback`);
 onMounted(async () => {
   const c = await api('/sso/config').catch(() => null);
   if (c) {
     f.value = { enabled: c.enabled, label: c.label, issuer: c.issuer, clientId: c.clientId, clientSecret: '', allowedDomains: (c.allowedDomains ?? []).join(', '), passwordsForNonAdmins: c.passwordsForNonAdmins };
+    u.mark();
     secretSet.value = c.secretSet;
   }
 });
@@ -24,6 +27,7 @@ async function save() {
     redirectUri.value = r.redirectUri;
     if (f.value.clientSecret) secretSet.value = true;
     f.value.clientSecret = '';
+    u.mark();
     app.toast(f.value.enabled ? 'Single sign-on is on' : 'Saved; single sign-on is off');
   } catch (e: any) {
     app.toast(e.message, 'error');
@@ -45,6 +49,6 @@ async function save() {
     </div>
     <label class="row small" style="gap: 6px"><input v-model="f.passwordsForNonAdmins" type="checkbox" /> People other than admins may still sign in with a password</label>
     <label class="row small" style="gap: 6px"><input v-model="f.enabled" type="checkbox" /> Turn on single sign-on</label>
-    <div><button class="btn primary">Save</button></div>
+    <div><button class="btn primary" :disabled="!u.dirty.value">Save</button></div>
   </form>
 </template>

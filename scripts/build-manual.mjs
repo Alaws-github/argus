@@ -22,7 +22,25 @@ renderer.heading = (text, depth) => {
   if (depth <= 2) toc.push({ depth, text, id });
   return `<h${depth} id="${id}">${text}</h${depth}>`;
 };
-renderer.image = (href, _title, text) => `<figure><img src="${pathToFileURL(resolve(docs, href)).href}" alt="${text}"><figcaption>${text}</figcaption></figure>`;
+// Screenshots in images/manual are taken at 2x. Show each at 75% of its size on
+// screen (full-page shots then fill the page width), so a small panel isn't
+// blown up and every image keeps a similar text size.
+function pixelWidth(file) {
+  const b = readFileSync(file);
+  if (b.readUInt32BE(0) === 0x89504e47) return b.readUInt32BE(16);
+  for (let i = 2; i < b.length - 9;) {
+    const marker = b[i + 1], len = b.readUInt16BE(i + 2);
+    if (marker >= 0xc0 && marker <= 0xc3) return b.readUInt16BE(i + 7);
+    i += 2 + len;
+  }
+  return 0;
+}
+renderer.image = (href, _title, text) => {
+  const file = resolve(docs, href);
+  const scale = href.includes('images/manual/') ? 0.5 * 0.75 : 0.75;
+  const w = Math.round(pixelWidth(file) * scale);
+  return `<figure><img src="${pathToFileURL(file).href}" alt="${text}"${w ? ` style="width:${w}px"` : ''}><figcaption>${text}</figcaption></figure>`;
+};
 const body = rest.map((part) => marked.parse(part, { renderer })).join('\n');
 
 const html = `<!doctype html><html><head><meta charset="utf-8"><title>ARGUS: User Manual</title><style>
@@ -55,7 +73,7 @@ th, td { border: 1px solid #dfe3ea; padding: 5px 7px; vertical-align: top; }
 code, pre { font-family: "SFMono-Regular", Consolas, monospace; font-size: 9pt; }
 pre { background: #f4f5f8; border: 1px solid #e3e6ec; border-radius: 6px; padding: 8px 10px; }
 figure { margin: 10px 0 14px; page-break-inside: avoid; text-align: center; }
-figure img { max-width: 100%; max-height: 105mm; border: 1px solid #dfe3ea; border-radius: 6px; }
+figure img { max-width: 100%; max-height: 140mm; border: 1px solid #dfe3ea; border-radius: 6px; }
 figcaption { font-size: 8.5pt; color: #6b7385; margin-top: 4px; }
 strong { color: #141a26; }
 </style></head><body>
@@ -65,7 +83,7 @@ strong { color: #141a26; }
   <h1>ARGUS</h1>
   <div class="sub">Assurance, Risk &amp; Governance Unified System</div>
   <div class="sub">User manual: the full flow, from first request to board report</div>
-  <div class="meta">Version 1.2.2 · November 2026 · Prepared by Andrew Lawrence</div>
+  <div class="meta">Version 1.2.3 · November 2026 · Prepared by Andrew Lawrence</div>
   <div class="intro">${intro}</div>
 </section>
 <section class="toc"><h1 style="page-break-before: avoid">Contents</h1><ol>${'__TOC__'}</ol></section>
@@ -83,7 +101,7 @@ await page.goto(pathToFileURL(tmp).href, { waitUntil: 'networkidle' });
 await page.pdf({
   path: resolve(docs, 'manual.pdf'), format: 'A4', printBackground: true, displayHeaderFooter: true,
   headerTemplate: '<div></div>',
-  footerTemplate: '<div style="font-size:8px;color:#8a91a1;width:100%;padding:0 18mm;display:flex;justify-content:space-between"><span>ARGUS · User manual · v1.2.2</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>',
+  footerTemplate: '<div style="font-size:8px;color:#8a91a1;width:100%;padding:0 18mm;display:flex;justify-content:space-between"><span>ARGUS · User manual · v1.2.3</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>',
   margin: { top: '18mm', bottom: '20mm', left: '18mm', right: '18mm' },
 });
 await browser.close();

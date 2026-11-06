@@ -29,6 +29,8 @@ const reason = ref('');
 const passageOf = (id: string) => props.passages?.find((p) => p.id === id);
 const KIND: Record<string, string> = { framework: 'Framework', control: 'Library control', methodology: 'Method', client: 'Client', use_case: 'Use case', evidence: 'Evidence', upload: 'Client document' };
 
+// Save change stays off until a field differs from the AI's draft.
+const editChanged = computed(() => Object.entries(draft.value).some(([k, v]) => v !== props.values?.[k]));
 function startEdit() {
   draft.value = { ...(props.values ?? {}) };
   reason.value = '';
@@ -94,7 +96,7 @@ const LABEL: Record<string, string> = { open: 'To decide', accept: 'Accepted', e
         </label>
       </div>
       <input v-model="reason" class="input" placeholder="Why you changed it (goes in the audit trail)" required minlength="3" aria-label="Reason for the change" />
-      <div class="row"><button class="btn sm primary">Save change</button><button type="button" class="btn sm ghost" @click="mode = ''">Cancel</button></div>
+      <div class="row"><button class="btn sm primary" :disabled="!editChanged">Save change</button><button type="button" class="btn sm ghost" @click="mode = ''">Cancel</button></div>
     </form>
     <form v-else-if="mode === 'reject'" class="row" style="flex-wrap: wrap" @submit.prevent="reject">
       <input v-model="reason" class="input grow" placeholder="Why it should not be kept" required minlength="3" aria-label="Reason for rejecting" />

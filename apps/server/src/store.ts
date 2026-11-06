@@ -46,6 +46,7 @@ export function toCard(r: any): Card {
     classification: r.classification,
     design: r.design ?? null,
     createdBy: r.created_by ?? null,
+    updatedBy: r.updated_by ?? null,
     drafts: r.drafts ?? {},
     decisions: r.decisions ?? {},
     verification: r.verification ?? {},

@@ -31,6 +31,13 @@ const PATHS: Record<string, string> = {
   plus: 'M12 5v14M5 12h14',
   bell: 'M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0',
   chevron: 'M6 9l6 6 6-6',
+  send: 'M12 19V5M5 12l7-7 7 7',
+  expand: 'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7',
+  collapse: 'M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7',
+  close: 'M18 6L6 18M6 6l12 12',
+  filter: 'M3 5h18M6 12h12M10 19h4',
+  calendar: 'M3 6h18v15H3zM16 3v6M8 3v6M3 11h18',
+  check: 'M5 12l5 5 9-10',
 };
 </script>
 

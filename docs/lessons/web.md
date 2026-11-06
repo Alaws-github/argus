@@ -39,3 +39,29 @@ The app starts in dark mode for anyone who hasn't chosen a theme (the `|| 'dark'
 ### attention-dots-blink `design`
 The dot before statuses that need a person (Needs Your Approval, You Triage, Run Failed) blinks; others don't.
 **Enforced by:** none - design decision
+
+## UI and UX
+
+### ui-ux-is-a-first-class-requirement `correction`
+The owner judges ARGUS by how it looks and feels as much as by what it does. Every UI change is checked in the browser in dark mode (the default) and light mode, at 1440, 1366, 1280 and 390px wide, for alignment, overflow, readable contrast and no horizontal scroll, and compared with GoldenEye's look where one exists. Prefer polished, familiar patterns (chat panels, pill filters, menus) over plain form controls. Screenshot before handing over.
+**Enforced by:** none - visual review in the browser
+
+### ai-text-is-rendered-not-shown-raw `bug`
+Text from a model is shown through `renderMarkdown` in `apps/web/src/markdown.ts`, never as raw text: models answer with `**bold**` and `- ` lists, which otherwise show as stray asterisks. The renderer escapes HTML first, so it is safe with `v-html`.
+**Enforced by:** none - use renderMarkdown wherever model text is displayed
+
+### assistant-is-a-chat-panel `design`
+The assistant looks like a modern chat: your messages in bubbles on the right, answers in cards with an "Assistant" label, starter cards with icons and a greeting when a conversation is empty, a composer that grows with a round send button, a thinking indicator, conversation history with search, new conversation, wider view and close in the header. Dark first. Keep this shape when changing it.
+**Enforced by:** none - design decision
+
+### save-disabled-until-changed `design`
+Every Save button stays disabled until the form differs from what was loaded or last saved. Use `useUnsaved` in `apps/web/src/lib/unsaved.ts`: call `mark()` after loading and after saving, and bind `:disabled="!u.dirty.value"`. Buttons that also conclude or submit something (Conclude, Add provider) are not covered.
+**Enforced by:** none - review new forms
+
+### board-filters-match-goldeneye `design`
+Board filters are pill buttons ("Show All cards", "Kind Any", "Priority", "Person Anyone", "Created Any time", "Updated Any time") built with `FilterPill.vue`, centred beside the board title with search on the right. Cards show the initials of the person who last changed them (or added them), never an agent.
+**Enforced by:** test scripts/smoke.mjs (no agent as the person on a card)
+
+### active-menu-is-light-blue `design`
+The top menu item for the page you're on is highlighted light blue (accent text on the accent background), as in GoldenEye.
+**Enforced by:** none - design decision

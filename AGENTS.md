@@ -72,6 +72,23 @@ If a request would bring back a pattern in `docs/lessons/`, or goes against a `c
 
 ---
 
+## Every change: update these files
+
+Before handing over, go through this list and update what the change touches, in the same delivery:
+
+- [ ] `CHANGELOG.md`: a line under the current version, in plain words.
+- [ ] Root `package.json` version, for a new release: `npm run release -- X.Y.Z`.
+- [ ] `docs/manual.md` and its screenshots (`docs/images/manual/`) if anything a user sees changed; then `npm run manual`.
+- [ ] `CLAUDE.md` (rules, layout, commands) and `README.md` (endpoints, scripts).
+- [ ] `apps/server/src/assistant-pages.ts` if a page or tab was added, renamed or removed.
+- [ ] `docs/lessons/`: a lesson for every bug fixed, correction made or design decision; then `npm run lessons`.
+- [ ] `docs/context/project-history.md` when a release ships or a decision changes.
+- [ ] Tests for the behaviour, including what must be refused.
+
+## UI and UX
+
+How ARGUS looks and feels matters as much as what it does. Check every UI change in the browser, dark mode first, at 1440, 1366, 1280 and 390px, and look at the screenshots before handing over: alignment, spacing, overflow, contrast, and whether it matches GoldenEye's look. See the UI and UX section of `docs/lessons/web.md`.
+
 ## Testing
 
 Before handing over: `npm run typecheck`, the suites the change touches (each needs a fresh database: stop the app, `npm run db:reset`, start it), `npm run check:lessons`, and a browser pass at desktop widths (1920, 1440, 1366, 1280) and 390px, checking for console errors and horizontal scroll. The full list of suites is in `CLAUDE.md` under "Run it". Every behaviour change gets a check, including the thing that must be refused.

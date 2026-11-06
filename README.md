@@ -16,6 +16,8 @@ v1.0 closed the prototype's gaps: PDFs, Excel and Word files are read as evidenc
 
 v0.9 adds `npm run demo` (a realistic engagement built through the real API, for demos and learning), a walkthrough guide with screenshots, 15- and 30-minute demo scripts (docs/08-walkthrough.md, docs/09-demo-script.md) and a tidier top bar on laptop screens.
 
+v1.4.1: the assistant is a chat panel with formatted answers and conversation history; board cards show who last changed them (`updatedBy` on board cards); GoldenEye-style board filters; the version shows under Sign Out (`npm run release`, `CHANGELOG.md`); Save buttons stay disabled until something changes.
+
 v1.4: the assistant sees the page you're on, keeps your conversations (new, search, carry on) and uses the workspace default model when none is picked for it. `AGENTS.md`, `docs/LESSONS.md` and `docs/context/project-history.md` give agents the project's context and lessons.
 
 v0.8 adds the assistant (Ask: explains and suggests; people apply or discard every suggestion, under their own permissions), a plain-English Standards tab with coverage per framework, and ready-made settings for 14 AI services. See docs/03-using-the-app.md.

@@ -15,13 +15,17 @@ import { api, ago, money } from '../api';
 import StatusPill from '../components/StatusPill.vue';
 import CardDrawer from '../components/CardDrawer.vue';
 import NewUseCase from '../components/NewUseCase.vue';
+import FilterPill, { type DateRange, type PillOption } from '../components/FilterPill.vue';
 
 const app = useApp();
 const route = useRoute();
 const router = useRouter();
 const show = ref<'all' | 'you' | 'running' | 'high'>('all');
-const category = ref<'' | UseCaseCategory>('');
-const priority = ref('');
+const category = ref<string[]>([]);
+const priority = ref<string[]>([]);
+const people = ref<string[]>([]);
+const created = ref<DateRange>({ preset: '' });
+const updated = ref<DateRange>({ preset: '' });
 const search = ref('');
 const quickAdd = ref(false);
 const agents = ref<AgentConfig[]>([]);
@@ -42,8 +46,10 @@ const visible = computed(() =>
     if (show.value === 'you' && !isYou(c)) return false;
     if (show.value === 'running' && !['running', 'queued'].includes(c.status)) return false;
     if (show.value === 'high' && !['high', 'prohibited'].includes(c.tier ?? '')) return false;
-    if (category.value && catOf(c) !== category.value) return false;
-    if (priority.value && prioOf(c) !== priority.value) return false;
+    if (category.value.length && !category.value.includes(catOf(c))) return false;
+    if (priority.value.length && !priority.value.includes(prioOf(c))) return false;
+    if (people.value.length && !people.value.some((p) => p === c.createdBy || p === c.updatedBy)) return false;
+    if (!inRange(c.createdAt, created.value) || !inRange(c.updatedAt, updated.value)) return false;
     const q = search.value.trim().toLowerCase();
     return !q || c.title.toLowerCase().includes(q) || c.key.toLowerCase().includes(q);
   }),
@@ -52,6 +58,41 @@ const visible = computed(() =>
 const stagesOf = (p: Phase) => STAGES.filter((s) => PHASE_OF[s] === p);
 const byPhase = (p: Phase) => visible.value.filter((c) => PHASE_OF[c.stage] === p).sort((a, b) => STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage));
 const phaseCost = (p: Phase) => app.cards.filter((c) => PHASE_OF[c.stage] === p).reduce((a, c) => a + c.costUsd, 0);
+// Date filters: each preset is a window ending now (Yesterday is the day before today).
+function inRange(iso: string, r: DateRange): boolean {
+  if (!r.preset) return true;
+  const t = new Date(iso).getTime();
+  const day = new Date(); day.setHours(0, 0, 0, 0);
+  const start = day.getTime();
+  if (r.preset === 'today') return t >= start;
+  if (r.preset === 'yesterday') return t >= start - 864e5 && t < start;
+  if (r.preset === 'week') { const d = new Date(day); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return t >= d.getTime(); }
+  if (r.preset === 'month') return t >= new Date(day.getFullYear(), day.getMonth(), 1).getTime();
+  if (r.preset === '90d') return t >= start - 89 * 864e5;
+  const from = r.from ? new Date(`${r.from}T00:00:00`).getTime() : -Infinity;
+  const to = r.to ? new Date(`${r.to}T23:59:59`).getTime() : Infinity;
+  return t >= from && t <= to;
+}
+// Initials for the person on a card, and a steady colour per name.
+const initials = (n: string) => n.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+const HUES = [152, 200, 262, 28, 330, 96, 186, 44];
+const hue = (n: string) => HUES[[...n].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) % HUES.length];
+const whoOf = (c: Card) => c.updatedBy || c.createdBy || '';
+const whoTitle = (c: Card) => [c.createdBy && `Added by ${c.createdBy}`, c.updatedBy && c.updatedBy !== c.createdBy && `last changed by ${c.updatedBy}`].filter(Boolean).join(', ');
+
+const showOptions = computed<PillOption[]>(() => [
+  { value: 'all', label: 'All cards', count: counts.value.all },
+  { value: 'you', label: 'Needs you', count: counts.value.you },
+  { value: 'running', label: 'Running', count: counts.value.running },
+  { value: 'high', label: 'High risk', count: counts.value.high },
+]);
+const categoryOptions = computed<PillOption[]>(() => (Object.keys(CATEGORY_LABELS) as UseCaseCategory[]).map((k) => ({ value: k, label: CATEGORY_LABELS[k], icon: ICONS[k], iconClass: `category ${k}`, count: app.cards.filter((c) => catOf(c) === k).length })));
+const priorityOptions = computed<PillOption[]>(() => Object.entries(PRIORITY_LABELS).map(([k, l]) => ({ value: k, label: l, count: app.cards.filter((c) => prioOf(c) === k).length })));
+const peopleOptions = computed<PillOption[]>(() => {
+  const names = [...new Set(app.cards.flatMap((c) => [c.createdBy, c.updatedBy]).filter(Boolean) as string[])].sort();
+  return names.map((n) => ({ value: n, label: n, count: app.cards.filter((c) => c.createdBy === n || c.updatedBy === n).length }));
+});
+
 const counts = computed(() => ({
   all: app.cards.length,
   you: app.cards.filter(isYou).length,
@@ -128,42 +169,26 @@ async function onDrop(p: Phase) {
 <template>
   <div class="page" style="max-width: none; padding-left: 0; padding-right: 0">
     <div style="padding: 0 20px">
-      <div class="page-head">
-        <div>
+      <div class="board-head">
+        <div class="board-title">
           <h1>Board</h1>
-          <p class="small">{{ app.cards.length }} use cases · {{ counts.you }} need you · {{ app.slots.busy }} agents running</p>
+          <p class="small muted">{{ app.cards.length }} use cases · {{ counts.you }} need you · {{ app.slots.busy }} agents running</p>
+          <div class="row small muted board-slots">
+            <span><span class="slot-dot" :class="{ busy: app.slots.busy }" />{{ app.slots.busy }} of {{ app.slots.limit }} agent slots busy</span>
+            <button class="switch" :class="{ on: app.autoStart }" role="switch" :aria-checked="app.autoStart" @click="toggleAuto">
+              <span class="track" />Agents start on their own
+            </button>
+          </div>
         </div>
-      </div>
-      <div class="toolbar">
-        <div class="filters">
-          <label class="select-pill"><span>Show</span>
-            <select v-model="show" class="select sm" aria-label="Show">
-              <option value="all">All cards ({{ counts.all }})</option>
-              <option value="you">Needs you ({{ counts.you }})</option>
-              <option value="running">Running ({{ counts.running }})</option>
-              <option value="high">High risk ({{ counts.high }})</option>
-            </select>
-          </label>
-          <label class="select-pill"><span>Kind</span>
-            <select v-model="category" class="select sm" aria-label="Kind of AI">
-              <option value="">Any</option>
-              <option v-for="(l, k) in CATEGORY_LABELS" :key="k" :value="k">{{ l }}</option>
-            </select>
-          </label>
-          <label class="select-pill"><span>Priority</span>
-            <select v-model="priority" class="select sm" aria-label="Priority">
-              <option value="">Any</option>
-              <option v-for="(l, k) in PRIORITY_LABELS" :key="k" :value="k">{{ l }}</option>
-            </select>
-          </label>
-          <input v-model="search" class="input" style="width: 200px; padding: 4px 10px" placeholder="Search use cases" aria-label="Search use cases" />
+        <div class="board-filters" role="group" aria-label="Filter the board">
+          <FilterPill v-model="show" label="Show" :options="showOptions" />
+          <FilterPill v-model="category" label="Kind" :options="categoryOptions" multi />
+          <FilterPill v-model="priority" label="Priority" :options="priorityOptions" multi />
+          <FilterPill v-model="people" label="Person" :options="peopleOptions" multi any-label="Anyone" />
+          <FilterPill v-model="created" label="Created" date />
+          <FilterPill v-model="updated" label="Updated" date />
         </div>
-        <div class="row small muted">
-          <span>{{ app.slots.busy }} of {{ app.slots.limit }} agent slots busy</span>
-          <button class="switch" :class="{ on: app.autoStart }" role="switch" :aria-checked="app.autoStart" @click="toggleAuto">
-            <span class="track" />Agents start on their own
-          </button>
-        </div>
+        <input v-model="search" class="input board-search" type="search" placeholder="Search use cases" aria-label="Search use cases" />
       </div>
     </div>
 
@@ -211,6 +236,7 @@ async function onDrop(p: Phase) {
               <StatusPill :card="c" />
               <span v-if="c.tier" class="tier" :class="c.tier">{{ TIER_LABELS[c.tier] }}</span>
               <span class="faint end">{{ c.stage === 'intake' ? 'Added' : 'Here' }} {{ ago(c.stageEnteredAt) }} ago</span>
+              <span v-if="whoOf(c)" class="who-badge" :style="{ '--h': hue(whoOf(c)) }" :title="whoTitle(c)" :aria-label="whoTitle(c)">{{ initials(whoOf(c)) }}</span>
             </span>
           </button>
           <div v-if="!byPhase(s).length" class="empty-col">{{ dropOk(s) ? 'Drop here' : 'No use cases' }}</div>

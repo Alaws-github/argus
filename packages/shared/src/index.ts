@@ -741,3 +741,5 @@ export const EngagementPatch = z.object({
   modules: z.object(Object.fromEntries(MODULES.map((m) => [m, z.boolean().optional()])) as Record<Module, z.ZodOptional<z.ZodBoolean>>).optional(),
 });
 export * from './grc.js';
+export * from './workflow.js';
+export * from './tools-catalog.js';

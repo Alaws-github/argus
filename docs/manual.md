@@ -1,12 +1,24 @@
 # ARGUS: User Manual
 
-Version 1.6 · November 2026
+Version 1.2.4 · November 2026 · for ARGUS 1.7.1
 
 This manual explains ARGUS, the Assurance, Risk & Governance Unified System: what it is for, how to use the live site, and how a piece of work flows through it from the first request to the board report. It is written for assurance, risk and governance professionals, not for developers. Screenshots use the fictional demo engagement (Northshore Financial Group) on the live site, so you can follow along as you read (section 4).
 
 ---
 
 # Part 1. Introduction
+
+## What's new in this edition
+
+This edition (1.2.4) follows edition 1.2.3 and covers ARGUS 1.4.1 to 1.7.1. Every screenshot has been retaken. The main changes:
+
+- **The dashboard look.** Each working page opens with a row of tiles showing the numbers that matter there (section 5.1). Tabs and switches are pill-shaped.
+- **Agents that reason.** Agents look things up before they draft, check their own draft, and can ask you a question; the use case then shows **Question for You** (sections 28.1 to 28.3).
+- **A smarter Use Case Planner.** It knows the client, the board and the Knowledge Base, suggests use cases when asked, and won't file a test message as an answer (section 11).
+- **The assistant works in the open.** You see its steps while it works, its answers link to the pages and records they mention, you can tag a record with @, and you can rate an answer (section 30).
+- **Better search and a Retrieval check.** Uploaded documents are split at their headings, and **Checking the AI > Retrieval** scores how well the Knowledge Base finds the right passage (sections 29 and 31.4).
+- **Client workflows.** Draw the client's own process around ARGUS's governance gates, place each step in the client's business tools (Microsoft 365, ServiceNow, Jira, Google Workspace, Slack and others), and let ARGUS read those tools through read-only connectors (section 34).
+- **Errors that say what to do.** When a model provider refuses a key, doesn't know a model or is out of quota, the message says how to fix it.
 
 ## 1. What ARGUS is
 
@@ -171,6 +183,13 @@ The item for the page you're on is highlighted in light blue.
 **Your Account** (your name, email, password and where you're signed in), **People and Roles** (admins), **Audit Log**, **Act As** (admins, when it is turned on: section 8.1), the **theme** (system, light or dark), **Desktop Notifications** (a notice when something needs your approval while the tab is in the background) and **Sign Out**. Under Sign Out is the ARGUS version you are using, for example "ARGUS 1.4.1 · 3f2a9c1": quote it when you report a problem.
 
 ![Your account](images/manual/m46-account.jpg)
+
+
+### 5.1 The numbers at the top of each page
+
+![KPI tiles on the board](images/manual/m47-kpis.jpg)
+
+Each working page opens with a row of tiles: the numbers that matter on that page, with a line saying what each one means. The first tile is highlighted. A tile that links somewhere (for example **No control** on the risk register) opens the page the number comes from. The numbers update as work moves.
 
 ## 6. Connecting an AI model
 
@@ -674,6 +693,18 @@ A suggestion changes nothing until you click **Apply**. Applying runs it under y
 
 ![Your conversations, with search](images/manual/m40-assistant-history.png)
 
+**Watching it work.** While it works you see **Working · N steps** with each thing it looks up, and its own reasoning, as it happens. When it finishes, this folds into a line like **Worked 2.4s · 2 steps** above the answer; click it to see the steps again.
+
+![The assistant at work](images/manual/m49-assistant-live.png)
+
+**Links.** Answers link to the pages and records they mention: click a use case key to open it, a risk or control key to jump to its row (highlighted), or a page name to go there. The assistant stays open.
+
+**Tag a record with @.** Type **@** in the question box to pick a use case, risk, control or issue, then ask about it from any page.
+
+![Tagging a record with @](images/manual/m50-assistant-tag.png)
+
+**Rate an answer.** Under each answer, thumbs up or down tells the team whether it helped (a thumbs down is kept, so poor answers can be checked); the copy button copies it. If the model can't be reached or refuses the key, the message says what to do and where.
+
 **What it based an answer on.** Under each answer, **Based on** says whether it drew on the page you're on, ARGUS records, or the knowledge base. Its sources are grouped by kind (frameworks, controls, method guidance, client documents), and **How I got here** lists what it looked up before answering. A question about the page is answered from the page.
 
 **Which model answers.** The assistant uses the model picked for it on Models & Keys, or the workspace default if none is picked. With neither, it runs offline and reports what the harness can check by itself.
@@ -779,6 +810,47 @@ Every release of ARGUS is a version in git, from v0.3 onwards. The live site alw
 
 ---
 
+## 34. Client workflows
+
+![The workflow builder](images/manual/m48-workflow-builder.jpg)
+
+**Settings > Client Workflows** holds the client's own processes for taking an AI use case live, drawn as steps and arrows around ARGUS's governance. Leads and admins draw them; everyone can view them.
+
+1. Click **New workflow**, name it, and start from **Standard** (the five gates with the usual agent and reviewer steps), a version already placed in **Microsoft 365**, **ServiceNow and Jira** or **Google Workspace and Slack**, or **Gates only**.
+2. Add steps from the rail on the left: **Agent step** (an ARGUS agent drafts), **Person decides** (a role approves), **Client step** (for example a legal review), **Condition** (for example "Is the risk high?"), **Notify** (who should be told; ARGUS records it and doesn't send messages) and **End**.
+3. Drag a step to move it. Drag from a step's right-hand dot to another step to draw an arrow. An arrow back to an earlier step is marked **Rework** (for example "Changes requested").
+4. Click a step or arrow to name it and fill in its details on the right. Delete removes it; Ctrl+Z undoes.
+5. **Save draft** keeps your work, even with problems. The button at the top says what still needs fixing; click a problem to find its step.
+6. **Publish** when every rule passes. Add a note saying what changed. Each publish is kept as a numbered version under **Versions** (the clock icon), where you can view an old version or make it the draft again. **Retire** takes a workflow out of use without losing its versions.
+
+The rules, which nobody can switch off:
+
+- The five governance gates (Intake, Risk classified, Controls designed, Controls tested, Sign-off) and the trigger can be moved but not removed.
+- Every path from the trigger to an end passes every gate, in order. A rework arrow is the only way back.
+- After an agent step, a person or a gate decides before the workflow ends.
+- Every condition has labelled ways out, and every step is connected.
+
+### 34.1 Steps in the client's business tools
+
+![A workflow with its steps in Microsoft 365 tools](images/manual/m51-workflow-tools.jpg)
+
+Most of a client's governance work already happens in their own tools: approvals in Power Automate or ServiceNow, policies in SharePoint or Confluence, testing in Excel or Jira, sign-off in Teams or Slack. For a trigger, person, client or notify step, choose **Happens in** (the tool) and **Where in** it (a site, list, project, queue or channel). The step shows the tool on the canvas.
+
+Where ARGUS can read the tool, link the step to a **connector** (**ARGUS reads it with**). The connector pulls the document, spreadsheet, ticket list or channel history in as evidence, read-only; ARGUS never changes anything in the client's tools. The **Business tools** button in the rail lists the tools the workflow uses, their steps, and whether a connector reads each one. **Set up a connector** opens the connector form with that tool picked.
+
+Setting up a connector (**Tests and Evidence > Connectors > Add connector**):
+
+![Adding a connector for SharePoint](images/manual/m52-connector-tool.jpg)
+
+1. Pick the tool. ARGUS fills in its usual address and sign-in, and says what the client's IT team needs to set up.
+2. Replace the {…} parts of the address with the real ids (a site, file, project or channel).
+3. Enter the sign-in: for Microsoft 365, the tenant ID, client ID and client secret of an app registered with read-only permissions; for Google, a service account's JSON key (share the file or folder with it); for ServiceNow, Jira and Confluence, a read-only user and API token; for Slack, a bot token with read scope.
+4. Choose the control the evidence belongs to and how often to pull it, then **Pull now** to check it works.
+
+Credentials are encrypted and never shown again or written to the audit log.
+
+Every save, publish, restore and retirement is in the audit log. A published workflow records how the client works and that it keeps ARGUS's governance; it doesn't yet move use cases on the board by itself.
+
 # Appendices
 
 ## A. Troubleshooting
@@ -803,7 +875,7 @@ Every release of ARGUS is a version in git, from v0.3 onwards. The live site alw
 
 ## B. What isn't built yet
 
-Reading scanned documents (OCR); a reranker for knowledge-base search; SAML, signing out at the identity provider and multi-factor sign-in inside the app; connectors to document stores that need their own sign-in (OAuth); and a limit on repeated failed sign-ins. Evidence connectors read report and export links over HTTPS.
+Running client workflows on the board; reading scanned documents (OCR); a reranker for knowledge-base search; SAML, signing out at the identity provider and multi-factor sign-in inside the app; connectors to document stores that need their own sign-in (OAuth); and a limit on repeated failed sign-ins. Evidence connectors read report and export links over HTTPS.
 
 ## C. Glossary
 

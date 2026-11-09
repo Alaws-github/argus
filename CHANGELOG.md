@@ -2,6 +2,36 @@
 
 What changed in each release of ARGUS, newest first. The version shown under Sign Out comes from package.json. Start a new release with `npm run release -- X.Y.Z`.
 
+## v1.7.1 (2026-11-09)
+
+Client workflows in the client's own business tools.
+
+- **Each workflow step can say which tool it happens in**: Microsoft 365 (SharePoint, OneDrive, Teams, Outlook, Excel, Planner, Power Automate, Power BI), ServiceNow, Jira, Confluence, Google Drive, Google Sheets, Gmail, Slack, a GRC platform, Tableau, DocuSign, or another tool, and where in it ("Model Risk channel", "Control testing workbook"). Steps show the tool on the canvas.
+- **ARGUS can read those tools, never change them.** A step can link to a read-only connector that pulls the document, spreadsheet, ticket list or message history in as fingerprinted evidence. Tools ARGUS doesn't read (Power Automate, Gmail, Tableau) are mapped only.
+- **Business tools panel** (new icon in the builder rail): each tool the workflow uses, its steps, and whether a connector reads it and how the last pull went, with a link to set one up.
+- **New templates**: Microsoft 365, ServiceNow and Jira, Google Workspace and Slack. Each is the standard workflow with its steps placed in those tools.
+- **Connectors know the tools.** Pick a tool and ARGUS fills in its usual read address and sign-in and says what to set up on the client's side. New sign-ins: a Microsoft Entra app (tenant, client ID, client secret) for Microsoft 365 and Power BI, and a Google service account key for Drive and Sheets. ARGUS gets a short-lived token from Microsoft or Google; that token request is the only POST a connector makes, and it goes to the identity service, not the client's data.
+- A connector following a redirect to another site (Microsoft 365 file downloads) no longer passes the credential on.
+- A step naming a tool that isn't in the list, or a connector that has since been removed, blocks a publish.
+- New checks in `npm run test:v17` (41 in all), with a mock Microsoft and Google sign-in.
+
+
+## v1.7.0 (2026-11-09)
+
+The dashboard look, client workflows, and an assistant that works in the open. The last two-part version: releases from here are 1.7.1, 1.7.2 and so on.
+
+- **Dashboard look on every page.** Each working page opens with a row of KPI tiles (big numbers, an icon, a line of context, one accent tile), from one new read, `GET /engagements/:id/kpis`: the board, risks, controls, testing, issues, incidents, inventory, evaluations, knowledge base, runs, audit log and report. Tiles link to where the number comes from. Cards are rounder and softer, tabs and segmented choices are pill selectors, and Overview's first tile is the accent tile.
+- **Client workflows** (Settings menu > Client Workflows). Draw how a client takes an AI use case from idea to live: triggers, agent steps, person decisions, client steps, conditions, notifications and ends, around ARGUS's five governance gates. A builder with an icon rail (add a step, fit, undo, versions), a canvas (drag steps, drag from a step's dot to draw an arrow, zoom) and an inspector. The gates and the trigger can be moved, never removed; every path must pass every gate in order; after an agent step a person or a gate decides; conditions need labelled ways out. Problems show as you draw and on the step. Drafts save with problems; only a workflow with none can be published. Each publish keeps a numbered version with a note; any version can be viewed or made the draft again; a workflow can be retired. Every change is in the audit log. Leads and admins edit; everyone can view.
+- **The assistant works in the open.** While it works you see "Working · N steps" with each look-up and its own reasoning as it happens (sent only to you). When it finishes this folds into "Worked 2.4s · N steps" above the answer, which opens to show the steps. Answers sit in an Agent card with thumbs up, thumbs down (kept and audited, so poor answers can be found) and copy.
+- **Links in answers.** The assistant links to ARGUS pages (`[the risk register](/risks)`), and record keys in any answer (AI-3, R-4, C-2, T-1, E-5, I-2, INC-1) become links. A link to a register row (`/risks?focus=R-4`) scrolls to it and highlights it. Links outside ARGUS are shown as plain text. Links open without closing the assistant.
+- **Tag a record with @.** Type @ in the question box to pick a use case, risk, control or issue; the assistant gets that record whatever page you're on.
+- **Errors you can act on.** A refused key, unknown model, rate limit, empty quota, time-out or unreachable provider says what to do and where ("The provider refused the API key. Check or replace it on Models & Keys."), on the assistant and on failed runs.
+- **Agents show their steps on the use case.** While an agent runs, the use case's side panel lists its look-ups live, as the assistant does. The model's own words between look-ups are now recorded in the run log too.
+- The answer itself still arrives in one go (no word-by-word streaming), as agreed.
+- Fix: the Client Workflows list asked for the workflows before the engagement had loaded on a direct visit.
+- Fix: page headings and their buttons wrap on a phone instead of running off the screen (Report).
+- New checks: `npm run test:v17` (28).
+
 ## v1.6.0 (2026-11-09)
 
 Agents that reason. Plan: `docs/plans/v1.6-agentic-ai.md`.

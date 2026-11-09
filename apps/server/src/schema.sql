@@ -756,3 +756,46 @@ ALTER TABLE golden_runs ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'sin
 -- v1.6: the assistant shows what it based an answer on, and the steps it took.
 ALTER TABLE assistant_messages ADD COLUMN IF NOT EXISTS basis jsonb NOT NULL DEFAULT '[]';
 ALTER TABLE assistant_messages ADD COLUMN IF NOT EXISTS trail jsonb NOT NULL DEFAULT '[]';
+
+-- v1.7: how long the assistant worked on an answer, and the asker's thumbs up or down.
+ALTER TABLE assistant_messages ADD COLUMN IF NOT EXISTS worked_ms integer;
+ALTER TABLE assistant_messages ADD COLUMN IF NOT EXISTS feedback text;
+ALTER TABLE assistant_messages ADD COLUMN IF NOT EXISTS feedback_note text;
+
+-- v1.7: client workflows. A client's own process drawn as steps and arrows,
+-- with ARGUS's governance gates built in (packages/shared/src/workflow.ts).
+-- The draft is edited in place; each publish keeps a numbered copy.
+CREATE SEQUENCE IF NOT EXISTS workflow_seq;
+CREATE TABLE IF NOT EXISTS workflows (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  number         integer NOT NULL DEFAULT nextval('workflow_seq'),
+  engagement_id  uuid NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  name           text NOT NULL,
+  description    text NOT NULL DEFAULT '',
+  status         text NOT NULL DEFAULT 'draft',
+  version        integer NOT NULL DEFAULT 0,
+  graph          jsonb NOT NULL,
+  changed_since_publish boolean NOT NULL DEFAULT true,
+  updated_by     text NOT NULL,
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  published_by   text,
+  published_at   timestamptz,
+  created_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS workflows_eng ON workflows (engagement_id, number);
+CREATE TABLE IF NOT EXISTS workflow_versions (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workflow_id    uuid NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+  version        integer NOT NULL,
+  name           text NOT NULL,
+  graph          jsonb NOT NULL,
+  note           text NOT NULL DEFAULT '',
+  published_by   text NOT NULL,
+  published_at   timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workflow_id, version)
+);
+
+-- v1.7.1: business tools. A connector can say which tool it reads (Microsoft 365,
+-- ServiceNow, Jira, Google, Slack...), and sign in with an Entra app or a Google
+-- service account. Still read-only.
+ALTER TABLE connectors ADD COLUMN IF NOT EXISTS tool text NOT NULL DEFAULT '';

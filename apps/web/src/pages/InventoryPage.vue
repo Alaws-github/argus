@@ -2,6 +2,7 @@
 // The AI inventory: systems, models, agents, datasets and vendor AI, each with
 // an owner; agents get an eight-point readiness checklist.
 import { useUnsaved } from '../lib/unsaved';
+import KpiStrip from '../components/KpiStrip.vue';
 import { computed, onMounted, ref } from 'vue';
 import { INVENTORY_KINDS, type InventoryItem, type InventoryKind } from '@gh/shared';
 import { api, csv, day, downloadText } from '../api';
@@ -93,6 +94,7 @@ const CHECKS = [
         <button v-if="app.can('prepare')" class="btn primary" @click="edit()">Add to inventory</button>
       </div>
     </div>
+    <KpiStrip page="inventory" />
 
     <section v-if="agents.length" class="section" style="margin-bottom: 20px">
       <span class="label-caps">Agent register</span>

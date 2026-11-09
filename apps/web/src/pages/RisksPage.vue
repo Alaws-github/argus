@@ -2,6 +2,7 @@
 // The risk register: inherent and residual scores, heat map, risk appetite and
 // acceptance, owners and treatment.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import KpiStrip from '../components/KpiStrip.vue';
 import { riskRating, type Risk } from '@gh/shared';
 import { useApp } from '../stores/app';
 import { api, socket } from '../api';
@@ -85,6 +86,7 @@ function exportCsv() {
       </div>
       <button class="btn" :disabled="!risks.length" @click="exportCsv">Download CSV</button>
     </div>
+    <KpiStrip page="risks" />
     <div class="split" style="margin-bottom: 16px; align-items: stretch">
       <div class="card">
         <div class="spread">

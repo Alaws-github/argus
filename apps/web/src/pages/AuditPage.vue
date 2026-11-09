@@ -2,6 +2,7 @@
 // The audit log: every action with who, what, when and from which address;
 // filters, paging, CSV and a button that verifies the hash chain.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import KpiStrip from '../components/KpiStrip.vue';
 import { api, csv, downloadText, socket, when } from '../api';
 import { useApp } from '../stores/app';
 
@@ -97,6 +98,7 @@ function exportCsv() {
         <span v-if="check" class="small" :class="check.ok ? '' : 'error'" :style="check.ok ? 'color: var(--ok)' : ''">{{ check.message }}</span>
       </div>
     </div>
+    <KpiStrip page="audit" />
 
     <form class="card" style="margin-bottom: 14px; gap: 10px" role="search" aria-label="Filter the audit log" @submit.prevent>
       <div class="grid audit-filters">

@@ -95,6 +95,8 @@ export async function runLoop(o: LoopOptions): Promise<LoopResult> {
       continue;
     }
     messages.push({ role: 'assistant', content: res.text, calls: res.calls });
+    // What the model says while it works (its plan, why it looks something up) is part of the trail.
+    if (res.text.trim()) await o.log('output', res.text.trim().slice(0, 1200));
 
     let submitted: { call: ToolCall; input: unknown } | null = null;
     for (const call of res.calls) {

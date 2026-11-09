@@ -2,6 +2,7 @@
 // Issues, handled like defects: severity, owner, due date, management response,
 // and a lifecycle that needs a passed retest before closing.
 import { useUnsaved } from '../lib/unsaved';
+import KpiStrip from '../components/KpiStrip.vue';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { ISSUE_STATUS_LABELS, SEVERITIES, type Issue, type IssueStatus } from '@gh/shared';
 import { api, csv, day, downloadText, socket } from '../api';
@@ -123,6 +124,7 @@ function exportCsv() {
         <button v-if="app.can('prepare')" class="btn primary" @click="adding = true">Raise issue</button>
       </div>
     </div>
+    <KpiStrip page="issues" />
     <IssueTabs />
     <div class="toolbar">
       <div class="filters">

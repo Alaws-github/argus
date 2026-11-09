@@ -3,6 +3,7 @@
 // (reusable controls mapped to standards), the Statement of Applicability, and
 // the traceability matrix from obligation to evidence.
 import { computed, onMounted, ref, watch } from 'vue';
+import KpiStrip from '../components/KpiStrip.vue';
 import ControlUpload from '../components/ControlUpload.vue';
 import Icon from '../components/Icon.vue';
 import { useRoute } from 'vue-router';
@@ -157,6 +158,7 @@ function exportTrace() {
         <p>What the laws and frameworks ask for, the controls that meet them, and how far this engagement can prove it. Start with Standards for the plain-English picture.</p>
       </div>
     </div>
+    <KpiStrip page="controls" />
     <nav class="tabs">
       <RouterLink to="/controls/standards" :class="{ active: tab === 'standards' }">Standards</RouterLink>
       <RouterLink to="/controls/register" :class="{ active: tab === 'register' }">Our Controls</RouterLink>

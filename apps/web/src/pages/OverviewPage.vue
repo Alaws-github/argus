@@ -61,7 +61,7 @@ const maxStage = computed(() => Math.max(1, ...PHASES.map(byPhase)));
 
     <div v-if="o" class="stack">
       <div class="grid kpis">
-        <div class="tile">
+        <div class="tile hero">
           <span class="label-caps">Classification coverage</span>
           <span class="big">{{ o.coveragePct }}%</span>
           <span class="small muted">{{ o.classified }} of {{ o.useCases }} use cases have an approved tier</span>

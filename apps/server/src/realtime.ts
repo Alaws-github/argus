@@ -53,3 +53,9 @@ export function emit(event: string, payload: unknown) {
     }
   })();
 }
+
+/** An event for one person only (the assistant's live steps belong to whoever asked). */
+export function emitToUser(userId: string, event: string, payload: unknown) {
+  if (!io) return;
+  for (const s of io.sockets.sockets.values()) if (s.data.user?.id === userId) s.emit(event, payload);
+}

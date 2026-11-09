@@ -3,6 +3,7 @@
 // what was done about it, and the lessons. Closing needs a reviewer or lead
 // who didn't report it, a root cause, lessons and every notice sent.
 import { useUnsaved } from '../lib/unsaved';
+import KpiStrip from '../components/KpiStrip.vue';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { NOTIFY_CLOCKS, SEVERITIES, type Incident, type InventoryItem, type NotifyClock } from '@gh/shared';
 import { api, day, socket } from '../api';
@@ -117,6 +118,7 @@ const CLOCKS = Object.entries(NOTIFY_CLOCKS) as [NotifyClock, (typeof NOTIFY_CLO
       </div>
       <button v-if="app.can('prepare')" class="btn primary" @click="adding = true">Report an incident</button>
     </div>
+    <KpiStrip page="incidents" />
     <IssueTabs />
 
     <div class="toolbar">

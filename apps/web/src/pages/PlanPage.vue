@@ -8,6 +8,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { CATEGORY_LABELS, PLAN_FIELDS, PRIORITY_LABELS, type Plan, type PlanBrief } from '@gh/shared';
 import { useApp } from '../stores/app';
 import { api, ago } from '../api';
+import { renderMarkdown } from '../markdown';
 
 const app = useApp();
 const route = useRoute();
@@ -141,7 +142,7 @@ const label = (p: Plan) => p.brief.title || (p.messages.find((m) => m.role === '
         <p v-else>Fill in the brief yourself, then add it to Intake.</p>
       </div>
       <div class="segmented" role="radiogroup" aria-label="How to fill the brief">
-        <button role="radio" :aria-checked="plan?.mode === 'ai'" :class="{ on: plan?.mode === 'ai' && planner.on }" :disabled="!editable" @click="setMode('ai')"><span class="ai-mark" style="font-size: 9px; padding: 0 4px; margin-right: 4px">AI</span>Plan with AI</button>
+        <button role="radio" :aria-checked="plan?.mode === 'ai'" :class="{ on: plan?.mode === 'ai' && planner.on }" :disabled="!editable" @click="setMode('ai')"><span class="seg-ai">AI</span>Plan with AI</button>
         <button role="radio" :aria-checked="plan?.mode === 'manual'" :class="{ on: plan?.mode === 'manual' || !planner.on }" :disabled="!editable" @click="setMode('manual')">Fill it in myself</button>
       </div>
     </div>
@@ -163,7 +164,7 @@ const label = (p: Plan) => p.brief.title || (p.messages.find((m) => m.role === '
         <div ref="chatEl" class="chat-log" aria-live="polite">
           <div v-for="(m, i) in plan.messages" :key="i" class="msg" :class="m.role === 'planner' ? 'ai' : 'me'">
             <span class="small faint">{{ m.role === 'planner' ? m.author : 'You' }}</span>
-            <p v-for="(para, j) in m.text.split(/\n\n+/)" :key="j">{{ para }}</p>
+            <div class="ap-md plan-md" v-html="renderMarkdown(m.text)" />
           </div>
           <div v-if="sending" class="msg ai"><span class="small faint">{{ planner.name }}</span><p class="pulse">Thinking…</p></div>
         </div>

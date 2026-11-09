@@ -40,7 +40,7 @@ const close = () => router.replace({ query: {} });
 
 const catOf = (c: Card): UseCaseCategory => ((c.useCase as any).category ?? 'other') as UseCaseCategory;
 const prioOf = (c: Card): string => (c.useCase as any).priority ?? 'p2';
-const isYou = (c: Card) => c.status === 'needs_approval' || c.status === 'failed' || (c.stage === 'intake' && c.status === 'idle');
+const isYou = (c: Card) => c.status === 'needs_approval' || c.status === 'question' || c.status === 'failed' || (c.stage === 'intake' && c.status === 'idle');
 const visible = computed(() =>
   app.cards.filter((c) => {
     if (show.value === 'you' && !isYou(c)) return false;
@@ -156,6 +156,7 @@ async function onDrop(p: Phase) {
     return app.toast(`${c.key} moves one step at a time, so each decision gets made. Its next step is ${STAGE_LABELS[next]}, in ${PHASE_LABELS[PHASE_OF[next]]}.`, 'error');
   }
   if (c.status === 'running' || c.status === 'queued') return app.toast(`${c.key} is with an AI agent right now. Wait for its draft.`, 'error');
+  if (c.status === 'question') return app.toast(`${c.key}'s agent asked a question. Open it to answer or skip.`, 'error');
   const waiting = (c.stage === 'intake' && c.status === 'idle') || c.status === 'needs_approval';
   try {
     await api(`/cards/${c.id}/actions`, { method: 'POST', body: { action: waiting ? 'approve' : 'advance' } });

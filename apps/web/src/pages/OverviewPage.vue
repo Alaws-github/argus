@@ -179,7 +179,7 @@ const maxStage = computed(() => Math.max(1, ...PHASES.map(byPhase)));
                 <td><RouterLink :to="`/runs/${r.id}`" class="mono">R-{{ r.number }}</RouterLink></td>
                 <td class="mono">{{ r.cardKey }}</td>
                 <td>{{ r.agent }}</td>
-                <td><span class="pill" :class="{ succeeded: 'green', failed: 'coral', running: 'blue pulse' }[r.status]"><span class="dot" />{{ r.status }}</span></td>
+                <td><span class="pill" :class="{ succeeded: 'green', failed: 'coral', running: 'blue pulse', waiting: 'amber' }[r.status]"><span class="dot" />{{ r.status }}</span></td>
                 <td class="faint">{{ ago(r.startedAt) }}</td>
                 <td class="num">{{ money(r.costUsd) }}</td>
               </tr>

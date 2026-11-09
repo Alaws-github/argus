@@ -487,7 +487,7 @@ export const FRAMEWORK_CHOICES = [
 ] as const;
 export type FrameworkChoice = (typeof FRAMEWORK_CHOICES)[number]['id'];
 
-export const SECTORS = ['Banking and credit', 'Insurance', 'Public sector', 'Healthcare', 'Retail and consumer', 'Telecoms', 'Professional services', 'Other'] as const;
+export const SECTORS = ['Banking and Credit', 'Insurance', 'Public Sector', 'Healthcare', 'Retail and Consumer', 'Telecoms', 'Professional Services', 'Other'] as const;
 
 export const AgentModelChoice = z.object({
   providerId: z.string().uuid(),
@@ -727,6 +727,8 @@ export interface GoldenRun {
   runtime: 'dry-run' | 'live';
   rulesVersion: string;
   withVerifier: boolean;
+  /** v1.6: 'agentic' (tools and self-check) or 'single' (one call). */
+  mode: 'agentic' | 'single';
   status: 'running' | 'done' | 'failed';
   startedBy: string;
   startedAt: string;
@@ -816,6 +818,10 @@ export interface AssistantMessage {
   dropped: string[];
   model: string | null;
   runtime: 'rules' | 'live' | null;
+  /** v1.6: what the answer drew on: the page on screen, ARGUS records, the knowledge base. */
+  basis: ('page' | 'records' | 'knowledge')[];
+  /** v1.6: the look-ups it made before answering, in plain words. */
+  trail: string[];
   author: string;
   at: string;
 }

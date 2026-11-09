@@ -9,6 +9,7 @@ import { visibleIds } from './access.js';
 import { getProviderRow } from './providers.js';
 import { getSettings } from './store.js';
 import { calibrate, importDecisionLabels, startGoldenRun, toCalibration, toCase, toLabel, toRunRow } from './golden.js';
+import { evalRetrieval, RETRIEVAL_SET } from './retrieval.js';
 import { checkCap, verifierTarget, verifyCard, VERIFIER_RULES_VERSION } from './verifier.js';
 
 type Wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => void;
@@ -42,15 +43,28 @@ export function testingRoutes(r: Router, db: Db, actorOf: (req: Request) => stri
   }));
 
   r.post('/agent-testing/runs', wrap(async (req, res) => {
-    const b = z.object({ agent: z.enum(GOLDEN_AGENTS), providerId: z.string().uuid(), model: z.string().trim().min(1).max(120), withVerifier: z.boolean().default(false) }).parse(req.body);
+    const b = z.object({ agent: z.enum(GOLDEN_AGENTS), providerId: z.string().uuid(), model: z.string().trim().min(1).max(120), withVerifier: z.boolean().default(false), engagementId: z.string().uuid().nullish(), mode: z.enum(['agentic', 'single']).default('agentic') }).parse(req.body);
     const provider = await getProviderRow(db, b.providerId);
     if (!provider) throw httpError(400, 'Provider not found');
     if (!provider.enabled) throw httpError(400, `${provider.name} is turned off`);
     const { rows: busy } = await db.query(`SELECT 1 FROM golden_runs WHERE status = 'running' AND agent = $1 AND started_at > now() - interval '30 minutes'`, [b.agent]);
     if (busy.length) throw httpError(409, 'A golden run for this agent is already going. Wait for it to finish.');
     await checkCap(db, { provider, model: b.model });
-    const id = await startGoldenRun(db, b.agent, { provider, model: b.model }, b.withVerifier, actorOf(req));
+    let context = null;
+    if (b.engagementId) {
+      const e = (await db.query(`SELECT name, client, about FROM engagements WHERE id = $1`, [b.engagementId])).rows[0];
+      if (!e) throw httpError(404, 'Engagement not found');
+      const a = (await db.query(`SELECT instructions FROM agents WHERE engagement_id = $1 AND role = $2 ORDER BY custom NULLS FIRST, created_at LIMIT 1`, [b.engagementId, b.agent])).rows[0];
+      context = { engagement: `${e.client}: ${e.name}`, about: e.about ?? '', instructions: a?.instructions ?? '' };
+    }
+    const id = await startGoldenRun(db, b.agent, { provider, model: b.model }, b.withVerifier, actorOf(req), context, b.mode);
     res.status(202).json({ id });
+  }));
+
+  // Retrieval checks (v1.6): how well the knowledge base finds the right passage.
+  // Read-only; with an embedding model set it compares keyword and meaning search.
+  r.get('/agent-testing/retrieval', wrap(async (_req, res) => {
+    res.json({ ...(await evalRetrieval(db)), set: RETRIEVAL_SET });
   }));
 
   r.post('/agent-testing/cases', wrap(async (req, res) => {

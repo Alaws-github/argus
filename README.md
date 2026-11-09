@@ -4,6 +4,8 @@
 
 An AI governance, risk and assurance workbench. AI use cases move across a board from Intake to Board report. Agents draft the work at each stage; a named person approves at each gate; every action lands in a hash-chained audit trail.
 
+v1.6 makes the agents reason: they look things up with read-only tools (the knowledge base, use cases, similar cases and past reviewer decisions, registers, evidence), can ask a person a question (the use case shows **Question for You** until someone answers or skips), and check their own draft before handing it in. Every step is in the run log. Each agent can be switched between Agentic and Single call. The assistant looks things up too and shows what each answer was based on. Uploaded documents are split at their headings, and Checking the AI has a Retrieval tab that scores how well the knowledge base finds the right passage. See `docs/plans/v1.6-agentic-ai.md` and CLAUDE.md rules 23 to 27.
+
 v1.3 can run online: a `Dockerfile` for the server and a Cloudflare Worker in `deploy/cloudflare/` (screens as static assets, the server as a Cloudflare Container, Postgres for data and R2 for evidence files). See `docs/runbooks/deploy-to-cloudflare.md`.
 
 v1.2.2 puts Controls and the Knowledge Base in the top bar, adds icons to every menu item, uses title case for menus and board labels, lines up the workflow table, keeps Sign Out reachable in the account menu, adds **Upload Controls** (CSV or Excel, with a preview), and adds a step-by-step "Your path" chapter to the manual.
@@ -15,6 +17,8 @@ v1.1 made AI part of the work from the first step: the Use Case Planner talks a 
 v1.0 closed the prototype's gaps: PDFs, Excel and Word files are read as evidence; incidents with EU AI Act and Jamaica DPA notification deadlines; scheduled monitoring with drift alerts; read-only evidence connectors; members-only engagements; and a single sign-on (OpenID Connect) scaffold. A full manual is in docs/manual.pdf.
 
 v0.9 adds `npm run demo` (a realistic engagement built through the real API, for demos and learning), a walkthrough guide with screenshots, 15- and 30-minute demo scripts (docs/08-walkthrough.md, docs/09-demo-script.md) and a tidier top bar on laptop screens.
+
+v1.5: AI that bends instead of breaking: retries on busy providers, a second try when an answer is cut off, one repair attempt for format slips, the offline rules as a fallback; the Use Case Planner sees the client, the board and the knowledge base, handles unclear input and suggests use cases; the assistant has workspace instructions (`assistantInstructions` in settings); drafting agents search client documents; golden runs take `engagementId` for an engagement's context. See CHANGELOG.md.
 
 v1.4.1: the assistant is a chat panel with formatted answers and conversation history; board cards show who last changed them (`updatedBy` on board cards); GoldenEye-style board filters; the version shows under Sign Out (`npm run release`, `CHANGELOG.md`); Save buttons stay disabled until something changes.
 
@@ -93,6 +97,8 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run versions` | List versions; `-- use v1.1` switches (backing up data); `-- latest` returns |
 | `npm run test:v11` | v1.1 tests (65 checks): the Use Case Planner on rules and a mock model, new agents and routing, act as, provider service names, Overview activity. Fresh database |
 | `npm run test:verifier` | Verifier and agent-testing tests (36 checks): golden runs and regressions, the quote check, calibration, live checks, spend cap. Fresh database |
+| `npm run test:v16` | v1.6 tests (34 checks): the agent loop, single-call mode, models without tool calls, the step limit, refused tools, members-only records, the self-check, questions (pause, answer, skip, audit), the assistant's look-ups, golden runs by mode. Fresh database |
+| `npm run test:rag` | Retrieval tests (8 checks): recall and MRR with keyword and meaning search, heading-aware passages with overlap, the per-document cap. Fresh database |
 | `npm run test:agents` | Drafting-agent tests (30 checks), including a mock model that tries to cheat the guardrails. Also needs a fresh database |
 
 To use a real Postgres instead of PGlite, set `DATABASE_URL` in `.env`.
@@ -144,6 +150,7 @@ Intake ─▶ Classify risk ─▶ Design controls ─▶ Collect evidence ─�
 - **Cards** are AI use cases. Each has a profile: owner, what it does, data used, people affected, autonomy, vendor.
 - **Gates** stop a card until a person signs off. Defaults: Intake (always), Classify, Design, Validate, Report. Change them in Settings > Workflow & gates.
 - **Agents** are configured per engagement, one per stage. The **Risk Classifier** and **Control Designer** are built; the others are listed with their planned role and can be set up ahead of time but not switched on.
+- **Agentic agents** (v1.6, `agent-loop.ts`, `tools.ts`): each run is a loop of model steps. The agent can call read-only tools as often as it needs, then hands in its draft through its final tool; the last allowed step forces that. It may ask a person once or twice per stage (`ask_person`): the run stops as waiting, the card shows Question for You, and answering or skipping queues it again with the answers. It checks its draft once against `prompts/<role>.critique.md`. Models without tool calls, and the offline rules, run as one call.
 - **Exit criteria** are checks, not reminders. A failed test also can't leave the Test stage until an issue is raised for it. A card can't leave Design until every risk scoring 12+ has a control, Evidence until every control has evidence, Test until every test has a reviewed result, Remediate until no critical or high issue is open (`exit-criteria.ts`).
 - **The engine** (`apps/server/src/engine.ts`) polls every 1.5 seconds and picks up queued cards in stages with an enabled agent. It respects each agent's **runs at once**, each provider's **requests at once** and 4 slots overall. It runs the agent on its provider and model, falls back to the fallback model if the first call fails or the provider is off, records the run and its cost, then stops at the gate or moves the card on.
 - **Risk Classifier** (`apps/server/src/agents/risk-classifier.ts`) returns a tier (prohibited, high, limited, minimal), an oversight model, the factors behind the tier, 2 to 6 starting risks, open questions and framework references. Every provider is asked for one structured answer that matches a JSON schema (`apps/server/src/llm.ts`); the server then validates it with Zod, and anything else fails the run.
@@ -238,11 +245,11 @@ scripts/smoke.mjs          API smoke test
 
 | Area | Endpoints |
 | --- | --- |
-| Board | `GET /api/engagements`, `POST /api/engagements`, `POST /api/engagements/:id/archive`, `POST /api/engagements/:id/restore`, `GET /api/engagements/:id/export`, `DELETE /api/engagements/:id`, `GET /api/engagements/:id/board`, `POST /api/engagements/:id/cards`, `GET /api/cards/:key`, `POST /api/cards/:id/actions` (`approve`, `request_changes`, `retry`, `advance`, `reject`) |
+| Board | `GET /api/engagements`, `POST /api/engagements`, `POST /api/engagements/:id/archive`, `POST /api/engagements/:id/restore`, `GET /api/engagements/:id/export`, `DELETE /api/engagements/:id`, `GET /api/engagements/:id/board`, `POST /api/engagements/:id/cards`, `GET /api/cards/:key`, `POST /api/cards/:id/actions` (`approve`, `request_changes`, `retry`, `advance`, `reject`), `POST /api/cards/:id/questions/:qid/answer` (`{ answer }`), `POST /api/cards/:id/questions/:qid/skip`. `GET /api/cards/:key` includes `questions` |
 | Runs, risks, audit | `GET /api/runs`, `GET /api/runs/:id`, `GET /api/engagements/:id/risks`, `PATCH /api/risks/:id`, `GET /api/engagements/:id/overview`, `GET /api/audit` (`q`, `actor`, `action`, `ip`, `from`, `to`, `page`, `pageSize`) |
 | Settings | `GET /api/settings`, `PUT /api/settings`, `PATCH /api/engagements/:id` |
 | Providers | `GET /api/providers`, `POST /api/providers`, `PATCH /api/providers/:id`, `DELETE /api/providers/:id`, `POST /api/providers/:id/test`, `POST /api/providers/test` |
-| Agents | `GET /api/engagements/:id/agents`, `PATCH /api/agents/:id` |
+| Agents | `GET /api/engagements/:id/agents`, `PATCH /api/agents/:id` (incl. `mode` agentic or single, `maxSteps` 2 to 20, `selfCheck`, `tools`) |
 | Auth and people | `PATCH /api/auth/me`, `GET /api/auth/sessions`, `DELETE /api/auth/sessions/:id`, `POST /api/auth/sessions/end-all`, `GET /api/auth/state`, `POST /api/auth/setup`, `POST /api/auth/login`, `POST /api/auth/logout`, `POST /api/auth/password`, `GET/POST /api/users`, `PATCH /api/users/:id` |
 | Controls | `GET /api/library`, `POST /api/library`, `GET /api/obligations`, `GET /api/engagements/:id/soa`, `PUT /api/engagements/:id/soa/:libraryId`, `GET/POST /api/engagements/:id/controls`, `PATCH /api/controls/:id`, `GET /api/engagements/:id/traceability` |
 | Inventory | `GET/POST /api/engagements/:id/inventory`, `PATCH /api/inventory/:id` |
@@ -251,7 +258,7 @@ scripts/smoke.mjs          API smoke test
 | Evals | `GET/POST /api/engagements/:id/evals`, `GET /api/evals/:id`, `POST /api/evals/:id/cases`, `DELETE /api/eval-cases/:id`, `POST /api/evals/:id/run`, `GET /api/eval-runs/:id`, `POST /api/eval-runs/:id/issues` |
 | Assessment and report | `GET /api/engagements/:id/assessment`, `PUT /api/engagements/:id/assessment/:area`, `GET /api/engagements/:id/report`, `POST /api/engagements/:id/report/sign` |
 | Knowledge base | `GET /api/engagements/:id/knowledge`, `GET /api/engagements/:id/knowledge/search?q=`, `POST /api/engagements/:id/knowledge`, `GET /api/knowledge/passages/:kid`, `DELETE /api/knowledge/:id`, `POST /api/knowledge/reindex`, `POST /api/knowledge/embeddings/test`, `POST /api/cards/:id/decisions` |
-| Agent testing | `GET /api/agent-testing`, `GET/POST /api/agent-testing/runs`, `GET /api/agent-testing/runs/:id`, `POST /api/agent-testing/cases`, `DELETE /api/agent-testing/cases/:id`, `POST /api/agent-testing/labels`, `POST /api/agent-testing/labels/import`, `DELETE /api/agent-testing/labels/:id`, `POST /api/agent-testing/calibrate`, `POST /api/cards/:id/verify` |
+| Agent testing | `GET /api/agent-testing`, `GET/POST /api/agent-testing/runs` (`mode`: agentic or single), `GET /api/agent-testing/retrieval` (recall@5/10 and MRR, keyword and hybrid), `GET /api/agent-testing/runs/:id`, `POST /api/agent-testing/cases`, `DELETE /api/agent-testing/cases/:id`, `POST /api/agent-testing/labels`, `POST /api/agent-testing/labels/import`, `DELETE /api/agent-testing/labels/:id`, `POST /api/agent-testing/calibrate`, `POST /api/cards/:id/verify` |
 | Operations | `GET/POST /api/engagements/:id/incidents`, `PATCH /api/incidents/:id`, `PATCH /api/evals/:id/schedule`, `GET /api/engagements/:id/alerts`, `POST /api/alerts/:id/acknowledge`, `POST /api/alerts/:id/issue`, `GET/POST /api/engagements/:id/connectors`, `PATCH/DELETE /api/connectors/:id`, `POST /api/connectors/:id/pull` |
 | Access and SSO | `GET /api/engagements/:id/members`, `PUT /api/engagements/:id/access`, `POST /api/engagements/:id/members`, `DELETE /api/engagements/:id/members/:userId`, `GET /api/auth/sso`, `GET /api/auth/sso/start`, `GET /api/auth/sso/callback`, `GET/PUT /api/sso/config` |
 | Assistant | `GET /api/engagements/:id/assistant?kind=&contextId=` (your latest conversation about that record), `POST /api/engagements/:id/assistant` (`kind`: card, risks, controls, issues, engagement; `contextId`; `question`; `page: {path, snapshot}`; `conversationId` or `newConversation`), `GET /api/engagements/:id/assistant/conversations?q=` (yours, newest first; `q` searches every message), `GET/PATCH /api/engagements/:id/assistant/conversations/:cid` (open, rename), `POST /api/engagements/:id/assistant/:messageId/suggestions/:id/apply`, `.../discard` |
@@ -262,6 +269,7 @@ Realtime events: `card`, `run`, `run:event`, `risk`, `audit`, `usage`, `engageme
 
 ## Next to build
 
+1. **v1.7**: the dashboard look on every page, and a governance workflow builder.
 1. **OCR** for scanned evidence.
 2. **SSO beyond the scaffold**: SAML, sign-out at the provider, accounts from group claims; MFA inside the app.
 3. **Connectors with OAuth** for document stores that need it (they read HTTPS report and export links today).

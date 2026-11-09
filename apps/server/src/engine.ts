@@ -1,7 +1,7 @@
 // The gate engine: picks up queued cards in stages with a built, enabled agent,
 // runs that agent on its configured provider and model, records the run, then
 // stops at the stage's gate or moves the card on.
-import { AGENT_ROLES, DRAFT_STAGES, ROUTE_LABELS, routeSpecificity, routeTakes, nextStage, riskRating, type AgentConfig, type AgentRole, type Card, type Stage } from '@gh/shared';
+import { AGENT_ROLES, DRAFT_STAGES, MAX_QUESTIONS, ROUTE_LABELS, routeSpecificity, routeTakes, nextStage, riskRating, type AgentConfig, type AgentRole, type Card, type Stage } from '@gh/shared';
 import type { Db, Queryable } from './db.js';
 import { emit } from './realtime.js';
 import { logAudit } from './audit.js';
@@ -15,6 +15,7 @@ import { decided } from './decisions.js';
 import { DRAFTING_RULES_VERSIONS, runControlTester, runEvidenceCollector, runReportWriter, runReviewAssistant } from './agents/drafting.js';
 import type { AgentContext } from './agents/types.js';
 import { verifyCard } from './verifier.js';
+import { QuestionPause } from './agent-loop.js';
 
 export const MAX_PARALLEL = 4;
 const TICK_MS = 1500;
@@ -158,6 +159,12 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
   if (capped && targets[0] !== target) await log('step', `The spend cap is reached, so this run uses the unbilled fallback ${target.model}`);
 
   const engagementAbout = (await getEngagement(db, card.engagementId))?.about ?? '';
+  // Questions this agent asked on this card and stage, and what people said (rule 27).
+  const { rows: asked } = await db.query(`SELECT question, status, answer, answered_by FROM agent_questions WHERE card_id = $1 AND stage = $2 ORDER BY asked_at`, [card.id, card.stage]);
+  const answers = asked.filter((x: any) => x.status !== 'open').map((x: any) => x.status === 'answered'
+    ? `Q: ${x.question}\nA (${x.answered_by}): ${x.answer}`
+    : `Q: ${x.question}\nA: ${x.answered_by} skipped this question. Work with what you have and say what you assumed.`).join('\n\n');
+  let loop = { mode: 'single' as 'agentic' | 'single', steps: 1 };
   const attempt = (t: Target) => {
     const ctx: AgentContext = {
       card,
@@ -169,6 +176,15 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
       instructions: agent.instructions,
       engagementAbout: engagementAbout,
       timeoutMs: agent.timeoutMin * 60_000,
+      role: agent.role,
+      // The offline rules have no tools: they always run as one call.
+      mode: t.provider.type === 'rules' ? 'single' : agent.mode,
+      maxSteps: agent.maxSteps,
+      selfCheck: agent.selfCheck,
+      tools: agent.tools,
+      answers,
+      questionsLeft: Math.max(0, MAX_QUESTIONS - asked.length),
+      onLoop: (r) => { loop = r; },
     };
     if ((agent.role as AgentRole) === 'risk_classifier') return runRiskClassifier(ctx, db, log);
     if ((agent.role as AgentRole) === 'control_designer') return runControlDesigner(ctx, db, log);
@@ -184,6 +200,8 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
     try {
       result = await attempt(target);
     } catch (e: any) {
+      // A question is not a failure: the run pauses for a person, it never falls back.
+      if (e instanceof QuestionPause) throw e;
       const next = usable.find((t) => t !== target);
       if (!next) throw e;
       await log('error', String(e?.message ?? e).slice(0, 500));
@@ -211,8 +229,8 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
     const isDesign = agent.role === 'control_designer';
     const stillRunning = await db.tx(async (q) => {
       // A kill switch may have ended this run while the model was answering.
-      const { rows: live } = await q.query(`UPDATE runs SET status='succeeded', tokens_in=$2, tokens_out=$3, cost_usd=$4, ended_at=now() WHERE id=$1 AND status='running' RETURNING id, number`, [
-        runId, result.tokensIn, result.tokensOut, cost,
+      const { rows: live } = await q.query(`UPDATE runs SET status='succeeded', tokens_in=$2, tokens_out=$3, cost_usd=$4, mode=$5, steps=$6, ended_at=now() WHERE id=$1 AND status='running' RETURNING id, number`, [
+        runId, result.tokensIn, result.tokensOut, cost, loop.mode, loop.steps,
       ]);
       if (!live.length) return false;
       if (drafting) {
@@ -280,6 +298,24 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
         .catch((e) => console.warn(`[verifier] ${card.key}: ${e.message}`));
     }
   } catch (e: any) {
+    if (e instanceof QuestionPause) {
+      // The agent needs a person (rule 27): the run stops as "waiting" and the
+      // card shows the question. Answering or skipping queues the card again.
+      const cost = target.provider.billed ? costUsd(priceFor(target.model, target.provider.prices), e.usage.tokensIn, e.usage.tokensOut, e.usage.tokensCached) : 0;
+      const qn = e.question;
+      await log('step', `Paused until a person answers (asked of: ${(qn.to || 'the team').replace(/_/g, ' ')})`);
+      await db.tx(async (q) => {
+        const { rows: live } = await q.query(`UPDATE runs SET status='waiting', tokens_in=$2, tokens_out=$3, cost_usd=$4, mode='agentic', ended_at=now() WHERE id=$1 AND status='running' RETURNING id`, [runId, e.usage.tokensIn, e.usage.tokensOut, cost]);
+        if (!live.length) return; // stopped by the kill switch meanwhile
+        await q.query(`INSERT INTO agent_questions (engagement_id, card_id, run_id, stage, agent, question, why, asked_to, feedback) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [card.engagementId, card.id, runId, card.stage, agent.name, qn.question, qn.why, qn.to, feedback]);
+        await q.query(`UPDATE cards SET status='question', status_note=$2, cost_usd=cost_usd+$3, updated_at=now() WHERE id=$1`, [card.id, `${agent.name} asks: ${qn.question}`.slice(0, 1000), cost]);
+        await logAudit(q, agent.name, 'agent.asked', `card:${card.key}`, { question: qn.question, why: qn.why, to: qn.to, stage: card.stage });
+      });
+      await emitCard(db, card.id);
+      await emitRun(db, runId);
+      return;
+    }
     const message = String(e?.name === 'TimeoutError' ? `The run passed its ${agent.timeoutMin}-minute limit` : (e?.message ?? e)).slice(0, 1000);
     await log('error', message);
     await db.tx(async (q) => {

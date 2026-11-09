@@ -721,3 +721,38 @@ WITH threads AS (
 )
 UPDATE assistant_messages m SET conversation_id = made.id FROM made
 WHERE m.conversation_id IS NULL AND m.engagement_id = made.engagement_id AND m.user_id = made.user_id AND m.context_kind = made.context_kind AND m.context_id = made.context_id;
+
+-- v1.6: agentic agents. Each agent can work in agentic mode (look things up
+-- with read-only tools, ask a person, check its own draft) or single-call mode
+-- (the v1.5 behaviour). Runs record which mode ran and how many steps it took.
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'agentic';
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS max_steps integer NOT NULL DEFAULT 8;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS self_check boolean NOT NULL DEFAULT true;
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'single';
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS steps integer NOT NULL DEFAULT 0;
+-- Questions an agent asked a person (rule 27). The run stops as "waiting"; the
+-- card shows "Question for You"; answering or skipping queues the card again,
+-- and the next run is given every answer for that card and stage.
+CREATE TABLE IF NOT EXISTS agent_questions (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  engagement_id  uuid NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  card_id        uuid REFERENCES cards(id) ON DELETE CASCADE,
+  run_id         uuid REFERENCES runs(id) ON DELETE SET NULL,
+  stage          text NOT NULL,
+  agent          text NOT NULL,
+  question       text NOT NULL,
+  why            text NOT NULL DEFAULT '',
+  asked_to       text NOT NULL DEFAULT '',
+  feedback       text,
+  status         text NOT NULL DEFAULT 'open',
+  answer         text,
+  answered_by    text,
+  asked_at       timestamptz NOT NULL DEFAULT now(),
+  answered_at    timestamptz
+);
+CREATE INDEX IF NOT EXISTS agent_questions_card ON agent_questions (card_id, stage, asked_at);
+-- v1.6: golden runs say whether the agent ran agentic or as one call, so the two can be compared.
+ALTER TABLE golden_runs ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'single';
+-- v1.6: the assistant shows what it based an answer on, and the steps it took.
+ALTER TABLE assistant_messages ADD COLUMN IF NOT EXISTS basis jsonb NOT NULL DEFAULT '[]';
+ALTER TABLE assistant_messages ADD COLUMN IF NOT EXISTS trail jsonb NOT NULL DEFAULT '[]';

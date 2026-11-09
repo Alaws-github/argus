@@ -1,6 +1,6 @@
 // Row mappers and shared queries.
-import { AGENT_ROLES, NO_MODULES } from '@gh/shared';
-import type { AgentConfig, AgentRole, AuditEntry, Card, Engagement, Risk, Run, RunEvent, Stage, WorkspaceSettings } from '@gh/shared';
+import { AGENT_ROLES, DEFAULT_MAX_STEPS, NO_MODULES } from '@gh/shared';
+import type { AgentConfig, AgentQuestion, AgentRole, AuditEntry, Card, Engagement, Risk, Run, RunEvent, Stage, WorkspaceSettings } from '@gh/shared';
 import type { Queryable } from './db.js';
 
 const iso = (v: any) => (v instanceof Date ? v.toISOString() : v ? String(v) : null);
@@ -75,6 +75,15 @@ export function toRun(r: any): Run {
     costUsd: num(r.cost_usd),
     startedAt: iso(r.started_at)!,
     endedAt: iso(r.ended_at),
+    mode: r.mode === 'agentic' ? 'agentic' : 'single',
+    steps: Number(r.steps ?? 0),
+  };
+}
+
+export function toQuestion(r: any): AgentQuestion {
+  return {
+    id: r.id, cardId: r.card_id, runId: r.run_id, stage: r.stage, agent: r.agent, question: r.question, why: r.why, askedTo: r.asked_to,
+    status: r.status, answer: r.answer, answeredBy: r.answered_by, askedAt: iso(r.asked_at)!, answeredAt: iso(r.answered_at),
   };
 }
 
@@ -155,6 +164,7 @@ export const SETTING_DEFAULTS: WorkspaceSettings = {
   verifierLive: false,
   assistantProviderId: null,
   assistantModel: '',
+  assistantInstructions: '',
   connectorsAllowPrivate: false,
   allowActAs: false,
 };
@@ -189,6 +199,9 @@ export function toAgent(r: any): AgentConfig {
     maxCostUsd: num(r.max_cost_usd),
     timeoutMin: r.timeout_min,
     concurrency: r.concurrency,
+    mode: r.mode === 'single' ? 'single' : 'agentic',
+    maxSteps: Number(r.max_steps ?? DEFAULT_MAX_STEPS),
+    selfCheck: r.self_check !== false,
     activeRuns: Number(r.active_runs ?? 0),
     killedAt: iso(r.killed_at),
     killTestedAt: iso(r.kill_tested_at),

@@ -50,6 +50,10 @@ const METHODOLOGY: { ref: string; title: string; text: string }[] = [
     text: 'A good finding states the condition (what was found), the criteria (what should be), the cause (why it happened), the effect (why it matters) and the recommendation (what to do, and who owns it). Write so a director can act on it. Do not soften a failure.',
   },
   {
+    ref: 'M-INTAKE', title: 'A good intake brief',
+    text: 'An intake brief lets a reviewer decide whether an AI use case goes forward to risk classification. It names the use case in a few words; says what the AI does, who acts on its output and how often; names the role accountable for it; lists every data source, saying which identify people; says who sees the output or is decided about, and roughly how many; says how much a person checks before anything takes effect (assists, a person approves each output, a person monitors, or no person); and names the vendor or says it is built in-house. Typical AI use cases in financial services: credit or loan pre-approval scoring, fraud and anti-money-laundering alerts, claims triage, customer service chatbots, call or document summarisation, collections prioritisation, marketing personalisation, and coding assistants. In telecoms: churn prediction, network fault triage, customer chat and refund agents, fraud and SIM-swap detection. In health: triage and early-warning alerts, clinical note scribes, appointment no-show prediction, coding of records. In the public sector: eligibility and fraud scoring, helpline chatbots, letter drafting, case prioritisation. In ports and logistics: inspection targeting, scheduling and routing agents, gate identity checks, demand forecasting.',
+  },
+  {
     ref: 'M-AGENTS', title: 'AI agents acting on their own',
     text: 'Before an AI agent may act without a person approving each step, it needs a named owner, its own identity, a written mandate of what it may do and touch, limits on value or volume, a threshold above which a person approves, a step limit, a kill switch tested in the last 90 days and an independent review in the last 90 days.',
   },
@@ -57,7 +61,45 @@ const METHODOLOGY: { ref: string; title: string; text: string }[] = [
 
 const STOP = new Set('the a an and or of to in on for with by is are be as at it its this that from was were not no can may must should will into than then their there these those which who what when how why our your'.split(' '));
 
-// Split text into passages of roughly 900 characters on paragraph boundaries.
+// v1.6: split a document into sections at its headings (Markdown "#", numbered
+// clauses like "4.1 Context", "Article 14", short ALL-CAPS lines), then into
+// passages of roughly 900 characters on paragraph and sentence boundaries. Each
+// passage carries its section heading, and a passage cut mid-section starts with
+// the last sentence of the one before, so a rule split across two passages is
+// still found in context.
+const HEADING = /^(#{1,4}\s+.{2,120}|(?:article|art\.|section|clause|annex|appendix|chapter|part)\s+[\dA-Z][\w.]*\b.{0,100}|\d{1,2}(?:\.\d{1,2}){0,3}\.?\s+[A-Z][^.!?]{2,100}|[A-Z][A-Z0-9 ,&/()-]{3,80})$/i;
+export interface Section { heading: string; text: string }
+export function sections(text: string): Section[] {
+  const out: Section[] = [];
+  let heading = '';
+  let buf: string[] = [];
+  const flush = () => { const t = buf.join('\n').trim(); if (t) out.push({ heading, text: t }); buf = []; };
+  for (const raw of text.replace(/\r/g, '').split('\n')) {
+    const line = raw.trim();
+    // A heading is a short line on its own that looks like one; sentences ending in a full stop are not.
+    if (line && line.length <= 120 && HEADING.test(line) && !/[.;:,]$/.test(line) && (/^#/.test(line) || line.split(/\s+/).length <= 14)) {
+      flush();
+      heading = line.replace(/^#+\s*/, '');
+    } else buf.push(raw);
+  }
+  flush();
+  return out;
+}
+const sentences = (p: string) => p.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g)?.map((s) => s.trim()).filter(Boolean) ?? [p];
+export function chunkSections(text: string, max = 900): Section[] {
+  const out: Section[] = [];
+  for (const s of sections(text)) {
+    const parts = chunk(s.text, max);
+    parts.forEach((p, i) => {
+      const prev = i > 0 ? sentences(parts[i - 1]).at(-1) ?? '' : '';
+      out.push({ heading: s.heading, text: prev && prev.length < 300 ? `${prev}\n\n${p}` : p });
+    });
+  }
+  return out;
+}
+
+// Split text into passages of roughly 900 characters on paragraph boundaries;
+// a paragraph too long for one passage is split between sentences.
 export function chunk(text: string, max = 900): string[] {
   const paras = text.replace(/\r/g, '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   const out: string[] = [];
@@ -65,7 +107,13 @@ export function chunk(text: string, max = 900): string[] {
   for (const p of paras) {
     if (p.length > max) {
       if (cur) out.push(cur), (cur = '');
-      for (let i = 0; i < p.length; i += max) out.push(p.slice(i, i + max));
+      let part = '';
+      for (const s of sentences(p)) {
+        if (s.length > max) { if (part) out.push(part), (part = ''); for (let i = 0; i < s.length; i += max) out.push(s.slice(i, i + max)); continue; }
+        if ((part + ' ' + s).length > max && part) out.push(part), (part = '');
+        part = part ? `${part} ${s}` : s;
+      }
+      if (part) out.push(part);
       continue;
     }
     if ((cur + '\n\n' + p).length > max && cur) out.push(cur), (cur = '');
@@ -153,9 +201,11 @@ export async function upsertSource(q: Queryable, s: SourceInput) {
     `INSERT INTO kb_sources (engagement_id, kind, title, ref, origin, evidence_id, card_id, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
     [s.engagementId, s.kind, s.title, s.ref, s.origin ?? 'built_in', s.evidenceId ?? null, s.cardId ?? null, s.createdBy ?? 'system'],
   );
-  const parts = chunk(s.text);
+  // Long documents (uploads, evidence) are split at their headings; short built-in summaries stay whole.
+  const parts = s.kind === 'upload' || s.kind === 'evidence' ? chunkSections(s.text) : chunk(s.text).map((text) => ({ heading: '', text }));
   for (let i = 0; i < parts.length; i++) {
-    await q.query(`INSERT INTO kb_chunks (source_id, engagement_id, ord, heading, text) VALUES ($1,$2,$3,$4,$5)`, [rows[0].id, s.engagementId, i, s.title, parts[i]]);
+    const heading = parts[i].heading && parts[i].heading !== s.title ? `${s.title} › ${parts[i].heading}` : s.title;
+    await q.query(`INSERT INTO kb_chunks (source_id, engagement_id, ord, heading, text) VALUES ($1,$2,$3,$4,$5)`, [rows[0].id, s.engagementId, i, heading.slice(0, 300), parts[i].text]);
   }
   return { id: rows[0].id as string, chunks: parts.length };
 }
@@ -212,7 +262,14 @@ export async function indexEngagement(q: Queryable, e: { id: string; name: strin
 }
 
 // ----------------------------------------------------------------- search
-export interface SearchOptions { kinds?: string[]; limit?: number }
+export interface SearchOptions {
+  kinds?: string[];
+  limit?: number;
+  /** Keyword search only, to measure what meaning search adds (Checking the AI > Retrieval). */
+  keywordOnly?: boolean;
+  /** Most passages from one document (default 2), so one long upload can't crowd out the rest. */
+  perSource?: number;
+}
 
 const toPassage = (r: any): SourcePassage => ({
   id: `K-${r.number}`, title: r.heading, kind: r.kind, ref: r.ref, text: r.text, score: Number(r.score ?? 0),
@@ -225,7 +282,7 @@ export async function search(db: Db, engagementId: string | null, query: string,
   const words = [...new Set((query.toLowerCase().match(/[a-z]{3,}|\d+/g) ?? []).filter((w) => !STOP.has(w)))].slice(0, 24);
   const scope = `(c.engagement_id IS NULL OR c.engagement_id = $1)${opts.kinds?.length ? ` AND s.kind = ANY($2)` : ''}`;
   const base = opts.kinds?.length ? [engagementId, opts.kinds] : [engagementId];
-  const select = `SELECT c.number, c.heading, c.text, s.kind, s.ref FROM kb_chunks c JOIN kb_sources s ON s.id = c.source_id`;
+  const select = `SELECT c.number, c.heading, c.text, c.source_id, c.embed_model, s.kind, s.ref FROM kb_chunks c JOIN kb_sources s ON s.id = c.source_id`;
 
   const lists: any[][] = [];
   if (words.length) {
@@ -240,7 +297,7 @@ export async function search(db: Db, engagementId: string | null, query: string,
     );
     lists.push(rows);
   }
-  const e = await getEmbedder(db).catch(() => null);
+  const e = opts.keywordOnly ? null : await getEmbedder(db).catch(() => null);
   if (e) {
     try {
       const [v] = await e.embed([query.slice(0, 2000)]);
@@ -255,12 +312,25 @@ export async function search(db: Db, engagementId: string | null, query: string,
   }
   // Reciprocal rank fusion: a passage near the top of either list wins.
   const fused = new Map<number, { row: any; score: number }>();
-  for (const list of lists) list.forEach((row, i) => {
+  // A passage not embedded yet (a document just uploaded) can't appear in the
+  // meaning list, so its keyword rank counts twice instead of losing out.
+  lists.forEach((list, li) => list.forEach((row, i) => {
     const f = fused.get(row.number) ?? { row, score: 0 };
-    f.score += 1 / (60 + i + 1);
+    f.score += (li === 0 && e && lists.length > 1 && row.embed_model !== e.model ? 2 : 1) / (60 + i + 1);
     fused.set(row.number, f);
-  });
-  return [...fused.values()].sort((a, b) => b.score - a.score).slice(0, limit).map((f) => toPassage({ ...f.row, score: f.score }));
+  }));
+  // Per-document cap, filled back up from the rest if there aren't enough other documents.
+  const ranked = [...fused.values()].sort((a, b) => b.score - a.score);
+  const cap = opts.perSource ?? 2;
+  const per = new Map<string, number>();
+  const picked: typeof ranked = [];
+  const spare: typeof ranked = [];
+  for (const f of ranked) {
+    const n = per.get(f.row.source_id) ?? 0;
+    if (n < cap) { picked.push(f); per.set(f.row.source_id, n + 1); } else spare.push(f);
+  }
+  const out = [...picked.slice(0, limit), ...spare].slice(0, limit);
+  return out.map((f) => toPassage({ ...f.row, score: f.score }));
 }
 
 // What an agent sees: each passage tagged with its id, marked as data.

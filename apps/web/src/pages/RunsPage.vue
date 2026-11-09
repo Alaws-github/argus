@@ -32,7 +32,7 @@ onBeforeUnmount(() => socket.off('run', load));
             <td>{{ STAGE_LABELS[r.stage] }}</td>
             <td>{{ r.agent }}</td>
             <td class="mono">{{ r.model }}</td>
-            <td><span class="pill" :class="{ succeeded: 'green', failed: 'coral', running: 'blue pulse' }[r.status]"><span class="dot" />{{ r.status }}</span></td>
+            <td><span class="pill" :class="{ succeeded: 'green', failed: 'coral', running: 'blue pulse', waiting: 'amber' }[r.status]"><span class="dot" />{{ r.status }}</span></td>
             <td class="faint">{{ ago(r.startedAt) }}</td>
             <td class="faint">{{ duration(r.startedAt, r.endedAt) }}</td>
             <td class="num mono">{{ (r.tokensIn + r.tokensOut).toLocaleString() }}</td>

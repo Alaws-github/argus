@@ -204,6 +204,7 @@ export function configRoutes(r: Router, db: Db, actorOf: (req: Request) => strin
       name: 'name', enabled: 'enabled', route: 'route', providerId: 'provider_id', model: 'model', effort: 'effort',
       fallbackProviderId: 'fallback_provider_id', fallbackModel: 'fallback_model', summary: 'summary',
       instructions: 'instructions', tools: 'tools', maxCostUsd: 'max_cost_usd', timeoutMin: 'timeout_min', concurrency: 'concurrency',
+      mode: 'mode', maxSteps: 'max_steps', selfCheck: 'self_check',
     };
     const keys = Object.keys(patch) as (keyof typeof patch)[];
     if (!keys.length) throw httpError(400, 'Nothing to change');

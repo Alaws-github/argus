@@ -5,7 +5,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
   AGENT_ROLES, DRAFT_STAGES, OVERSIGHT_LABELS, STAGE_LABELS, TIER_LABELS, riskRating, riskScore,
-  type AuditEntry, type Card, type Risk, type Run,
+  type AgentQuestion, type AuditEntry, type Card, type Risk, type Run,
 } from '@gh/shared';
 import { api, ago, money, socket } from '../api';
 import { useApp } from '../stores/app';
@@ -27,6 +27,8 @@ const exit = ref<{ required: string[]; unmet: string[] }>({ required: [], unmet:
 const note = ref('');
 const busy = ref(false);
 const error = ref('');
+const questions = ref<AgentQuestion[]>([]);
+const answer = ref('');
 
 async function load() {
   try {
@@ -37,6 +39,7 @@ async function load() {
     activity.value = d.activity;
     controls.value = d.controls ?? [];
     exit.value = d.exitCriteria ?? { required: [], unmet: [] };
+    questions.value = d.questions ?? [];
   } catch (e: any) {
     error.value = e.message;
   }
@@ -66,6 +69,7 @@ const mode = computed(() => {
   if (c.stage === 'closed') return 'closed';
   if (c.stage === 'intake') return 'triage';
   if (c.status === 'needs_approval') return 'review';
+  if (c.status === 'question') return 'question';
   if (c.status === 'failed') return 'failed';
   if (c.status === 'running' || c.status === 'queued') return 'working';
   if (!hasAgent.value) return 'manual';
@@ -82,6 +86,28 @@ async function act(action: string, requireNote = false) {
   try {
     await api(`/cards/${card.value!.id}/actions`, { method: 'POST', body: { action, note: note.value.trim() || undefined } });
     note.value = '';
+    await load();
+  } catch (e: any) {
+    error.value = e.message;
+  } finally {
+    busy.value = false;
+  }
+}
+
+// An agent's question (v1.6): answered or skipped by anyone who can prepare work.
+const openQuestion = computed(() => questions.value.find((q) => q.status === 'open') ?? null);
+const pastQuestions = computed(() => questions.value.filter((q) => q.status !== 'open'));
+const ASKED_OF: Record<string, string> = { business_owner: 'the business owner', reviewer: 'a reviewer', preparer: 'a preparer' };
+async function reply(verb: 'answer' | 'skip') {
+  const q = openQuestion.value;
+  if (!q) return;
+  error.value = '';
+  if (verb === 'answer' && !answer.value.trim()) { error.value = 'Write an answer, or skip the question.'; return; }
+  busy.value = true;
+  try {
+    await api(`/cards/${card.value!.id}/questions/${q.id}/${verb}`, { method: 'POST', body: verb === 'answer' ? { answer: answer.value.trim() } : {} });
+    answer.value = '';
+    app.toast(verb === 'answer' ? 'Answer sent. The agent picks the work up again.' : 'Skipped. The agent carries on with what it has.');
     await load();
   } catch (e: any) {
     error.value = e.message;
@@ -173,6 +199,9 @@ const actionLabel = (a: string) =>
     'run.succeeded': 'Run succeeded',
     'run.failed': 'Run failed',
     'run.retried': 'Retried',
+    'agent.asked': 'Agent asked a question',
+    'agent.answered': 'Answered the agent',
+    'agent.question_skipped': 'Skipped the agent\'s question',
     'gate.blocked': 'Stopped: something was missing',
   })[a] ?? a;
 </script>
@@ -360,6 +389,20 @@ const actionLabel = (a: string) =>
         <p v-else class="small faint">A reviewer or lead decides on this draft.</p>
       </div>
 
+      <div v-else-if="mode === 'question' && openQuestion" class="notice question-box">
+        <span class="label-caps row" style="gap: 8px"><span class="seg-ai">AI</span>{{ openQuestion.agent }} has a question</span>
+        <h3 style="margin-top: 6px">{{ openQuestion.question }}</h3>
+        <p v-if="openQuestion.why" class="small muted">Why it asks: {{ openQuestion.why }}<span v-if="ASKED_OF[openQuestion.askedTo]"> · best answered by {{ ASKED_OF[openQuestion.askedTo] }}</span></p>
+        <template v-if="app.can('prepare')">
+          <textarea v-model="answer" class="textarea" rows="3" placeholder="Your answer. The agent uses it in its draft; it doesn't decide anything." aria-label="Your answer" />
+          <div class="row">
+            <button class="btn primary" :disabled="busy || !answer.trim()" @click="reply('answer')">Send answer</button>
+            <button class="btn" :disabled="busy" title="The agent carries on without it and notes what it assumed" @click="reply('skip')">Skip question</button>
+          </div>
+        </template>
+        <p v-else class="small faint">Someone who can prepare work answers this.</p>
+      </div>
+
       <div v-else-if="mode === 'failed'" class="notice danger">
         <h3>The last run didn't finish</h3>
         <p class="small">{{ card.statusNote }}</p>
@@ -463,12 +506,21 @@ const actionLabel = (a: string) =>
         </dl>
       </section>
 
+      <section v-if="pastQuestions.length" class="section">
+        <span class="label-caps">Questions the agents asked</span>
+        <div v-for="q in pastQuestions" :key="q.id" class="qa small">
+          <div><strong>{{ q.agent }}:</strong> {{ q.question }}</div>
+          <div v-if="q.status === 'answered'" class="muted">{{ q.answeredBy }}: {{ q.answer }}</div>
+          <div v-else class="faint">Skipped by {{ q.answeredBy }}</div>
+        </div>
+      </section>
+
       <section v-if="runs.length" class="section">
         <span class="label-caps">Runs</span>
         <div v-for="r in runs" :key="r.id" class="spread small">
           <RouterLink :to="`/runs/${r.id}`" class="mono">R-{{ r.number }}</RouterLink>
-          <span class="muted grow">{{ r.agent }} · {{ r.model }}</span>
-          <span class="pill" :class="{ succeeded: 'green', failed: 'coral', running: 'blue pulse' }[r.status]"><span class="dot" />{{ r.status }}</span>
+          <span class="muted grow">{{ r.agent }} · {{ r.model }}<span v-if="r.mode === 'agentic' && r.steps"> · {{ r.steps }} step{{ r.steps === 1 ? '' : 's' }}</span></span>
+          <span class="pill" :class="{ succeeded: 'green', failed: 'coral', running: 'blue pulse', waiting: 'amber' }[r.status]"><span class="dot" />{{ r.status }}</span>
           <span class="faint">{{ ago(r.startedAt) }}</span>
         </div>
       </section>

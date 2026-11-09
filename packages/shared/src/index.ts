@@ -112,7 +112,7 @@ export function nextStage(s: Stage): Stage | null {
 // ---------------------------------------------------------------------------
 // Card = an AI use case moving through governance.
 // ---------------------------------------------------------------------------
-export const CardStatus = z.enum(['idle', 'queued', 'running', 'needs_approval', 'changes_requested', 'failed']);
+export const CardStatus = z.enum(['idle', 'queued', 'running', 'needs_approval', 'changes_requested', 'failed', 'question']);
 export type CardStatus = z.infer<typeof CardStatus>;
 
 export const STATUS_LABELS: Record<CardStatus, string> = {
@@ -122,6 +122,7 @@ export const STATUS_LABELS: Record<CardStatus, string> = {
   needs_approval: 'Needs Your Approval',
   changes_requested: 'Changes Requested',
   failed: 'Run Failed',
+  question: 'Question for You',
 };
 
 export const Autonomy = z.enum(['assistive', 'human_in_loop', 'human_on_loop', 'autonomous']);
@@ -272,7 +273,7 @@ export function riskRating(score: number): 'critical' | 'high' | 'medium' | 'low
 // ---------------------------------------------------------------------------
 // Runs, controls, audit
 // ---------------------------------------------------------------------------
-export const RunStatus = z.enum(['running', 'succeeded', 'failed']);
+export const RunStatus = z.enum(['running', 'succeeded', 'failed', 'waiting']);
 export type RunStatus = z.infer<typeof RunStatus>;
 
 export const ControlType = z.enum(['preventive', 'detective', 'corrective']);
@@ -320,6 +321,9 @@ export interface Run {
   costUsd: number;
   startedAt: string;
   endedAt: string | null;
+  /** v1.6: how the agent worked ('agentic' or 'single') and how many model steps it took. */
+  mode: 'agentic' | 'single';
+  steps: number;
 }
 
 export interface RunEvent {
@@ -505,7 +509,7 @@ export type AgentRole = z.infer<typeof AgentRole>;
 
 export const AGENT_ROLES: Record<AgentRole, { name: string; stage: Stage; built: boolean; summary: string; tools: AgentTool[] }> = {
   use_case_planner: { name: 'Use Case Planner', stage: 'intake', built: true, summary: 'Talks a new use case through with the person who raises it and drafts the intake brief', tools: ['ask'] },
-  risk_classifier: { name: 'Risk Classifier', stage: 'classify', built: true, summary: 'Tiers the use case, sets the oversight model, proposes starting risks', tools: ['read_profile', 'ask'] },
+  risk_classifier: { name: 'Risk Classifier', stage: 'classify', built: true, summary: 'Tiers the use case, sets the oversight model, proposes starting risks', tools: ['read_profile', 'read_register', 'ask'] },
   control_designer: { name: 'Control Designer', stage: 'design', built: true, summary: 'Proposes controls for each approved risk from the control library', tools: ['read_profile', 'read_register', 'ask'] },
   evidence_collector: { name: 'Evidence Collector', stage: 'evidence', built: true, summary: 'Drafts the evidence request list for each control and checks what has arrived', tools: ['read_profile', 'read_register', 'read_evidence'] },
   control_tester: { name: 'Control Tester', stage: 'test', built: true, summary: 'Drafts test results from the attached evidence; a person concludes, someone else reviews', tools: ['read_register', 'read_evidence', 'ask'] },
@@ -514,13 +518,37 @@ export const AGENT_ROLES: Record<AgentRole, { name: string; stage: Stage; built:
 };
 
 export const AGENT_TOOLS = ['read_profile', 'read_register', 'read_evidence', 'ask'] as const;
+export const AgentMode = z.enum(['agentic', 'single']);
+export type AgentMode = z.infer<typeof AgentMode>;
+export const DEFAULT_MAX_STEPS = 8;
+export const MAX_STEPS_LIMIT = 20;
+/** Most questions an agent may ask a person about one card at one stage. */
+export const MAX_QUESTIONS = 2;
+
+// A question an agent asked a person (v1.6, rule 27). The run pauses until it is answered or skipped.
+export interface AgentQuestion {
+  id: string;
+  cardId: string | null;
+  runId: string | null;
+  stage: string;
+  agent: string;
+  question: string;
+  why: string;
+  askedTo: string;
+  status: 'open' | 'answered' | 'skipped';
+  answer: string | null;
+  answeredBy: string | null;
+  askedAt: string;
+  answeredAt: string | null;
+}
+export const AnswerQuestion = z.object({ answer: z.string().trim().min(1).max(4000) });
 export type AgentTool = (typeof AGENT_TOOLS)[number];
 
 export const AGENT_TOOL_INFO: Record<AgentTool, { label: string; hint: string }> = {
-  read_profile: { label: 'Read the use case profile', hint: 'What the business wrote about the use case' },
-  read_register: { label: 'Read the risk and control registers', hint: 'For this engagement only' },
-  read_evidence: { label: 'Read evidence', hint: 'Items already collected for this use case. Read-only.' },
-  ask: { label: 'Ask you a question', hint: 'Stops the card at Needs you until you answer' },
+  read_profile: { label: 'Read use cases and the engagement', hint: 'This use case, the engagement, the AI inventory, and similar use cases (other engagements only if they are open to everyone)' },
+  read_register: { label: 'Read the registers', hint: 'Risks, controls, tests, issues, incidents, the control library, evaluation results and how reviewers decided before. Read-only.' },
+  read_evidence: { label: 'Read evidence', hint: 'Evidence files and notes on this engagement. Read-only.' },
+  ask: { label: 'Ask a person a question', hint: 'The use case shows Question for You and the run pauses until someone answers or skips (at most 2 per stage)' },
 };
 
 // Which cards an agent takes. With two agents on one stage, a card goes to the
@@ -598,6 +626,12 @@ export interface AgentConfig {
   maxCostUsd: number;
   timeoutMin: number;
   concurrency: number;
+  /** v1.6: 'agentic' looks things up and checks its work; 'single' is one call (the v1.5 behaviour). */
+  mode: AgentMode;
+  /** Most model steps in one run; the last step must hand in the draft. */
+  maxSteps: number;
+  /** One critique of its own draft against the role's rubric before handing it in. */
+  selfCheck: boolean;
   activeRuns: number;
   killedAt: string | null;
   killTestedAt: string | null;
@@ -620,6 +654,9 @@ export const AgentPatch = z.object({
   maxCostUsd: z.number().min(0).max(1000).optional(),
   timeoutMin: z.number().int().min(1).max(120).optional(),
   concurrency: z.number().int().min(1).max(8).optional(),
+  mode: AgentMode.optional(),
+  maxSteps: z.number().int().min(2).max(MAX_STEPS_LIMIT).optional(),
+  selfCheck: z.boolean().optional(),
 });
 export type AgentPatch = z.infer<typeof AgentPatch>;
 
@@ -644,6 +681,9 @@ export const WorkspaceSettings = z.object({
   // The assistant's model. None means the offline assistant.
   assistantProviderId: z.string().uuid().nullable(),
   assistantModel: z.string().max(120),
+  // Added to the assistant's own rules for every answer, never replacing them:
+  // house style, what the firm calls things, what to stress.
+  assistantInstructions: z.string().max(4000),
   // Evidence connectors may reach addresses on a private network or this
   // machine only when an admin allows it (off by default, against SSRF).
   connectorsAllowPrivate: z.boolean(),

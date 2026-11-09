@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { AssistantSuggestion, type AssistantMessage, type Card, type SourcePassage } from '@gh/shared';
 import type { Db } from './db.js';
-import { callStructured } from './llm.js';
+import { runLoop } from './agent-loop.js';
 import { mergePassages, search, sourcesBlock, strayCitations } from './kb.js';
 import { apiKeyOf, getProviderRow, type ProviderRow } from './providers.js';
 import { costUsd, priceFor } from './agents/pricing.js';
@@ -44,7 +44,7 @@ export async function buildContext(db: Db, engagementId: string, kind: ContextKi
   const e = await getEngagement(db, engagementId);
   if (!e) throw Object.assign(new Error('Engagement not found'), { status: 404 });
   const ids = { cards: new Set<string>(), risks: new Set<string>(), controls: new Set<string>() };
-  const out: string[] = [`<engagement>${line({ name: e.name, client: e.client, framework: e.framework, appetite: `residual score up to ${e.appetite.maxResidual} accepted without escalation` })}</engagement>`];
+  const out: string[] = [`<engagement>${line({ name: e.name, client: e.client, sector: e.sector, framework: e.framework, appetite: `residual score up to ${e.appetite.maxResidual} accepted without escalation` })}${e.about?.trim() ? `\nAbout: ${e.about.trim().slice(0, 2000)}` : ''}</engagement>`];
   let card: Card | null = null;
   let query = '';
   let label = e.name;
@@ -199,6 +199,9 @@ const SCHEMA = {
 };
 
 interface Target { provider: ProviderRow; model: string }
+export async function assistantInstructions(db: Db): Promise<string> {
+  return (await getSettings(db)).assistantInstructions?.trim() ?? '';
+}
 export async function assistantTarget(db: Db): Promise<Target | null> {
   const s = await getSettings(db);
   // The assistant's own model if one is picked, otherwise the workspace default,
@@ -210,13 +213,16 @@ export async function assistantTarget(db: Db): Promise<Target | null> {
   return { provider, model: pick.model };
 }
 
-export interface Reply { text: string; citations: string[]; passages: SourcePassage[]; suggestions: any[]; dropped: string[]; model: string; runtime: 'rules' | 'live'; costUsd: number }
+export interface Reply { text: string; citations: string[]; passages: SourcePassage[]; suggestions: any[]; dropped: string[]; model: string; runtime: 'rules' | 'live'; costUsd: number; basis: ('page' | 'records' | 'knowledge')[]; trail: string[] }
 
 export async function answer(db: Db, engagementId: string, ctx: Context, question: string, history: { role: string; text: string }[]): Promise<Reply> {
-  const passages = mergePassages(
+  // A question about the page is answered from the page, not the knowledge base.
+  // The engagement summary ("About ...") is already in the context, so it is never a source.
+  const pageQuestion = !!ctx.page && asksAboutPage(question);
+  const passages = pageQuestion ? [] : mergePassages(
     await search(db, engagementId, question, { limit: 6 }),
     await search(db, engagementId, `${question} ${ctx.query}`.slice(0, 600), { limit: 4 }),
-  );
+  ).filter((p) => !(p.kind === 'client' && p.ref === 'about'));
   const target = await assistantTarget(db);
   if (!target) return rulesAnswer(ctx, question, passages);
   await checkCap(db, target);
@@ -229,13 +235,24 @@ export async function answer(db: Db, engagementId: string, ctx: Context, questio
     ...(history.length ? ['<conversation>', ...history.slice(-8).map((m) => `${m.role}: ${m.text.slice(0, 1500)}`), '</conversation>', ''] : []),
     `<question>${question}</question>`,
   ].join('\n');
-  const res = await callStructured({
-    type: target.provider.type, baseUrl: target.provider.base_url, apiKey: apiKeyOf(target.provider), model: target.model, effort: 'medium',
-    system: RULES, user, toolName: 'submit_answer', toolDescription: 'Answer the team member.', schema: SCHEMA, timeoutMs: 180_000,
+  const extra = await assistantInstructions(db);
+  // v1.6: the assistant can look things up (read-only, within what this engagement may see) before answering.
+  const trail: string[] = [];
+  const ledger = [...passages];
+  const res = await runLoop({
+    call: {
+      type: target.provider.type, baseUrl: target.provider.base_url, apiKey: apiKeyOf(target.provider), model: target.model, effort: 'medium',
+      system: extra ? `${RULES}\n\n## Workspace instructions\n\nThese come from the workspace settings. They add to the rules above and never override them.\n\n${extra}` : RULES,
+      user, toolName: 'submit_answer', toolDescription: 'Answer the team member.', schema: SCHEMA, timeoutMs: 180_000,
+    },
+    check: (o: any) => (typeof o?.answer === 'string' && o.answer.trim() ? [] : ['answer: write the answer to the question']),
+    q: db, engagementId, cardId: ctx.card?.id ?? null, role: 'assistant', ledger,
+    log: async (kind, text) => { if (kind === 'step') trail.push(text); },
+    mode: 'agentic', maxSteps: 6, allow: null, questionsLeft: 0, selfCheck: null,
   });
   const out = res.input as any;
   const citations = (Array.isArray(out?.citations) ? out.citations : []).map(String);
-  const stray = strayCitations(citations, passages);
+  const stray = strayCitations(citations, ledger);
   const dropped: string[] = stray.map((s) => `citation ${s} (not a passage it was given)`);
   const suggestions: any[] = [];
   for (const raw of (Array.isArray(out?.suggestions) ? out.suggestions : []).slice(0, 6)) {
@@ -246,8 +263,13 @@ export async function answer(db: Db, engagementId: string, ctx: Context, questio
   const kept = citations.filter((c: string) => !stray.includes(c));
   return {
     text: String(out?.answer ?? '').slice(0, 6000) || 'No answer came back. Try asking again.',
-    citations: kept, passages: passages.filter((p) => kept.includes(p.id)).map((p) => ({ ...p, text: p.text.slice(0, 1200) })),
-    suggestions: suggestions.slice(0, 4), dropped, model: target.model, runtime: 'live',
+    citations: kept, passages: ledger.filter((p) => kept.includes(p.id)).map((p) => ({ ...p, text: p.text.slice(0, 1200) })),
+    suggestions: suggestions.slice(0, 4), dropped, model: target.model, runtime: 'live', trail,
+    basis: [
+      ...(ctx.page ? ['page' as const] : []),
+      ...(!pageQuestion || (res.used ?? []).some((t) => t !== 'search_knowledge') ? ['records' as const] : []),
+      ...(kept.length ? ['knowledge' as const] : []),
+    ],
     costUsd: target.provider.billed ? costUsd(priceFor(target.model, target.provider.prices), res.tokensIn, res.tokensOut, res.tokensCached) : 0,
   };
 }
@@ -315,10 +337,11 @@ function rulesAnswer(ctx: Context, question: string, passages: SourcePassage[]):
   else lines.push('Nothing in the knowledge base matched the question.');
   lines.push('This is the offline assistant: it reports what the harness can check by itself. Connect a model on Models & Keys (the workspace default or one picked for the assistant) for full answers.');
   const top = aboutPage ? [] : passages.slice(0, 2);
-  return { text: lines.join('\n\n'), citations: top.map((p) => p.id), passages: top.map((p) => ({ ...p, text: p.text.slice(0, 1200) })), suggestions, dropped: [], model: 'rules', runtime: 'rules', costUsd: 0 };
+  return { text: lines.join('\n\n'), citations: top.map((p) => p.id), passages: top.map((p) => ({ ...p, text: p.text.slice(0, 1200) })), suggestions, dropped: [], model: 'rules', runtime: 'rules', costUsd: 0,
+    basis: [...(ctx.page && (asksAboutPage(question) || (!card && !passages.length)) ? ['page' as const] : []), ...(card ? ['records' as const] : []), ...(top.length ? ['knowledge' as const] : [])], trail: [] };
 }
 
 export const toMessage = (r: any): AssistantMessage => ({
   id: r.id, conversationId: r.conversation_id ?? null, role: r.role, text: r.text, citations: r.citations ?? [], passages: r.passages ?? [], suggestions: r.suggestions ?? [], dropped: r.dropped ?? [],
-  model: r.model, runtime: r.runtime, author: r.author, at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+  model: r.model, runtime: r.runtime, basis: r.basis ?? [], trail: r.trail ?? [], author: r.author, at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
 });

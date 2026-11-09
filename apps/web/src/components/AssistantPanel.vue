@@ -147,12 +147,21 @@ function snapshot(): string {
 }
 const scroll = () => nextTick(() => list.value?.scrollTo({ top: list.value.scrollHeight }));
 
+// v1.6: what an answer drew on, and its sources grouped by kind.
+const BASIS: Record<string, string> = { page: 'This page', records: 'ARGUS records', knowledge: 'Knowledge base' };
+const SOURCE_KIND: Record<string, string> = { framework: 'Frameworks', control: 'Control library', methodology: 'Method guidance', upload: 'Client documents', client: 'Client documents', use_case: 'Use cases', evidence: 'Evidence' };
+function sourceGroups(m: AssistantMessage) {
+  const groups: Record<string, AssistantMessage['passages']> = {};
+  for (const p of m.passages) (groups[SOURCE_KIND[p.kind] ?? 'Other'] ??= []).push(p);
+  return Object.entries(groups);
+}
+
 async function send(text?: string) {
   const q = (text ?? question.value).trim();
   if (q.length < 2 || busy.value) return;
   busy.value = true;
   question.value = '';
-  messages.value.push({ id: 'pending', role: 'user', text: q, citations: [], passages: [], suggestions: [], dropped: [], model: null, runtime: null, author: app.user?.name ?? '', at: new Date().toISOString() });
+  messages.value.push({ id: 'pending', role: 'user', text: q, citations: [], passages: [], suggestions: [], dropped: [], model: null, runtime: null, basis: [], trail: [], author: app.user?.name ?? '', at: new Date().toISOString() });
   scroll();
   try {
     const page = { path: route.fullPath, snapshot: snapshot() };
@@ -241,9 +250,10 @@ const STATUS: Record<string, string> = { applied: 'Applied', discarded: 'Discard
           <div v-else class="ap-ai">
             <div class="ap-who">Assistant</div>
             <div class="ap-md" v-html="renderMarkdown(m.text)" />
-            <div v-if="m.passages.length" class="ap-sources">
-              <span class="small faint">Sources</span>
-              <button v-for="p in m.passages" :key="p.id" class="source-chip" :class="{ on: openSource === m.id + p.id }" @click="openSource = openSource === m.id + p.id ? '' : m.id + p.id">{{ p.id }} · {{ p.title.slice(0, 40) }}</button>
+            <div v-if="m.basis?.length" class="ap-basis small"><span class="faint">Based on</span><span v-for="b in m.basis" :key="b" class="basis-chip">{{ BASIS[b] }}</span></div>
+            <div v-for="[label, ps] in sourceGroups(m)" :key="label" class="ap-sources">
+              <span class="small faint">{{ label }}</span>
+              <button v-for="p in ps" :key="p.id" class="source-chip" :class="{ on: openSource === m.id + p.id }" @click="openSource = openSource === m.id + p.id ? '' : m.id + p.id">{{ p.id }} · {{ p.title.slice(0, 40) }}</button>
             </div>
             <template v-for="p in m.passages" :key="'q' + p.id"><blockquote v-if="openSource === m.id + p.id" class="passage small">{{ p.text }}</blockquote></template>
             <div v-for="s in m.suggestions" :key="s.id" class="suggestion" :class="s.status">
@@ -257,6 +267,7 @@ const STATUS: Record<string, string> = { applied: 'Applied', discarded: 'Discard
                 <button class="btn sm ghost" @click="act(m, s, 'discard')">Discard</button>
               </div>
             </div>
+            <details v-if="m.trail?.length" class="small faint"><summary>How I got here ({{ m.trail.length }} look-up{{ m.trail.length === 1 ? '' : 's' }})</summary><ol class="plain ap-trail"><li v-for="(t, i) in m.trail" :key="i">{{ t }}</li></ol></details>
             <details v-if="m.dropped.length" class="small faint"><summary>{{ m.dropped.length }} thing{{ m.dropped.length === 1 ? '' : 's' }} the harness removed</summary><ul class="plain"><li v-for="d in m.dropped" :key="d">{{ d }}</li></ul></details>
             <div class="ap-meta">{{ m.runtime === 'live' ? m.model : 'Offline assistant' }}</div>
           </div>

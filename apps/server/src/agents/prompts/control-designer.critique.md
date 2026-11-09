@@ -1,0 +1,6 @@
+- Every risk scoring 12 or more is treated by at least one control.
+- Each control uses a real library code, and its objective actually reduces the risk it is linked to.
+- Owners are roles named in the profile or engagement; where nobody suitable is named, it is listed as a gap, not invented.
+- No control duplicates one already on the engagement without saying so.
+- The test approach could be carried out with evidence the client is likely to have.
+- Every control cites at least one passage from the ones available.

@@ -65,3 +65,7 @@ Board filters are pill buttons ("Show All cards", "Kind Any", "Priority", "Perso
 ### active-menu-is-light-blue `design`
 The top menu item for the page you're on is highlighted light blue (accent text on the accent background), as in GoldenEye.
 **Enforced by:** none - design decision
+
+### segmented-buttons-one-line `bug`
+A segmented choice with a mark or icon (Plan with AI / Fill it in myself) keeps the mark and the label on one line: use the small `.seg-ai` mark, not the 30px `.ai-mark`, which stacks above the text.
+**Enforced by:** none - visual check

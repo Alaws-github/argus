@@ -32,7 +32,11 @@ Background an agent needs before working on ARGUS: who it is for, what it has to
 | Demo data from one scenario file per client; saved copies to switch between | Realistic, non-generic demos that can be rebuilt and switched in seconds |
 | Hosting on Cloudflare (Worker + one Container), Neon Postgres, R2 for evidence | The owner chose option B to share a live site; the container's disk is temporary so state lives outside it |
 | Assistant sees the page, keeps conversations per person, uses the workspace default model if none is picked | It has to answer "what's on this page?" and feel like a real assistant (v1.4) |
+| The AI must not be rigid: every agent gets the engagement's context, recovers from provider and format problems, and asks or suggests when input is unclear | ARGUS depends on AI; the owner found the Planner couldn't tell a test message from an answer (v1.5) |
 | UI and UX are first-class; every change updates CHANGELOG, manual, CLAUDE.md and lessons | The owner judges ARGUS by its look and feel, and wants records kept in step (v1.4.1) |
+| Agents reason: they look things up with read-only tools, can ask a person, and check their own work; limit what they decide, never what they may find out | The owner needed analysts, not single-shot form fillers, and corrected the earlier design (v1.6, lesson `agents-must-reason`) |
+| Live site keeps ARGUS's own summaries of ISO/IEC 42001; the owner verifies them against his licensed copy | Licence terms; full ISO text never goes into code or the live site |
+| v1.7 is the last two-part version; after it, 1.7.1, 1.7.2 and so on. v1.7 brings the dashboard look to every page and a governance workflow builder (client workflows as nodes, mandatory governance steps that can't be removed, versioned and audited) | The owner's numbering and design direction, given with the v1.6 go-ahead |
 | Lessons file and AGENTS.md | So every agent session starts with the project's context and doesn't repeat a mistake (v1.4) |
 
 ## Versions
@@ -52,6 +56,8 @@ Background an agent needs before working on ARGUS: who it is for, what it has to
 | v1.2.1 | All demo clients in one switchable demo, plus a saved copy per client |
 | v1.2.2 | Controls and Knowledge Base menus, icons, Title Case, upload controls (CSV or Excel), the manual's "Start Here" path |
 | v1.3 | Cloudflare hosting: Dockerfile, Worker and Container, Neon and R2, demo loading against a live site |
+| v1.6 | Agents that reason: the agent loop with read-only tools, questions for a person (Question for You), self-check, per-agent mode, step limit and tools; assistant look-ups with "Based on" and "How I got here"; Planner look-ups; heading-aware chunks, per-document cap, Retrieval tab; golden runs by mode; rules 23 to 27 |
+| v1.5 | AI that bends: retries, cut-off answers retried, one repair attempt for format slips, offline-rules fallback; Planner with engagement, board and knowledge-base context, unclear input and suggestions; assistant workspace instructions; drafting agents read client documents; golden runs with an engagement's context; broader refusal check |
 | v1.4.1 | Assistant redesigned as a chat panel with formatted answers; initials on board cards; GoldenEye-style board filters; light blue active menu; version under Sign Out with `npm run release` and CHANGELOG.md; Save buttons disabled until a change; manual v1.2.3 for the live site |
 | v1.4 | Assistant: page awareness, conversation history with search and new conversations, workspace-default model, "Ask" label. AGENTS.md, lessons and this file. Dark mode default restored. Reset refuses a hosted database |
 
@@ -62,5 +68,7 @@ Background an agent needs before working on ARGUS: who it is for, what it has to
 
 ## Open threads
 
-- Not built yet: OCR for scanned evidence; the Planner reading the knowledge base; SAML, MFA; OAuth connectors; sign-in rate limiting; Verifier coverage of the four drafting agents; streamed assistant answers.
+- Next: v1.7 (dashboard look everywhere, workflow builder), paused for the owner to test v1.6 first.
+- Later (1.7.x): ISO/IEC 42001 summaries for the owner to verify; fuller public frameworks (EU AI Act, NIST AI RMF, OWASP, Jamaica DPA); a workspace-wide knowledge library; a private-source setting; the Planner naming the draft from the brief's title.
+- Not built yet: OCR for scanned evidence; a reranker and HNSW index for meaning search; SAML, MFA; OAuth connectors; sign-in rate limiting; Verifier coverage of the four drafting agents; streamed assistant answers.
 - The owner asked for a plain explanation of the AI Testing and Monitoring and Checking the AI pages (given in chat in the v1.4 session). If those pages are reworked, make what they do obvious on the page itself.

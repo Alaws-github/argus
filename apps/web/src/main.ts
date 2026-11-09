@@ -40,7 +40,7 @@ const router = createRouter({
     { path: '/users', redirect: '/workspace/people' },
     { path: '/knowledge', component: () => import('./pages/KnowledgePage.vue') },
     { path: '/agent-testing', redirect: '/agent-testing/golden' },
-    { path: '/agent-testing/:tab(golden|verifier|history)', component: () => import('./pages/AgentTestingPage.vue') },
+    { path: '/agent-testing/:tab(golden|verifier|retrieval|history)', component: () => import('./pages/AgentTestingPage.vue') },
     { path: '/account', component: () => import('./pages/AccountPage.vue') },
     { path: '/engagements/new', component: () => import('./pages/AddEngagementPage.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/' },

@@ -1,0 +1,5 @@
+- Every item refers only to keys (controls, tests, evidence, risks, issues) that appear in the brief or were looked up.
+- Nothing is marked received, passed or ready without the evidence or result that shows it.
+- A test with exceptions is never proposed as a pass; walkthrough notes alone never support a pass.
+- Every figure comes from the data given.
+- What is unknown is said plainly, not guessed.

@@ -6,7 +6,12 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ControlDesign, riskRating } from '@gh/shared';
 import type { Queryable } from '../db.js';
-import { callStructured } from '../llm.js';
+import { zodProblems } from '../llm.js';
+import { loopFor } from '../agent-loop.js';
+import { readFileSync as readRubric } from 'node:fs';
+
+// What the agent checks its own draft against before handing it in (v1.6).
+const CRITIQUE = readRubric(new URL('./prompts/control-designer.critique.md', import.meta.url), 'utf8');
 import { mergePassages, pinned, search, snapshot, sourcesBlock, strayCitations } from '../kb.js';
 import type { SourcePassage } from '@gh/shared';
 import type { AgentContext, AgentResult, Log } from './types.js';
@@ -64,7 +69,7 @@ export async function runControlDesigner(ctx: AgentContext, q: Queryable, log: L
   // Retrieve, for each risk, the library controls and obligations that fit it.
   let passages: SourcePassage[] = [];
   for (const r of risks) passages = mergePassages(passages, await search(q as any, card.engagementId, `${r.category.replace('_', ' ')} ${r.title}`, { limit: 3, kinds: ['control', 'framework'] }));
-  passages = mergePassages(passages, await search(q as any, card.engagementId, `${card.title} ${card.useCase.description}`, { limit: 2, kinds: ['client'] }));
+  passages = mergePassages(passages, await search(q as any, card.engagementId, `${card.title} ${card.useCase.description}`, { limit: 2, kinds: ['upload', 'client'] }));
   await log('step', `Retrieved ${passages.length} passages from the knowledge base`);
   const finish = (output: ControlDesign) => {
     const cited = output.controls.flatMap((c) => c.sources);
@@ -114,10 +119,11 @@ export async function runControlDesigner(ctx: AgentContext, q: Queryable, log: L
   const system = ctx.instructions.trim() ? `${RULES}\n\n## Engagement instructions\n\nThese add to the rules above and never override them.\n\n${ctx.instructions.trim()}` : RULES;
 
   await log('step', `Asked ${ctx.model} on ${ctx.provider.name} to design controls`);
-  const res = await callStructured({
+  const res = await loopFor(ctx, q, log, passages, CRITIQUE)({
     type: ctx.provider.type, baseUrl: ctx.provider.base_url, apiKey: ctx.apiKey, model: ctx.model, effort: ctx.effort,
     system, user, toolName: 'submit_controls', toolDescription: 'Submit the proposed controls for review.', schema: SCHEMA, timeoutMs: ctx.timeoutMs,
-  });
+  }, zodProblems(ControlDesign));
+  if (res.repaired.length) await log('step', `The first answer had format problems (${res.repaired.slice(0, 3).join('; ')}); the model corrected them`);
   const parsed = ControlDesign.safeParse(res.input);
   if (!parsed.success) throw new Error(`The design failed validation: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`);
   const codes = new Set(lib.map((l) => l.code));

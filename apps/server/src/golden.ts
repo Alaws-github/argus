@@ -4,7 +4,7 @@
 // This is how you tell whether a new model, prompt or rules change made the
 // agents better or worse, before it touches client work.
 import { randomUUID } from 'node:crypto';
-import { riskRating, type Calibration, type Card, type GoldenAgent, type GoldenCase, type GoldenCheck, type GoldenResult, type GoldenRun, type JudgeLabel, type NewGoldenCase, type SourcePassage, JUDGE_TRUST } from '@gh/shared';
+import { AGENT_ROLES, DEFAULT_MAX_STEPS, riskRating, type Calibration, type Card, type GoldenAgent, type GoldenCase, type GoldenCheck, type GoldenResult, type GoldenRun, type JudgeLabel, type NewGoldenCase, type SourcePassage, JUDGE_TRUST } from '@gh/shared';
 import type { Db, Queryable } from './db.js';
 import { logAudit } from './audit.js';
 import { emit } from './realtime.js';
@@ -147,7 +147,7 @@ export const toCase = (r: any): GoldenCase => ({
 });
 export const toRunRow = (r: any): GoldenRun => ({
   id: r.id, key: `GR-${r.number}`, agent: r.agent, model: r.model, provider: r.provider, runtime: r.runtime, rulesVersion: r.rules_version,
-  withVerifier: r.with_verifier, status: r.status, startedBy: r.started_by, startedAt: iso(r.started_at)!, endedAt: iso(r.ended_at),
+  withVerifier: r.with_verifier, mode: r.mode === 'agentic' ? 'agentic' : 'single', status: r.status, startedBy: r.started_by, startedAt: iso(r.started_at)!, endedAt: iso(r.ended_at),
   results: r.results ?? [], summary: r.summary, regressions: r.regressions ?? [], previous: r.previous,
 });
 export const toLabel = (r: any): JudgeLabel => ({
@@ -195,17 +195,22 @@ function scoreDesigner(c: GoldenCase, out: any): GoldenCheck[] {
 
 export interface GoldenTarget { provider: ProviderRow; model: string }
 
-export async function startGoldenRun(db: Db, agent: GoldenAgent, target: GoldenTarget, withVerifier: boolean, actor: string): Promise<string> {
+// context: an engagement's description and its agent instructions, to test the agent as it runs there.
+// Without it the run is a neutral benchmark, the same for every engagement.
+export interface GoldenContext { engagement: string; about: string; instructions: string }
+export async function startGoldenRun(db: Db, agent: GoldenAgent, target: GoldenTarget, withVerifier: boolean, actor: string, context: GoldenContext | null = null, mode: 'agentic' | 'single' = 'agentic'): Promise<string> {
+  // The offline rules have no tools, so they always run as one call.
+  if (target.provider.type === 'rules') mode = 'single';
   const { rows: cases } = await db.query(`SELECT * FROM golden_cases WHERE agent = $1 ORDER BY number`, [agent]);
   if (!cases.length) throw Object.assign(new Error('There are no golden cases for this agent yet'), { status: 409 });
   const verifier = withVerifier ? await (await import('./verifier.js')).verifierTarget(db) : null;
   const runtime = target.provider.type === 'rules' ? 'dry-run' : 'live';
   const id = await db.tx(async (q) => {
     const { rows } = await q.query(
-      `INSERT INTO golden_runs (agent, provider, model, runtime, rules_version, with_verifier, started_by) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, number`,
-      [agent, target.provider.name, target.model, runtime, agent === 'risk_classifier' ? CLASSIFIER_RULES : DESIGNER_RULES, withVerifier, actor],
+      `INSERT INTO golden_runs (agent, provider, model, runtime, rules_version, with_verifier, started_by, mode) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, number`,
+      [agent, target.provider.name, target.model, runtime, agent === 'risk_classifier' ? CLASSIFIER_RULES : DESIGNER_RULES, withVerifier, actor, mode],
     );
-    await logAudit(q, actor, 'golden.run_started', `golden:GR-${rows[0].number}`, { agent, model: target.model, provider: target.provider.name, cases: cases.length, withVerifier });
+    await logAudit(q, actor, 'golden.run_started', `golden:GR-${rows[0].number}`, { agent, model: target.model, provider: target.provider.name, cases: cases.length, withVerifier, mode, context: context?.engagement ?? 'none' });
     return rows[0].id as string;
   });
   void (async () => {
@@ -215,7 +220,9 @@ export async function startGoldenRun(db: Db, agent: GoldenAgent, target: GoldenT
     for (const row of cases) {
       const c = toCase(row);
       const card = fakeCard(c);
-      const ctx = { card, feedback: null, provider: target.provider, apiKey: apiKeyOf(target.provider), model: target.model, effort: settings.defaultEffort, instructions: '', engagementAbout: '', timeoutMs: 300_000 };
+      const ctx = { card, feedback: null, provider: target.provider, apiKey: apiKeyOf(target.provider), model: target.model, effort: settings.defaultEffort, instructions: context?.instructions ?? '', engagementAbout: context?.about ?? '', timeoutMs: 300_000,
+        // A golden case has no records behind it and nobody to answer, so no questions.
+        role: agent, mode, maxSteps: DEFAULT_MAX_STEPS, selfCheck: true, tools: AGENT_ROLES[agent].tools, answers: '', questionsLeft: 0 };
       const noop = async () => {};
       try {
         const res = agent === 'risk_classifier' ? await runRiskClassifier(ctx, db, noop) : await runControlDesigner(ctx, db, noop, c.risks as Risk[]);

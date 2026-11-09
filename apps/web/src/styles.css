@@ -811,3 +811,19 @@ td.num, .nowrap { white-space: nowrap; }
 
 /* The version under Sign Out. */
 .app-version { text-align: center; font-size: 11px; color: var(--faint); margin: 8px 0 2px; font-family: var(--mono); }
+
+/* Segmented choices with an icon or mark: one row, centred, equal height. */
+.segmented button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; }
+.seg-ai { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.02em; background: var(--accent-bg); color: var(--accent-text); border: 1px solid var(--accent-line); }
+.chat-log .plan-md p { white-space: normal; margin: 0 0 8px; }
+.chat-log .plan-md p:last-child { margin-bottom: 0; }
+
+/* v1.6: an agent's question on a use case, and the answers given. */
+.notice.question-box { border-color: var(--accent-line); background: var(--accent-bg); display: grid; gap: 8px; }
+.notice.question-box textarea { width: 100%; }
+.qa { padding: 6px 0; border-bottom: 1px solid var(--line); display: grid; gap: 2px; }
+.qa:last-child { border-bottom: 0; }
+/* v1.6: the assistant says what it based an answer on. */
+.ap-basis { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.basis-chip { border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; color: var(--text-2, inherit); }
+.ap-trail { margin: 4px 0 0; padding-left: 18px; list-style: decimal; }

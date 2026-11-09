@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// Add an engagement (a new client or project) in five steps: Client, Scope,
-// Gates, Models, Review. Modelled on GoldenEye's Add project.
+// Add an engagement (a new client or project) in six steps: Client, Scope,
+// Gates, Tools (how the client works; v1.7.2), Models, Review. Modelled on GoldenEye's Add project.
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-  AGENT_ROLES, DEFAULT_GATES, EFFORTS, FRAMEWORK_CHOICES, SECTORS, STAGES, STAGE_HINTS, STAGE_LABELS,
+  AGENT_ROLES, BUSINESS_TOOLS, TOOL_GROUPS, WF_TEMPLATES, WF_TEMPLATE_INFO, DEFAULT_GATES, EFFORTS, FRAMEWORK_CHOICES, SECTORS, STAGES, STAGE_HINTS, STAGE_LABELS,
   type AgentRole, type Engagement, type Effort, type LibraryControl, type Obligation, type Provider, type Stage,
 } from '@gh/shared';
 import { api } from '../api';
@@ -12,7 +12,7 @@ import { useApp } from '../stores/app';
 
 const app = useApp();
 const router = useRouter();
-const STEPS = ['Client', 'Scope', 'Gates', 'Models', 'Review'] as const;
+const STEPS = ['Client', 'Scope', 'Gates', 'Tools', 'Models', 'Review'] as const;
 const step = ref(0);
 const reached = ref(0);
 const error = ref('');
@@ -41,7 +41,11 @@ const f = reactive({
   gates: { ...DEFAULT_GATES } as Record<Stage, boolean>,
   agents: {} as Record<string, { providerId: string; model: string; effort: Effort }>,
   useCases: '',
+  clientTools: [] as string[],
+  workflow: { template: 'standard' } as { template: (typeof WF_TEMPLATES)[number] } | null,
 });
+const toggleTool = (id: string) => { f.clientTools = f.clientTools.includes(id) ? f.clientTools.filter((t) => t !== id) : [...f.clientTools, id]; };
+const toolName = (id: string) => BUSINESS_TOOLS.find((t) => t.id === id)?.name ?? id;
 const touched = reactive({ prefix: false });
 
 // Card prefix from the client's initials, until someone types their own.
@@ -94,7 +98,7 @@ function valid(i: number): string {
     if (prefixTaken.value) return `Another engagement already uses ${f.prefix}`;
   }
   if (i === 1 && !f.frameworks.length) return 'Pick at least one framework';
-  if (i === 3 && BUILT.some(([r]) => !f.agents[r]?.providerId || !f.agents[r]?.model)) return 'Choose a provider and model for each agent';
+  if (i === 4 && BUILT.some(([r]) => !f.agents[r]?.providerId || !f.agents[r]?.model)) return 'Choose a provider and model for each agent';
   return '';
 }
 function go(i: number) {
@@ -111,7 +115,7 @@ function go(i: number) {
   reached.value = Math.max(reached.value, i);
 }
 async function create() {
-  for (let k = 0; k < 4; k++) if (valid(k)) return go(k + 1);
+  for (let k = 0; k < 5; k++) if (valid(k)) return go(k + 1);
   busy.value = true;
   error.value = '';
   try {
@@ -202,8 +206,28 @@ async function create() {
         </div>
       </template>
 
-      <!-- 4 Models -->
+      <!-- 4 Tools: how the client works (v1.7.2) -->
       <template v-else-if="step === 3">
+        <h2>How does the client work?</h2>
+        <p class="muted small">Optional. Pick the business tools the client uses, and ARGUS drafts a client workflow for you to change later. Nothing connects yet: no passwords or keys are asked for here. Connect tools later in Settings, Connected tools.</p>
+        <div class="field">
+          <span>Start a client workflow from</span>
+          <label v-for="t in WF_TEMPLATES" :key="t" class="check-row"><input type="radio" name="wf" :checked="f.workflow?.template === t" @change="f.workflow = { template: t }" /><span><strong>{{ WF_TEMPLATE_INFO[t].label }}</strong><span class="muted small hint-inline">{{ WF_TEMPLATE_INFO[t].hint }}</span></span></label>
+          <label class="check-row"><input type="radio" name="wf" :checked="!f.workflow" @change="f.workflow = null" /><span><strong>Decide later</strong><span class="muted small hint-inline">No workflow yet. Add one from Client workflows when you're ready.</span></span></label>
+        </div>
+        <div class="field">
+          <span>Tools this client uses <span class="faint">{{ f.clientTools.length ? `${f.clientTools.length} picked` : 'optional' }}</span></span>
+          <template v-for="g in TOOL_GROUPS" :key="g">
+            <div class="small faint" style="margin-top: 6px">{{ g }}</div>
+            <div class="tool-grid" style="max-height: none">
+              <button v-for="t in BUSINESS_TOOLS.filter((x) => x.group === g)" :key="t.id" type="button" :class="{ on: f.clientTools.includes(t.id) }" :aria-pressed="f.clientTools.includes(t.id)" @click="toggleTool(t.id)"><i class="tool-mono" :style="{ background: t.color }">{{ t.mono }}</i>{{ t.name }}</button>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- 5 Models -->
+      <template v-else-if="step === 4">
         <h2>Which models run the agents?</h2>
         <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr))">
           <button v-for="p in PRESETS" :key="p.id" type="button" class="agent-item" :class="{ selected: preset === p.id }" :disabled="!p.ok" style="flex-direction: column; align-items: flex-start; text-align: left" @click="preset = p.id">
@@ -230,7 +254,7 @@ async function create() {
         <p class="hint">The other stages are done by people until their agents are built. Agents never approve anything.</p>
       </template>
 
-      <!-- 5 Review -->
+      <!-- 6 Review -->
       <template v-else>
         <h2>Check and add</h2>
         <dl class="kv">
@@ -242,6 +266,8 @@ async function create() {
           <dt>Risk appetite</dt><dd>Residual up to {{ f.appetite.maxResidual }}; above that, a lead accepts for the {{ f.appetite.escalateTo }}</dd>
           <dt>Gates</dt><dd>{{ STAGES.filter((s) => f.gates[s]).map((s) => STAGE_LABELS[s]).join(', ') }}</dd>
           <dt>Agents</dt><dd><div v-for="[role, meta] in BUILT" :key="role">{{ meta.name }}: <span class="mono">{{ f.agents[role]?.model }}</span> on {{ providerName(f.agents[role]?.providerId) }}, {{ f.agents[role]?.effort }} effort</div></dd>
+          <dt>Client tools</dt><dd>{{ f.clientTools.length ? f.clientTools.map(toolName).join(', ') : 'None picked' }}<div class="small faint">Connect them later in Settings, Connected tools</div></dd>
+          <dt>Client workflow</dt><dd>{{ f.workflow ? `A draft from ${WF_TEMPLATE_INFO[f.workflow.template].label}` : 'Decide later' }}</dd>
           <dt>Use cases</dt><dd>{{ useCaseList.length ? useCaseList.join('; ') : 'None yet' }}</dd>
         </dl>
       </template>
@@ -249,7 +275,7 @@ async function create() {
       <p v-if="error" class="error" role="alert">{{ error }}</p>
       <div class="spread">
         <button class="btn" :disabled="step === 0" @click="go(step - 1)">Back</button>
-        <button v-if="step < 4" class="btn primary" @click="valid(step) ? (error = valid(step)) : go(step + 1)">Next</button>
+        <button v-if="step < 5" class="btn primary" @click="valid(step) ? (error = valid(step)) : go(step + 1)">Next</button>
         <button v-else class="btn primary" :disabled="busy" @click="create">{{ busy ? 'Adding…' : 'Add engagement' }}</button>
       </div>
     </section>

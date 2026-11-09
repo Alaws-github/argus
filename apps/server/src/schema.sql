@@ -799,3 +799,7 @@ CREATE TABLE IF NOT EXISTS workflow_versions (
 -- ServiceNow, Jira, Google, Slack...), and sign in with an Entra app or a Google
 -- service account. Still read-only.
 ALTER TABLE connectors ADD COLUMN IF NOT EXISTS tool text NOT NULL DEFAULT '';
+
+-- v1.7.2: the business tools a client uses (set when the engagement is added,
+-- changed in Settings > Connected tools).
+ALTER TABLE engagements ADD COLUMN IF NOT EXISTS client_tools jsonb NOT NULL DEFAULT '[]';

@@ -6,7 +6,7 @@ Context for Claude working on this project. Read this first, then:
 - [`docs/LESSONS.md`](docs/LESSONS.md): pitfalls and decisions already found. Read `docs/lessons/general.md` and the area files for what you change, and add a lesson whenever you fix a bug or the owner corrects you.
 - [`docs/context/project-history.md`](docs/context/project-history.md): who ARGUS is for, how the owner works, what was decided and why, and every version.
 
-**v1.7** added the dashboard look (KPI tiles on every working page), client workflows (a builder around the governance gates) and an assistant that shows its steps live. v1.6 built `docs/plans/v1.6-agentic-ai.md`; "What v1.6 simplified" below says where it differs. **Releases from here are numbered 1.7.1, 1.7.2 and so on.** v1.7.1 put workflow steps in the client's business tools (`packages/shared/src/tools-catalog.ts`): Microsoft 365, ServiceNow, Jira, Google Workspace, Slack and others, read through read-only connectors, never written to. Not built yet for workflows: running them (a published workflow is a governed design and record; it does not yet drive the board).
+**v1.7** added the dashboard look (KPI tiles on every working page), client workflows (a builder around the governance gates) and an assistant that shows its steps live. v1.6 built `docs/plans/v1.6-agentic-ai.md`; "What v1.6 simplified" below says where it differs. **Releases from here are numbered 1.7.1, 1.7.2 and so on.** v1.7.1 put workflow steps in the client's business tools (`packages/shared/src/tools-catalog.ts`): Microsoft 365, ServiceNow, Jira, Google Workspace, Slack and others, read through read-only connectors, never written to. v1.7.2 moved connector management to Settings > Connected tools (with the engagement's `clientTools`), opens the connector form in place from a workflow step (`components/ConnectorForm.vue`), made Tests and Evidence > From Client Tools a read-only view, added the optional wizard step "How does the client work?" (template draft workflow and client tools, no credentials), and renamed the Settings tab Workflow to Approval gates. Not built yet for workflows: running them (a published workflow is a governed design and record; it does not yet drive the board).
 
 **Every change updates its records** (checklist in AGENTS.md): `CHANGELOG.md`, the version in `package.json` for a release, the manual and its screenshots when the UI changes, this file and `README.md`, `assistant-pages.ts` for new pages, and a lesson for every bug, correction or design decision. **UI and UX are part of the job**: check every screen change in the browser, dark mode first, at desktop and phone widths.
 
@@ -95,7 +95,7 @@ packages/shared/src
 apps/server/src
   index.ts        startup, middleware order: request context, auth, archive guard, routes
   routes.ts       engagements, board, card actions (approve/request_changes/advance/retry/reject), runs, risks, audit
-  routes-config.ts settings, providers, agents, engagement create and update
+  routes-config.ts settings, providers, agents, engagement create and update (v1.7.2: `clientTools`, filtered to known tools; an optional `workflow.template` drafts a client workflow at creation)
   routes-auth.ts  sign-in, sessions, your account, people, act as
   planner.ts      Use Case Planner (offline rules and live): plannerContext (engagement, existing use cases, KB passages
                   incl. M-INTAKE), unclear input, suggestions and picks; routes-plans.ts plans API; cards.ts createCard
@@ -143,7 +143,7 @@ apps/web/src
   pages/          one file per page; components/CardDrawer.vue is the use case side panel
   markdown.ts     safe Markdown for model text (escape first; internal links and record keys only, v1.7); lib/links.ts keyLink and ?focus= row highlighting;
   pages/WorkflowsPage.vue, WorkflowBuilderPage.vue  client workflows list and builder (icon rail, canvas, inspector); lib/unsaved.ts useUnsaved (Save disabled until a change)
-  components/     KpiStrip (v1.7 KPI tiles per page), Icon (inline line icons for menus and buttons), FilterPill (board filters), ControlUpload, AssistantPanel (Ask), StandardsTab (plain-English framework coverage), ProviderForm (presets), VerifierBar, DraftItem
+  components/     KpiStrip (v1.7 KPI tiles per page), Icon (inline line icons for menus and buttons), FilterPill (board filters), ControlUpload, AssistantPanel (Ask), StandardsTab (plain-English framework coverage), ProviderForm (presets), VerifierBar, DraftItem, ConnectorForm (v1.7.2: the connector modal, used in Settings > Connected tools and in place in the workflow builder), ConnectorsTab (manage mode in Settings, read-only view in Tests and Evidence)
   styles.css      GoldenEye design tokens (dark first, light via data-theme or system)
 docs/             plain-language docs, runbooks, diagrams (Mermaid source) and images
 scripts/          smoke.mjs, agents-test.mjs, grounding-test.mjs, verifier-test.mjs, assistant-test.mjs, operations-test.mjs, mock-model.cjs, demo-data.mjs

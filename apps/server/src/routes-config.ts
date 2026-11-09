@@ -4,7 +4,7 @@ import type { Request, Response, NextFunction, Router } from 'express';
 import { z } from 'zod';
 import {
   AgentPatch, NewAgent, roleForStage, AGENT_ROLES, EngagementPatch, FRAMEWORK_CHOICES, NewEngagement, ProviderInput, STAGES, WorkspaceSettings,
-  type Stage,
+  type Stage, toolById, workflowTemplate,
 } from '@gh/shared';
 import type { Db } from './db.js';
 import { logAudit } from './audit.js';
@@ -331,9 +331,18 @@ export function configRoutes(r: Router, db: Db, actorOf: (req: Request) => strin
           eid, n, `${b.prefix}-${n}`, title, JSON.stringify(useCase), actor,
         ]);
       }
-      await q.query(`UPDATE engagements SET card_seq = $2 WHERE id = $1`, [eid, n]);
+      await q.query(`UPDATE engagements SET card_seq = $2, client_tools = $3 WHERE id = $1`, [eid, n, JSON.stringify(b.clientTools.filter((t) => toolById(t)))]);
+      // A starting client workflow, as a draft: the real process is usually agreed with the client later.
+      let workflow: string | null = null;
+      if (b.workflow) {
+        const g = workflowTemplate(b.workflow.template);
+        const { rows: wf } = await q.query(`INSERT INTO workflows (engagement_id, name, description, graph, updated_by) VALUES ($1,$2,$3,$4,$5) RETURNING number`,
+          [eid, b.workflow.name ?? `${b.client} AI approval`, 'Started with the engagement. Agree the real process with the client, then publish.', JSON.stringify(g), actor]);
+        workflow = `WF-${wf[0].number}`;
+        await logAudit(q, actor, 'workflow.created', `workflow:${workflow}`, { name: b.workflow.name ?? `${b.client} AI approval`, template: b.workflow.template, withEngagement: true });
+      }
       await logAudit(q, actor, 'engagement.created', `engagement:${slug}`, {
-        name: b.name, client: b.client, prefix: b.prefix, frameworks: labels, soaStarted: soa, useCases: n,
+        name: b.name, client: b.client, prefix: b.prefix, frameworks: labels, soaStarted: soa, useCases: n, clientTools: b.clientTools, workflow,
         gates: Object.keys(gates).filter((k) => gates[k]), models: Object.fromEntries(Object.entries(b.agents).map(([k, v]) => [k, v.model])),
       });
       return eid;
@@ -368,6 +377,7 @@ export function configRoutes(r: Router, db: Db, actorOf: (req: Request) => strin
     }
     if (patch.appetite) set('appetite', JSON.stringify(patch.appetite));
     if (patch.modules) set('modules', JSON.stringify({ ...before.modules, ...patch.modules }));
+    if (patch.clientTools) set('client_tools', JSON.stringify(patch.clientTools.filter((t) => toolById(t))));
     if (!sets.length) throw httpError(400, 'Nothing to change');
     await db.tx(async (q) => {
       await q.query(`UPDATE engagements SET ${sets.join(', ')} WHERE id = $1`, [before.id, ...vals]);

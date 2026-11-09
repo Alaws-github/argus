@@ -718,6 +718,8 @@ export interface Engagement {
   access: 'open' | 'members';
   /** Optional parts switched on for this engagement (see MODULES). */
   modules: Modules;
+  /** v1.7.2: the business tools this client uses (BUSINESS_TOOLS ids). Shapes tool lists in workflows and connectors. */
+  clientTools: string[];
 }
 
 // Risk appetite: the highest residual score the engagement accepts without
@@ -739,6 +741,7 @@ export const EngagementPatch = z.object({
   gates: z.record(z.boolean()).optional(),
   appetite: RiskAppetite.optional(),
   modules: z.object(Object.fromEntries(MODULES.map((m) => [m, z.boolean().optional()])) as Record<Module, z.ZodOptional<z.ZodBoolean>>).optional(),
+  clientTools: z.array(z.string().max(40)).max(40).optional(),
 });
 export * from './grc.js';
 export * from './workflow.js';

@@ -145,6 +145,19 @@ await lee('PATCH', `/workflows/${w2.id}`, { description: 'After the Jira connect
 r = await status(lee('POST', `/workflows/${w2.id}/publish`, {}));
 ok(r === 409, 'a step linked to a connector that no longer exists blocks the next publish');
 
+const rulesP = (await admin('GET', '/providers')).find((p) => p.type === 'rules');
+const AG = { appetite: { maxResidual: 6, statement: '', escalateTo: 'Board' }, gates: { classify: true, design: true }, agents: { risk_classifier: { providerId: rulesP.id, model: 'rules-v1', effort: 'low' }, control_designer: { providerId: rulesP.id, model: 'rules-v1', effort: 'low' } } };
+// v1.7.2: how the client works, at engagement creation. Tools are saved, a draft workflow is started, nothing connects.
+const ne = await lee('POST', '/engagements', { name: 'Claims triage AI', client: 'Harbour Mutual', prefix: 'HMX', frameworks: ['nistAiRmf'], ...AG, clientTools: ['sharepoint', 'jira', 'made-up'], workflow: { template: 'servicenow' } });
+ok(ne.clientTools.includes('sharepoint') && ne.clientTools.includes('jira'), 'the client tools picked in the wizard are saved on the engagement');
+const nw = await lee('GET', `/engagements/${ne.id}/workflows`);
+ok(nw.length === 1 && nw[0].status === 'draft' && nw[0].graph.nodes.some((n) => n.config.tool === 'servicenow'), 'a draft client workflow is started from the chosen template');
+ok((await lee('GET', `/engagements/${ne.id}/connectors`)).length === 0, 'no connector is made when the engagement is added');
+const pe = await lee('PATCH', `/engagements/${ne.id}`, { clientTools: ['teams', 'not-a-tool'] });
+ok(JSON.stringify(pe.clientTools) === '["teams"]', 'changing the client tools in Settings drops unknown tool ids');
+const ne2 = await lee('POST', '/engagements', { name: 'No workflow yet', client: 'Harbour Mutual', prefix: 'HMY', frameworks: ['nistAiRmf'], ...AG, workflow: null });
+ok((await lee('GET', `/engagements/${ne2.id}/workflows`)).length === 0, 'Decide later adds no workflow');
+
 const v = await admin('GET', '/audit/verify'); ok(v.ok, v.message);
 console.log('\nThis test created accounts with the password correct-horse-9. Run npm run db:reset (with the app stopped) to clear them.');
 console.log(fails ? `${fails} FAILED` : 'ALL PASSED');

@@ -2,6 +2,17 @@
 
 What changed in each release of ARGUS, newest first. The version shown under Sign Out comes from package.json. Start a new release with `npm run release -- X.Y.Z`.
 
+## v1.7.2 (2026-11-09)
+
+Connectors and client workflows where people expect them.
+
+- **Connected tools** (Settings > Engagement Settings, was Integrations, now always shown): tick the business tools the client uses, then add, edit, pull or remove the read-only connectors that read them. The client's tools are listed first in workflow steps and in the connector form.
+- **Add a connector without leaving the builder.** On a workflow step, **Add a read-only connector for <tool>** opens the connector form in place, with the tool picked; the new connector is linked to that step. The Business tools panel does the same. No new tab.
+- **Tests and Evidence > From Client Tools** (was Connectors) is now a read-only view with Pull now; adding and changing connectors moved to Connected tools.
+- **New wizard step, "How does the client work?"** (Add engagement, step 4 of 6, optional): start a draft client workflow from a template (Standard, Microsoft 365, ServiceNow and Jira, Google Workspace and Slack, Gates only) or decide later, and tick the tools the client uses. Nothing connects and no credentials are asked for; connect tools later in Connected tools.
+- The engagement Settings tab **Workflow** is now **Approval gates**, so it isn't confused with client workflows. Old links still work.
+- Engagements keep a `clientTools` list (unknown tool ids are dropped). New checks in `npm run test:v17` (46 in all).
+
 ## v1.7.1 (2026-11-09)
 
 Client workflows in the client's own business tools.

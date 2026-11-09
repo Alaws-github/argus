@@ -13,6 +13,7 @@ import {
 import { api, ago } from '../api';
 import { useApp } from '../stores/app';
 import Icon from '../components/Icon.vue';
+import ConnectorForm from '../components/ConnectorForm.vue';
 
 const app = useApp();
 const route = useRoute();
@@ -265,7 +266,16 @@ const toolsUsed = computed(() => {
   return [...by.values()];
 });
 const connectorsFor = (tool?: string) => [...connectors.value].sort((a, b) => Number(b.tool === tool) - Number(a.tool === tool));
-const setupLink = (tool?: string) => `/testing/connectors?new=1${tool ? `&tool=${encodeURIComponent(tool)}` : ''}`;
+// v1.7.2: add a connector in place, without leaving the builder. A new one is linked to the step it was started from.
+const connForm = ref<{ tool?: string; nodeId?: string } | null>(null);
+function onConnSaved(c: Connector) {
+  connectors.value = [...connectors.value.filter((x) => x.id !== c.id), c];
+  const n = connForm.value?.nodeId ? graph.value.nodes.find((x) => x.id === connForm.value!.nodeId) : null;
+  if (n) { snap(); n.config.connectorId = c.id; if (!n.config.tool && c.tool) n.config.tool = c.tool; }
+  connForm.value = null;
+}
+// The client's tools (Settings > Connected tools) come first in the tool list.
+const myTools = computed(() => BUSINESS_TOOLS.filter((t) => app.engagement?.clientTools?.includes(t.id)));
 function pickTool(n: WfNode, id: string) {
   n.config.tool = id || undefined;
   if (!id) { n.config.toolDetail = undefined; n.config.connectorId = undefined; }
@@ -369,7 +379,7 @@ const STATUS: Record<string, [string, string]> = { draft: ['Draft', 'amber'], pu
           <div class="spread"><span class="row" style="gap: 8px"><i class="tool-mono lg" :style="{ background: u.tool.color }">{{ u.tool.mono }}</i><strong>{{ u.tool.name }}</strong></span><span class="small faint">{{ u.steps.length }} step{{ u.steps.length === 1 ? '' : 's' }}</span></div>
           <div class="small"><button v-for="s in u.steps" :key="s.id" class="linklike" style="margin-right: 8px" @click="focusNode(s.id)">{{ s.label }}</button></div>
           <div v-if="u.linked.length" class="small"><span v-for="c in u.linked" :key="c.id" class="row" style="gap: 6px"><i class="conn-dot" :class="connState(c)" />Read by {{ c.key }} {{ c.name }} · {{ c.lastStatus === 'never' ? 'not pulled yet' : c.lastMessage }}</span></div>
-          <div v-else-if="u.tool.read" class="small faint">Not read by ARGUS yet. <a v-if="app.can('manage_engagement')" :href="setupLink(u.tool.id)" target="_blank" rel="noopener">Set up a connector</a></div>
+          <div v-else-if="u.tool.read" class="small faint">Not read by ARGUS yet. <button v-if="app.can('manage_engagement') && canEdit" class="linklike" @click="connForm = { tool: u.tool.id, nodeId: u.steps[0]?.id }">Add a connector</button></div>
           <div v-else class="small faint">Mapped only: ARGUS doesn't read {{ u.tool.name }}.</div>
         </div>
       </template>
@@ -402,6 +412,7 @@ const STATUS: Record<string, [string, string]> = { draft: ['Draft', 'amber'], pu
           <label class="field"><span>Happens in</span>
             <select class="select" :value="selNode.config.tool ?? ''" :disabled="!canEdit" @change="pickTool(selNode, ($event.target as HTMLSelectElement).value)">
               <option value="">ARGUS, or not set</option>
+              <optgroup v-if="myTools.length" label="This client's tools"><option v-for="t in myTools" :key="'m' + t.id" :value="t.id">{{ t.name }}</option></optgroup>
               <optgroup v-for="g in TOOL_GROUPS" :key="g" :label="g"><option v-for="t in BUSINESS_TOOLS.filter((x) => x.group === g)" :key="t.id" :value="t.id">{{ t.name }}</option></optgroup>
             </select>
           </label>
@@ -413,7 +424,7 @@ const STATUS: Record<string, [string, string]> = { draft: ['Draft', 'amber'], pu
                 <option v-for="c in connectorsFor(selNode.config.tool)" :key="c.id" :value="c.id">{{ c.key }} {{ c.name }}{{ c.tool && c.tool !== selNode.config.tool ? ` (${toolById(c.tool)?.name ?? c.tool})` : '' }}</option>
               </select>
               <span v-if="conn(selNode.config.connectorId)" class="hint">{{ conn(selNode.config.connectorId)!.lastStatus === 'never' ? 'Not pulled yet' : `Last pull ${ago(conn(selNode.config.connectorId)!.lastPullAt!)}: ${conn(selNode.config.connectorId)!.lastMessage}` }}</span>
-              <a v-else-if="app.can('manage_engagement')" class="hint" :href="setupLink(selNode.config.tool)" target="_blank" rel="noopener">Set up a read-only connector for {{ toolById(selNode.config.tool)!.name }} (opens in a new tab)</a>
+              <button v-else-if="app.can('manage_engagement')" type="button" class="btn sm" style="align-self: flex-start" :disabled="!canEdit" @click="connForm = { tool: selNode.config.tool, nodeId: selNode.id }"><Icon name="plus" :size="13" />Add a read-only connector for {{ toolById(selNode.config.tool)!.name }}</button>
             </label>
             <p v-else class="hint">ARGUS maps this step but doesn't read {{ toolById(selNode.config.tool)!.name }}.</p>
           </template>
@@ -451,5 +462,6 @@ const STATUS: Record<string, [string, string]> = { draft: ['Draft', 'amber'], pu
         <p v-if="wf" class="small faint">Changed {{ ago(wf.updatedAt) }} by {{ wf.updatedBy }}{{ wf.publishedAt ? `. Published ${ago(wf.publishedAt)} by ${wf.publishedBy}` : '' }}. Every save and publish is in the audit log.</p>
       </template>
     </aside>
+    <ConnectorForm v-if="connForm" :tool="connForm.tool" @saved="onConnSaved" @close="connForm = null" />
   </div>
 </template>

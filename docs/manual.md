@@ -1,12 +1,24 @@
 # ARGUS: User Manual
 
-Version 1.7.1 · November 2026
+Version 1.2.4 · November 2026 · for ARGUS 1.7.1
 
 This manual explains ARGUS, the Assurance, Risk & Governance Unified System: what it is for, how to use the live site, and how a piece of work flows through it from the first request to the board report. It is written for assurance, risk and governance professionals, not for developers. Screenshots use the fictional demo engagement (Northshore Financial Group) on the live site, so you can follow along as you read (section 4).
 
 ---
 
 # Part 1. Introduction
+
+## What's new in this edition
+
+This edition (1.2.4) follows edition 1.2.3 and covers ARGUS 1.4.1 to 1.7.1. Every screenshot has been retaken. The main changes:
+
+- **The dashboard look.** Each working page opens with a row of tiles showing the numbers that matter there (section 5.1). Tabs and switches are pill-shaped.
+- **Agents that reason.** Agents look things up before they draft, check their own draft, and can ask you a question; the use case then shows **Question for You** (sections 28.1 to 28.3).
+- **A smarter Use Case Planner.** It knows the client, the board and the Knowledge Base, suggests use cases when asked, and won't file a test message as an answer (section 11).
+- **The assistant works in the open.** You see its steps while it works, its answers link to the pages and records they mention, you can tag a record with @, and you can rate an answer (section 30).
+- **Better search and a Retrieval check.** Uploaded documents are split at their headings, and **Checking the AI > Retrieval** scores how well the Knowledge Base finds the right passage (sections 29 and 31.4).
+- **Client workflows.** Draw the client's own process around ARGUS's governance gates, place each step in the client's business tools (Microsoft 365, ServiceNow, Jira, Google Workspace, Slack and others), and let ARGUS read those tools through read-only connectors (section 34).
+- **Errors that say what to do.** When a model provider refuses a key, doesn't know a model or is out of quota, the message says how to fix it.
 
 ## 1. What ARGUS is
 

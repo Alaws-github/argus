@@ -5,6 +5,7 @@
 // The same checks run in the browser (as you draw) and on the server (before
 // anything is saved as published), so the rules can't be bypassed.
 import { z } from 'zod';
+import { toolById } from './tools-catalog.js';
 
 export const WF_NODE_TYPES = ['start', 'gate', 'agent', 'person', 'task', 'condition', 'notify', 'end'] as const;
 export type WfNodeType = (typeof WF_NODE_TYPES)[number];
@@ -43,6 +44,10 @@ export const WfNode = z.object({
     question: z.string().max(160).optional(),   // condition: the question asked
     stage: z.string().max(20).optional(),       // gate: the ARGUS stage
     note: z.string().max(400).optional(),
+    // v1.7.1: the business tool this step happens in (BUSINESS_TOOLS id), where in it, and a read-only connector that reads it.
+    tool: z.string().max(40).optional(),
+    toolDetail: z.string().max(120).optional(),
+    connectorId: z.string().uuid().nullable().optional(),
   }).default({}),
 });
 export type WfNode = z.infer<typeof WfNode>;
@@ -74,11 +79,19 @@ export interface Workflow {
 }
 export interface WorkflowVersion { version: number; name: string; publishedBy: string; publishedAt: string; note: string; nodes: number }
 
-export const NewWorkflow = z.object({ name: z.string().trim().min(2).max(80), description: z.string().trim().max(400).default(''), template: z.enum(['standard', 'minimal']).default('standard') });
+export const WF_TEMPLATES = ['standard', 'm365', 'servicenow', 'google', 'minimal'] as const;
+export const WF_TEMPLATE_INFO: Record<(typeof WF_TEMPLATES)[number], { label: string; hint: string }> = {
+  standard: { label: 'Standard', hint: 'The five gates with agent drafts, reviewer approvals, a high-risk check and sign-off' },
+  m365: { label: 'Microsoft 365', hint: 'The standard workflow with steps in SharePoint, Teams, Excel, Power Automate and Outlook' },
+  servicenow: { label: 'ServiceNow and Jira', hint: 'Requests and change approvals in ServiceNow, testing tracked in Jira, policies in Confluence' },
+  google: { label: 'Google Workspace and Slack', hint: 'Evidence in Google Drive, the risk register in Google Sheets, approvals and notices in Slack' },
+  minimal: { label: 'Gates only', hint: 'Just the five governance gates in a line, to build around' },
+};
+export const NewWorkflow = z.object({ name: z.string().trim().min(2).max(80), description: z.string().trim().max(400).default(''), template: z.enum(WF_TEMPLATES).default('standard') });
 export const SaveWorkflow = z.object({ name: z.string().trim().min(2).max(80).optional(), description: z.string().trim().max(400).optional(), graph: WfGraph.optional() });
 
 /** A starting workflow: the governance spine, with the usual agent and person steps around it. */
-export function workflowTemplate(kind: 'standard' | 'minimal' = 'standard'): WfGraph {
+export function workflowTemplate(kind: (typeof WF_TEMPLATES)[number] = 'standard'): WfGraph {
   const n = (id: string, type: WfNodeType, label: string, x: number, y: number, config: WfNode['config'] = {}): WfNode => ({ id, type, label, x, y, config });
   const g = (i: number, x: number, y: number) => n(WF_GATES[i].id, 'gate', WF_GATES[i].label, x, y, { stage: WF_GATES[i].stage });
   if (kind === 'minimal') {
@@ -106,6 +119,14 @@ export function workflowTemplate(kind: 'standard' | 'minimal' = 'standard'): WfG
     n('end', 'end', 'Live under governance', 560, 560),
   ];
   const e = (id: string, from: string, to: string, label?: string, rework?: boolean): WfEdge => ({ id, from, to, ...(label ? { label } : {}), ...(rework ? { rework } : {}) });
+  // Tool-flavoured templates: the same steps, each placed in the client's tools.
+  const TOOLS: Record<string, Record<string, [string, string]>> = {
+    m365: { start: ['sharepoint', 'AI request list'], 't-dpia': ['sharepoint', 'Impact assessments library'], 'p-classify': ['power_automate', 'Approval flow'], 'p-design': ['power_automate', 'Approval flow'], 't-test': ['excel', 'Control testing workbook'], 'p-signoff': ['teams', 'Model Risk channel'], notify: ['outlook', 'Committee mailbox'] },
+    servicenow: { start: ['servicenow', 'AI intake request'], 'p-classify': ['servicenow', 'Risk approval'], 't-dpia': ['confluence', 'Impact assessment page'], 'p-design': ['servicenow', 'Change approval (CAB)'], 't-test': ['jira', 'GRC testing project'], 'p-signoff': ['servicenow', 'Sign-off task'], notify: ['jira', 'Release ticket'] },
+    google: { start: ['google_sheets', 'AI intake form responses'], 't-dpia': ['google_drive', 'Impact assessments folder'], 'p-classify': ['slack', '#ai-governance approval'], 't-test': ['google_sheets', 'Control testing sheet'], 'p-signoff': ['slack', '#model-risk sign-off'], notify: ['slack', '#announcements'] },
+  };
+  const map = TOOLS[kind];
+  if (map) for (const nd of nodes) if (map[nd.id]) nd.config = { ...nd.config, tool: map[nd.id][0], toolDetail: map[nd.id][1] };
   return {
     nodes,
     edges: [
@@ -153,6 +174,8 @@ export function validateWorkflow(g: WfGraph): { problems: string[]; nodeProblems
     if (n.type !== 'end' && !outs) flag(n.id, `"${n.label}" has no arrow going out`);
     if (n.type === 'person' && !n.config.role?.trim()) flag(n.id, `"${n.label}": say which role decides`);
     if (n.type === 'agent' && !n.config.agent) flag(n.id, `"${n.label}": pick which agent drafts`);
+    if (n.config.tool && !toolById(n.config.tool)) flag(n.id, `"${n.label}": the tool it names isn't in the list`);
+    if (n.config.connectorId && !n.config.tool) flag(n.id, `"${n.label}": pick the tool its connector reads`);
     if (n.type === 'condition') {
       const ways = g.edges.filter((e) => e.from === n.id);
       if (ways.length < 2) flag(n.id, `"${n.label}" needs at least two ways out`);

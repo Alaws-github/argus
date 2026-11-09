@@ -5,7 +5,7 @@ import { ConnectorInput } from '@gh/shared';
 import type { Db } from './db.js';
 import { logAudit } from './audit.js';
 import { encrypt } from './crypto.js';
-import { CONNECTOR_SELECT, pull, toConnector } from './connectors.js';
+import { CONNECTOR_SELECT, parseToolSecret, pull, toConnector } from './connectors.js';
 
 type Wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => void;
 const httpError = (status: number, message: string) => Object.assign(new Error(message), { status });
@@ -21,14 +21,15 @@ export function connectorRoutes(r: Router, db: Db, actorOf: (req: Request) => st
     const b = ConnectorInput.parse(req.body);
     if (b.auth !== 'none' && !b.secret) throw httpError(400, 'Add the token, key or user:password for this connector');
     if (b.auth === 'header' && !b.headerName) throw httpError(400, 'Name the header the key goes in, for example x-api-key');
+    if ((b.auth === 'azure_ad' || b.auth === 'google_sa') && b.secret) { const bad = parseToolSecret(b.auth, b.secret); if (bad) throw httpError(400, bad); }
     const row = await db.tx(async (q) => {
       const { rows } = await q.query(
-        `INSERT INTO connectors (engagement_id, name, url, auth, header_name, secret_enc, control_id, schedule, enabled, next_pull_at, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-        [req.params.id, b.name, b.url, b.auth, b.headerName, b.secret ? encrypt(b.secret) : null, b.controlId, b.schedule, b.enabled, firstPull(b.schedule), actorOf(req)],
+        `INSERT INTO connectors (engagement_id, name, url, auth, header_name, secret_enc, control_id, schedule, enabled, next_pull_at, created_by, tool)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        [req.params.id, b.name, b.url, b.auth, b.headerName, b.secret ? encrypt(b.secret) : null, b.controlId, b.schedule, b.enabled, firstPull(b.schedule), actorOf(req), b.tool],
       );
       // The secret never goes in the audit log.
-      await logAudit(q, actorOf(req), 'connector.added', `connector:CN-${rows[0].number}`, { name: b.name, url: b.url, auth: b.auth, schedule: b.schedule });
+      await logAudit(q, actorOf(req), 'connector.added', `connector:CN-${rows[0].number}`, { name: b.name, url: b.url, auth: b.auth, schedule: b.schedule, tool: b.tool || null });
       return rows[0];
     });
     const { rows } = await db.query(`${CONNECTOR_SELECT} WHERE n.id = $1`, [row.id]);
@@ -37,12 +38,13 @@ export function connectorRoutes(r: Router, db: Db, actorOf: (req: Request) => st
 
   r.patch('/connectors/:id', wrap(async (req, res) => {
     const b = ConnectorInput.partial().parse(req.body);
+    if ((b.auth === 'azure_ad' || b.auth === 'google_sa') && b.secret) { const bad = parseToolSecret(b.auth, b.secret); if (bad) throw httpError(400, bad); }
     await db.tx(async (q) => {
       const { rows } = await q.query(`SELECT * FROM connectors WHERE id = $1`, [req.params.id]);
       const c = rows[0];
       if (!c) throw httpError(404, 'Connector not found');
       const set: Record<string, unknown> = {};
-      for (const [k, col] of [['name', 'name'], ['url', 'url'], ['auth', 'auth'], ['headerName', 'header_name'], ['controlId', 'control_id'], ['schedule', 'schedule'], ['enabled', 'enabled']] as const) {
+      for (const [k, col] of [['name', 'name'], ['url', 'url'], ['auth', 'auth'], ['headerName', 'header_name'], ['controlId', 'control_id'], ['schedule', 'schedule'], ['enabled', 'enabled'], ['tool', 'tool']] as const) {
         if ((b as any)[k] !== undefined && (b as any)[k] !== c[col]) set[col] = (b as any)[k];
       }
       if (b.secret) set.secret_enc = encrypt(b.secret);

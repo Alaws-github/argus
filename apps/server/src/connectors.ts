@@ -11,7 +11,8 @@ import { lookup } from 'node:dns/promises';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { isIP } from 'node:net';
 import { resolve } from 'node:path';
-import type { Connector } from '@gh/shared';
+import { toolById, type Connector } from '@gh/shared';
+import { SignJWT, importPKCS8 } from 'jose';
 import { DATA_DIR, type Db } from './db.js';
 import { logAudit } from './audit.js';
 import { decrypt } from './crypto.js';
@@ -26,7 +27,7 @@ const iso = (v: any) => (v instanceof Date ? v.toISOString() : v ? String(v) : n
 
 export const CONNECTOR_SELECT = `SELECT n.*, c.number AS control_number FROM connectors n LEFT JOIN controls c ON c.id = n.control_id`;
 export const toConnector = (r: any): Connector => ({
-  id: r.id, key: `CN-${r.number}`, name: r.name, url: r.url, auth: r.auth, headerName: r.header_name, secretSet: !!r.secret_enc,
+  id: r.id, key: `CN-${r.number}`, name: r.name, url: r.url, auth: r.auth, tool: r.tool ?? '', headerName: r.header_name, secretSet: !!r.secret_enc,
   controlId: r.control_id, controlKey: r.control_number ? `C-${r.control_number}` : null, schedule: r.schedule, enabled: r.enabled,
   nextPullAt: iso(r.next_pull_at), lastPullAt: iso(r.last_pull_at), lastStatus: r.last_status, lastMessage: r.last_message, pulls: r.pulls, createdBy: r.created_by,
 });
@@ -52,9 +53,54 @@ async function checkAddress(url: URL, allowPrivate: boolean) {
   }
 }
 
-function authHeaders(r: any): Record<string, string> {
+// v1.7.1: sign-in for business tools. Microsoft 365 (Entra app, client
+// credentials) and Google (service account) give a short-lived token from
+// their identity service; the token request is the only POST a connector
+// makes, and it goes to the identity service, never to the client's data.
+// The token endpoints can be pointed elsewhere for tests (ARGUS_MS_TOKEN_URL,
+// ARGUS_GOOGLE_TOKEN_URL).
+const tokens = new Map<string, { token: string; until: number }>();
+export function parseToolSecret(auth: string, secret: string): string | null {
+  try {
+    const j = JSON.parse(secret);
+    if (auth === 'azure_ad') return j.tenantId && j.clientId && j.clientSecret ? null : 'Enter the tenant ID, client ID and client secret';
+    if (auth === 'google_sa') return j.client_email && j.private_key ? null : 'Paste the whole service account JSON key (it has client_email and private_key)';
+  } catch {
+    return auth === 'google_sa' ? 'Paste the whole service account JSON key' : 'Enter the tenant ID, client ID and client secret';
+  }
+  return null;
+}
+async function tokenFor(r: any, secret: string): Promise<string> {
+  const scope = toolById(r.tool)?.read?.scope ?? (r.auth === 'azure_ad' ? 'https://graph.microsoft.com/.default' : 'https://www.googleapis.com/auth/drive.readonly');
+  const cacheKey = `${r.id}:${scope}:${createHash('sha256').update(secret).digest('hex').slice(0, 12)}`;
+  const hit = tokens.get(cacheKey);
+  if (hit && hit.until > Date.now() + 60_000) return hit.token;
+  const j = JSON.parse(secret);
+  let res: Response;
+  if (r.auth === 'azure_ad') {
+    const url = (process.env.ARGUS_MS_TOKEN_URL ?? 'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token').replace('{tenant}', encodeURIComponent(j.tenantId));
+    res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, signal: AbortSignal.timeout(20_000),
+      body: new URLSearchParams({ grant_type: 'client_credentials', client_id: j.clientId, client_secret: j.clientSecret, scope }) });
+  } else {
+    const aud = process.env.ARGUS_GOOGLE_TOKEN_URL ?? 'https://oauth2.googleapis.com/token';
+    const key = await importPKCS8(String(j.private_key), 'RS256');
+    const assertion = await new SignJWT({ scope }).setProtectedHeader({ alg: 'RS256', typ: 'JWT' }).setIssuer(j.client_email).setAudience(aud).setIssuedAt().setExpirationTime('1h').sign(key);
+    res = await fetch(aud, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, signal: AbortSignal.timeout(20_000),
+      body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion }) });
+  }
+  const body: any = await res.json().catch(() => ({}));
+  if (!res.ok || !body.access_token) {
+    const who = r.auth === 'azure_ad' ? 'Microsoft' : 'Google';
+    throw new Error(`${who} refused the sign-in (${res.status}): ${String(body.error_description ?? body.error ?? 'no detail').slice(0, 160)}. Check the details and that an admin granted the read permissions.`);
+  }
+  tokens.set(cacheKey, { token: body.access_token, until: Date.now() + Number(body.expires_in ?? 3600) * 1000 });
+  return body.access_token;
+}
+
+async function authHeaders(r: any): Promise<Record<string, string>> {
   if (r.auth === 'none' || !r.secret_enc) return {};
   const secret = decrypt(r.secret_enc);
+  if (r.auth === 'azure_ad' || r.auth === 'google_sa') return { authorization: `Bearer ${await tokenFor(r, secret)}` };
   if (r.auth === 'bearer') return { authorization: `Bearer ${secret}` };
   if (r.auth === 'basic') return { authorization: `Basic ${Buffer.from(secret).toString('base64')}` };
   return { [r.header_name || 'x-api-key']: secret };
@@ -70,7 +116,10 @@ async function fetchChecked(start: string, headers: Record<string, string>, allo
     await checkAddress(url, allowPrivate);
     const res = await fetch(url, { method: 'GET', headers: { accept: '*/*', 'user-agent': 'ARGUS-EvidenceConnector', ...headers }, redirect: 'manual', signal: AbortSignal.timeout(30_000) });
     if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
-      url = new URL(res.headers.get('location')!, url);
+      const next = new URL(res.headers.get('location')!, url);
+      // A redirect to another site (Microsoft 365 sends file downloads to a signed link) never carries the credential.
+      if (next.origin !== url.origin) headers = {};
+      url = next;
       continue;
     }
     if (!res.ok) throw new Error(`${res.status} ${res.statusText} from ${url.hostname}`);
@@ -91,7 +140,7 @@ export async function pull(db: Db, connectorId: string, actor: string): Promise<
   const allowPrivate = (await getSettings(db)).connectorsAllowPrivate;
   const key = `CN-${r.number}`;
   try {
-    const got = await fetchChecked(r.url, authHeaders(r), allowPrivate);
+    const got = await fetchChecked(r.url, await authHeaders(r), allowPrivate);
     const hash = createHash('sha256').update(got.buf).digest('hex');
     if (hash === r.last_sha256) {
       await db.tx(async (q) => {

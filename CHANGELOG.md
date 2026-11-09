@@ -2,6 +2,20 @@
 
 What changed in each release of ARGUS, newest first. The version shown under Sign Out comes from package.json. Start a new release with `npm run release -- X.Y.Z`.
 
+## v1.7.1 (2026-11-09)
+
+Client workflows in the client's own business tools.
+
+- **Each workflow step can say which tool it happens in**: Microsoft 365 (SharePoint, OneDrive, Teams, Outlook, Excel, Planner, Power Automate, Power BI), ServiceNow, Jira, Confluence, Google Drive, Google Sheets, Gmail, Slack, a GRC platform, Tableau, DocuSign, or another tool, and where in it ("Model Risk channel", "Control testing workbook"). Steps show the tool on the canvas.
+- **ARGUS can read those tools, never change them.** A step can link to a read-only connector that pulls the document, spreadsheet, ticket list or message history in as fingerprinted evidence. Tools ARGUS doesn't read (Power Automate, Gmail, Tableau) are mapped only.
+- **Business tools panel** (new icon in the builder rail): each tool the workflow uses, its steps, and whether a connector reads it and how the last pull went, with a link to set one up.
+- **New templates**: Microsoft 365, ServiceNow and Jira, Google Workspace and Slack. Each is the standard workflow with its steps placed in those tools.
+- **Connectors know the tools.** Pick a tool and ARGUS fills in its usual read address and sign-in and says what to set up on the client's side. New sign-ins: a Microsoft Entra app (tenant, client ID, client secret) for Microsoft 365 and Power BI, and a Google service account key for Drive and Sheets. ARGUS gets a short-lived token from Microsoft or Google; that token request is the only POST a connector makes, and it goes to the identity service, not the client's data.
+- A connector following a redirect to another site (Microsoft 365 file downloads) no longer passes the credential on.
+- A step naming a tool that isn't in the list, or a connector that has since been removed, blocks a publish.
+- New checks in `npm run test:v17` (41 in all), with a mock Microsoft and Google sign-in.
+
+
 ## v1.7.0 (2026-11-09)
 
 The dashboard look, client workflows, and an assistant that works in the open. The last two-part version: releases from here are 1.7.1, 1.7.2 and so on.

@@ -91,6 +91,13 @@ export function workflowRoutes(r: Router, db: Db, actorOf: (req: Request) => str
     const b = z.object({ note: z.string().trim().max(300).default('') }).parse(req.body ?? {});
     const w = await load(req.params.wid);
     const check = validateWorkflow(w.graph);
+    // A step's connector must be one of this engagement's connectors (it reads; it never writes).
+    const linked = [...new Set((w.graph as WfGraph).nodes.map((n) => n.config.connectorId).filter(Boolean))] as string[];
+    if (linked.length) {
+      const { rows: ok } = await db.query(`SELECT id FROM connectors WHERE engagement_id = $1 AND id = ANY($2)`, [w.engagement_id, linked]);
+      const okIds = new Set(ok.map((x: any) => x.id));
+      for (const n of (w.graph as WfGraph).nodes) if (n.config.connectorId && !okIds.has(n.config.connectorId)) check.problems.push(`"${n.label}" links to a connector that no longer exists. Pick another or remove the link`);
+    }
     if (check.problems.length) throw httpError(409, `Fix ${check.problems.length} problem${check.problems.length === 1 ? '' : 's'} before publishing: ${check.problems.slice(0, 3).join('; ')}`, { problems: check.problems });
     if (w.status === 'published' && !w.changed_since_publish) throw httpError(409, 'Nothing has changed since the last publish');
     const actor = actorOf(req);

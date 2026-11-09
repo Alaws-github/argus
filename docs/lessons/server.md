@@ -97,3 +97,11 @@ In client workflows the five governance gates and the trigger can be moved but n
 ### show-provider-errors-people-can-act-on `bug`
 A provider error reaching a person goes through `friendlyError` (`llm.ts`): what went wrong, what to do and where, with the provider's own words kept short at the end. A 5xx the route wants shown carries `expose: true`; any other 5xx is still hidden as "Something went wrong". ARGUS's own refusals (spend cap, not found) keep their status. **Why:** the general error handler hid a refused key behind "Something went wrong on the server".
 **Enforced by:** test scripts/v17-test.mjs (mock-401), scripts/assistant-test.mjs (spend cap keeps its status)
+
+### business-tools-are-read-never-written `design`
+Client workflows name the business tools each step happens in, and ARGUS reads those tools only through connectors (GET, plus a token request to Microsoft or Google's identity service). Never add a connector or workflow action that creates, changes or sends anything in a client's tool without raising it with the owner: it changes CLAUDE.md rule 17. **Why:** the owner chose "map tools, read-only links" over two-way integration (v1.7.1).
+**Enforced by:** none - design review; connectors.ts only sends GET to data addresses
+
+### credentials-stay-on-their-site `bug`
+When a connector follows a redirect to a different origin, it drops the Authorization header. **Why:** Microsoft Graph answers a file request with a redirect to a signed download link on another host; forwarding the bearer token there would hand the client's Microsoft 365 token to that host.
+**Enforced by:** test scripts/v17-test.mjs (the mock download site refuses a request with a credential)

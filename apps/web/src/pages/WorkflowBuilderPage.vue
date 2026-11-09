@@ -7,7 +7,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import {
-  AGENT_ROLES, WF_LOCKED, WF_NODE_INFO, validateWorkflow,
+  AGENT_ROLES, BUSINESS_TOOLS, TOOL_GROUPS, WF_LOCKED, WF_NODE_INFO, toolById, validateWorkflow, type Connector,
   type WfEdge, type WfGraph, type WfNode, type WfNodeType, type Workflow, type WorkflowVersion,
 } from '@gh/shared';
 import { api, ago } from '../api';
@@ -26,7 +26,9 @@ const saved = ref('');
 const name = ref('');
 const description = ref('');
 const sel = ref<{ kind: 'node' | 'edge'; id: string } | null>(null);
-const panel = ref<'inspect' | 'versions'>('inspect');
+const panel = ref<'inspect' | 'versions' | 'tools'>('inspect');
+// v1.7.1: the engagement's read-only connectors, which a step in a business tool can link to.
+const connectors = ref<Connector[]>([]);
 const viewing = ref<{ version: number; graph: WfGraph } | null>(null);
 const busy = ref(false);
 const canvas = ref<HTMLElement | null>(null);
@@ -58,6 +60,7 @@ async function load() {
 }
 onMounted(async () => {
   await load().catch((e) => app.toast(e.message, 'error'));
+  connectors.value = await api<Connector[]>(`/engagements/${app.engagementId}/connectors`).catch(() => []);
   await nextTick();
   fit();
   window.addEventListener('keydown', onKey);
@@ -244,6 +247,31 @@ async function retire() {
   try { await api(`/workflows/${wf.value!.id}/retire`, { method: 'POST', body: {} }); await load(); app.toast('Retired'); } catch (e: any) { app.toast(e.message, 'error'); }
 }
 
+// Which steps happen in a business tool, and the tools this workflow uses.
+const TOOL_TYPES = new Set<WfNodeType>(['start', 'person', 'task', 'notify']);
+const conn = (id?: string | null) => connectors.value.find((c) => c.id === id) ?? null;
+const connState = (c: Connector | null) => (!c ? '' : c.lastStatus === 'failed' ? 'bad' : c.lastStatus === 'never' ? 'new' : 'ok');
+const toolsUsed = computed(() => {
+  const by = new Map<string, { tool: NonNullable<ReturnType<typeof toolById>>; steps: WfNode[]; linked: Connector[] }>();
+  for (const n of shown.value.nodes) {
+    const t = toolById(n.config.tool);
+    if (!t) continue;
+    const e = by.get(t.id) ?? { tool: t, steps: [], linked: [] };
+    e.steps.push(n);
+    const c = conn(n.config.connectorId);
+    if (c && !e.linked.includes(c)) e.linked.push(c);
+    by.set(t.id, e);
+  }
+  return [...by.values()];
+});
+const connectorsFor = (tool?: string) => [...connectors.value].sort((a, b) => Number(b.tool === tool) - Number(a.tool === tool));
+const setupLink = (tool?: string) => `/testing/connectors?new=1${tool ? `&tool=${encodeURIComponent(tool)}` : ''}`;
+function pickTool(n: WfNode, id: string) {
+  n.config.tool = id || undefined;
+  if (!id) { n.config.toolDetail = undefined; n.config.connectorId = undefined; }
+  else if (n.config.connectorId && conn(n.config.connectorId)?.tool && conn(n.config.connectorId)!.tool !== id) n.config.connectorId = undefined;
+}
+
 const ADD: WfNodeType[] = ['agent', 'person', 'task', 'condition', 'notify', 'end'];
 const AGENTS = Object.entries(AGENT_ROLES).map(([id, a]) => ({ id, name: a.name }));
 const STATUS: Record<string, [string, string]> = { draft: ['Draft', 'amber'], published: ['Published', 'green'], retired: ['Retired', ''] };
@@ -261,6 +289,7 @@ const STATUS: Record<string, [string, string]> = { draft: ['Draft', 'amber'], pu
       <span class="wf-sep" />
       <button class="wf-tool" title="Fit the workflow in view" aria-label="Fit in view" @click="fit"><Icon name="grid" :size="18" /></button>
       <button class="wf-tool" :disabled="!canEdit" title="Undo (Ctrl+Z)" aria-label="Undo" @click="undo"><Icon name="undo" :size="18" /></button>
+      <button class="wf-tool" :class="{ on: panel === 'tools' }" title="Business tools in this workflow" aria-label="Business tools" @click="panel = panel === 'tools' ? 'inspect' : 'tools'; sel = null"><Icon name="models" :size="18" /></button>
       <button class="wf-tool" :class="{ on: panel === 'versions' }" title="Versions" aria-label="Versions" @click="panel = panel === 'versions' ? 'inspect' : 'versions'"><Icon name="history" :size="18" /></button>
     </nav>
 
@@ -315,6 +344,9 @@ const STATUS: Record<string, [string, string]> = { draft: ['Draft', 'amber'], pu
               <span class="wf-node-type">{{ WF_NODE_INFO[n.type].label }}<template v-if="n.type === 'person' && n.config.role"> · {{ n.config.role }}</template><template v-if="n.type === 'agent' && n.config.agent"> · {{ (AGENT_ROLES as any)[n.config.agent]?.name }}</template></span>
               <span class="wf-node-label">{{ n.label }}</span>
             </span>
+            <span v-if="toolById(n.config.tool)" class="wf-tool-chip" :title="`In ${toolById(n.config.tool)!.name}${n.config.toolDetail ? `: ${n.config.toolDetail}` : ''}${conn(n.config.connectorId) ? `. Read by ${conn(n.config.connectorId)!.key}` : ''}`">
+              <i class="tool-mono" :style="{ background: toolById(n.config.tool)!.color }">{{ toolById(n.config.tool)!.mono }}</i>{{ toolById(n.config.tool)!.name }}<i v-if="conn(n.config.connectorId)" class="conn-dot" :class="connState(conn(n.config.connectorId))" />
+            </span>
             <span v-if="problemOf(n.id)" class="wf-node-bad" :title="check.nodeProblems[n.id].join('\n')">{{ problemOf(n.id) }}</span>
             <span v-if="n.type !== 'end' && canEdit" class="wf-port" title="Drag to another step to draw an arrow" @pointerdown="downPort($event, n)" />
           </div>
@@ -329,7 +361,20 @@ const STATUS: Record<string, [string, string]> = { draft: ['Draft', 'amber'], pu
     </section>
 
     <aside class="wf-side">
-      <template v-if="panel === 'versions'">
+      <template v-if="panel === 'tools'">
+        <h2>Business tools</h2>
+        <p class="small muted">Where each step happens, and which ones ARGUS reads. Connectors only read: ARGUS never changes anything in these tools.</p>
+        <div v-if="!toolsUsed.length" class="small faint">No steps name a tool yet. Click a step and choose where it happens.</div>
+        <div v-for="u in toolsUsed" :key="u.tool.id" class="wf-version">
+          <div class="spread"><span class="row" style="gap: 8px"><i class="tool-mono lg" :style="{ background: u.tool.color }">{{ u.tool.mono }}</i><strong>{{ u.tool.name }}</strong></span><span class="small faint">{{ u.steps.length }} step{{ u.steps.length === 1 ? '' : 's' }}</span></div>
+          <div class="small"><button v-for="s in u.steps" :key="s.id" class="linklike" style="margin-right: 8px" @click="focusNode(s.id)">{{ s.label }}</button></div>
+          <div v-if="u.linked.length" class="small"><span v-for="c in u.linked" :key="c.id" class="row" style="gap: 6px"><i class="conn-dot" :class="connState(c)" />Read by {{ c.key }} {{ c.name }} · {{ c.lastStatus === 'never' ? 'not pulled yet' : c.lastMessage }}</span></div>
+          <div v-else-if="u.tool.read" class="small faint">Not read by ARGUS yet. <a v-if="app.can('manage_engagement')" :href="setupLink(u.tool.id)" target="_blank" rel="noopener">Set up a connector</a></div>
+          <div v-else class="small faint">Mapped only: ARGUS doesn't read {{ u.tool.name }}.</div>
+        </div>
+      </template>
+
+      <template v-else-if="panel === 'versions'">
         <h2>Versions</h2>
         <p class="small muted">Each publish keeps a numbered copy. View one, or make it the draft again.</p>
         <div v-if="!versions.length" class="small faint">Not published yet.</div>
@@ -353,6 +398,26 @@ const STATUS: Record<string, [string, string]> = { draft: ['Draft', 'amber'], pu
         <label v-if="selNode.type === 'person' || selNode.type === 'task' || selNode.type === 'notify'" class="field"><span>{{ selNode.type === 'notify' ? 'Who is told' : selNode.type === 'task' ? 'Who does it' : 'Which role decides' }}</span><input v-model="selNode.config.role" class="input" :disabled="!canEdit" placeholder="For example: Head of Credit Risk" /></label>
         <label v-if="selNode.type === 'condition'" class="field"><span>The question</span><input v-model="selNode.config.question" class="input" :disabled="!canEdit" placeholder="Is the risk tier high or prohibited?" /></label>
         <p v-if="selNode.type === 'gate'" class="small">ARGUS stage: <strong>{{ selNode.config.stage }}</strong>. Every path must pass this gate, in order, and a named person decides at it.</p>
+        <div v-if="TOOL_TYPES.has(selNode.type)" class="wf-toolbox">
+          <label class="field"><span>Happens in</span>
+            <select class="select" :value="selNode.config.tool ?? ''" :disabled="!canEdit" @change="pickTool(selNode, ($event.target as HTMLSelectElement).value)">
+              <option value="">ARGUS, or not set</option>
+              <optgroup v-for="g in TOOL_GROUPS" :key="g" :label="g"><option v-for="t in BUSINESS_TOOLS.filter((x) => x.group === g)" :key="t.id" :value="t.id">{{ t.name }}</option></optgroup>
+            </select>
+          </label>
+          <template v-if="toolById(selNode.config.tool)">
+            <label class="field"><span>Where in {{ toolById(selNode.config.tool)!.name }}</span><input v-model="selNode.config.toolDetail" class="input" maxlength="120" :disabled="!canEdit" placeholder="Site, list, project, queue or channel" /></label>
+            <label v-if="toolById(selNode.config.tool)!.read" class="field"><span>ARGUS reads it with</span>
+              <select v-model="selNode.config.connectorId" class="select" :disabled="!canEdit">
+                <option :value="undefined">No connector (mapped only)</option>
+                <option v-for="c in connectorsFor(selNode.config.tool)" :key="c.id" :value="c.id">{{ c.key }} {{ c.name }}{{ c.tool && c.tool !== selNode.config.tool ? ` (${toolById(c.tool)?.name ?? c.tool})` : '' }}</option>
+              </select>
+              <span v-if="conn(selNode.config.connectorId)" class="hint">{{ conn(selNode.config.connectorId)!.lastStatus === 'never' ? 'Not pulled yet' : `Last pull ${ago(conn(selNode.config.connectorId)!.lastPullAt!)}: ${conn(selNode.config.connectorId)!.lastMessage}` }}</span>
+              <a v-else-if="app.can('manage_engagement')" class="hint" :href="setupLink(selNode.config.tool)" target="_blank" rel="noopener">Set up a read-only connector for {{ toolById(selNode.config.tool)!.name }} (opens in a new tab)</a>
+            </label>
+            <p v-else class="hint">ARGUS maps this step but doesn't read {{ toolById(selNode.config.tool)!.name }}.</p>
+          </template>
+        </div>
         <label class="field"><span>Notes</span><textarea v-model="selNode.config.note" class="textarea" :disabled="!canEdit" placeholder="What happens here, in the client's words" /></label>
         <ul v-if="check.nodeProblems[selNode.id]" class="wf-problems"><li v-for="p in check.nodeProblems[selNode.id]" :key="p">{{ p }}</li></ul>
         <button v-if="canEdit && !WF_LOCKED.has(selNode.id)" class="btn sm ghost danger-text" @click="remove"><Icon name="trash" :size="14" />Remove step</button>

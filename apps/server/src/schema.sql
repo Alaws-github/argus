@@ -794,3 +794,8 @@ CREATE TABLE IF NOT EXISTS workflow_versions (
   published_at   timestamptz NOT NULL DEFAULT now(),
   UNIQUE (workflow_id, version)
 );
+
+-- v1.7.1: business tools. A connector can say which tool it reads (Microsoft 365,
+-- ServiceNow, Jira, Google, Slack...), and sign in with an Entra app or a Google
+-- service account. Still read-only.
+ALTER TABLE connectors ADD COLUMN IF NOT EXISTS tool text NOT NULL DEFAULT '';

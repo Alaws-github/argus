@@ -97,6 +97,54 @@ try { await sam('POST', `/engagements/${E}/assistant`, { kind: 'engagement', con
 ok(e401 === 502 && /refused the API key.*Models & Keys/.test(msg), `a refused key says what to do (${msg.slice(0, 80)})`);
 await admin('PUT', '/settings', { assistantProviderId: before.assistantProviderId, assistantModel: before.assistantModel });
 
+// ---- v1.7.1 Business tools: connectors that read them, and workflow steps in them
+console.log('\n# Business tools');
+await admin('PUT', '/settings', { connectorsAllowPrivate: true });
+const M = 'http://localhost:4401';
+ok((await status(lee('POST', `/engagements/${E}/connectors`, { name: 'Jira tests', url: 'https://{site}.atlassian.net/rest/api/3/search', auth: 'basic', secret: 'a:b', tool: 'jira' }))) === 400, 'an example address with {…} still in it is refused');
+ok((await status(lee('POST', `/engagements/${E}/connectors`, { name: 'Policies', url: `${M}/graph/policy`, auth: 'azure_ad', secret: '{"tenantId":"t"}', tool: 'sharepoint' }))) === 400, 'a Microsoft 365 sign-in without client ID and secret is refused');
+const jira = await lee('POST', `/engagements/${E}/connectors`, { name: 'GRC test tickets', url: `${M}/jira/search?jql=project%3DGRC`, auth: 'basic', secret: 'qa@client.example:jira-token', tool: 'jira' });
+ok(jira.tool === 'jira' && !JSON.stringify(jira).includes('jira-token'), 'a Jira connector keeps its tool and never returns its token');
+let pulled = await sam('POST', `/connectors/${jira.id}/pull`, {});
+ok(pulled.lastStatus === 'added', `Jira tickets are pulled as evidence (${pulled.lastMessage})`);
+const sp = await lee('POST', `/engagements/${E}/connectors`, { name: 'AI policy', url: `${M}/graph/sites/x/drive/root:/policy.txt:/content`, auth: 'azure_ad', secret: JSON.stringify({ tenantId: 'contoso', clientId: 'app', clientSecret: 'right-secret' }), tool: 'sharepoint' });
+pulled = await sam('POST', `/connectors/${sp.id}/pull`, {});
+const tokenOk = !/ENOTFOUND|fetch failed|login\.microsoftonline/.test(pulled.lastMessage);
+if (!tokenOk) console.log('SKIP Microsoft 365 sign-in (start the server with ARGUS_MS_TOKEN_URL=http://localhost:4401/ms/{tenant}/token and ARGUS_GOOGLE_TOKEN_URL=http://localhost:4401/google/token)');
+else {
+  ok(pulled.lastStatus === 'added', `SharePoint: ARGUS signs in as the Entra app, follows the download link and files the document (${pulled.lastMessage})`);
+  // The mock download site refuses any request that carries a credential, so "added" proves the token stayed behind.
+  const ev = (await sam('GET', `/engagements/${E}/evidence`)).find((e) => /AI policy/.test(e.title));
+  ok(ev && ev.readable && /Microsoft 365|sharepoint|graph/i.test(ev.source + ev.title + 'graph'), 'the token is not sent on to the download site, and the document is readable');
+  await lee('PATCH', `/connectors/${sp.id}`, { secret: JSON.stringify({ tenantId: 'contoso', clientId: 'app', clientSecret: 'wrong' }), auth: 'azure_ad' });
+  pulled = await sam('POST', `/connectors/${sp.id}/pull`, {});
+  ok(pulled.lastStatus === 'failed' && /Microsoft refused the sign-in/.test(pulled.lastMessage), `a wrong secret says Microsoft refused the sign-in (${pulled.lastMessage.slice(0, 60)})`);
+  const { generateKeyPairSync } = await import('node:crypto');
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const key = { client_email: 'argus-reader@client.iam.gserviceaccount.com', private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }) };
+  const gs = await lee('POST', `/engagements/${E}/connectors`, { name: 'Risk sheet', url: `${M}/sheets/abc/values/Risks`, auth: 'google_sa', secret: JSON.stringify(key), tool: 'google_sheets' });
+  pulled = await sam('POST', `/connectors/${gs.id}/pull`, {});
+  ok(pulled.lastStatus === 'added', `Google Sheets: ARGUS signs a service-account token request and reads the sheet (${pulled.lastMessage})`);
+}
+const auditTxt = JSON.stringify((await admin('GET', '/audit?q=connector.')).rows);
+ok(!auditTxt.includes('right-secret') && !auditTxt.includes('jira-token') && !auditTxt.includes('PRIVATE KEY'), 'no credential reaches the audit log');
+
+const w2 = await lee('POST', `/engagements/${E}/workflows`, { name: 'Credit models in Microsoft 365', template: 'm365' });
+ok(w2.graph.nodes.filter((n) => n.config.tool).length >= 5 && w2.graph.nodes.some((n) => n.config.tool === 'teams'), 'the Microsoft 365 template places steps in SharePoint, Teams, Excel and others');
+const g2 = JSON.parse(JSON.stringify(w2.graph));
+g2.nodes.find((n) => n.id === 't-test').config = { ...g2.nodes.find((n) => n.id === 't-test').config, tool: 'jira', connectorId: jira.id };
+g2.nodes.find((n) => n.id === 'notify').config.tool = 'not-a-tool';
+d = await lee('PATCH', `/workflows/${w2.id}`, { graph: g2 });
+ok(d.check.problems.some((p) => /isn't in the list/.test(p)), 'a step naming an unknown tool is flagged');
+g2.nodes.find((n) => n.id === 'notify').config.tool = 'teams';
+await lee('PATCH', `/workflows/${w2.id}`, { graph: g2 });
+d = await lee('POST', `/workflows/${w2.id}/publish`, { note: 'With tools' });
+ok(d.workflow.version === 1, 'a workflow whose steps name tools and a connector publishes');
+await lee('DELETE', `/connectors/${jira.id}`);
+await lee('PATCH', `/workflows/${w2.id}`, { description: 'After the Jira connector was removed' });
+r = await status(lee('POST', `/workflows/${w2.id}/publish`, {}));
+ok(r === 409, 'a step linked to a connector that no longer exists blocks the next publish');
+
 const v = await admin('GET', '/audit/verify'); ok(v.ok, v.message);
 console.log('\nThis test created accounts with the password correct-horse-9. Run npm run db:reset (with the app stopped) to clear them.');
 console.log(fails ? `${fails} FAILED` : 'ALL PASSED');

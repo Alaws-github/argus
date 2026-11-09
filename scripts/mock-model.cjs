@@ -27,6 +27,35 @@ http.createServer((req, res) => {
     if (req.url === '/v1/models') return res.end(JSON.stringify({ data: [{ id: 'mock-good' }, { id: 'mock-bad' }, { id: 'mock-notemp' }, { id: 'mock-embed' }, { id: 'mock-judge' }, { id: 'mock-judge-liar' }, { id: 'mock-assist' }, { id: 'mock-notools' }, { id: 'mock-ratelimit' }, { id: 'mock-malformed' }, { id: 'mock-truncate' }, { id: 'mock-maxtok' }, { id: 'mock-badjson' }, { id: 'mock-echo' }, { id: 'mock-agent' }, { id: 'mock-asker' }, { id: 'mock-rogue' }, { id: 'mock-looper' }, { id: 'mock-critic' }, { id: 'mock-gemini' }, { id: 'mock-401' }] }));
     if (req.url === '/__seen') return res.end(JSON.stringify(seen));
     if (req.url === '/__calls') return res.end(JSON.stringify(calls));
+    // v1.7.1 business-tool sign-in and reads (Microsoft Entra, Google, a Graph file behind a redirect).
+    if (req.url.startsWith('/ms/') && req.method === 'POST') {
+      const f = new URLSearchParams(body);
+      if (f.get('grant_type') !== 'client_credentials' || f.get('client_secret') !== 'right-secret') { res.statusCode = 401; return res.end(JSON.stringify({ error: 'invalid_client', error_description: 'AADSTS7000215: Invalid client secret provided.' })); }
+      return res.end(JSON.stringify({ access_token: 'ms-token', expires_in: 3600, scope: f.get('scope') }));
+    }
+    if (req.url === '/google/token' && req.method === 'POST') {
+      const f = new URLSearchParams(body);
+      const ok = f.get('grant_type') === 'urn:ietf:params:oauth:grant-type:jwt-bearer' && (f.get('assertion') || '').split('.').length === 3;
+      res.statusCode = ok ? 200 : 400;
+      return res.end(JSON.stringify(ok ? { access_token: 'google-token', expires_in: 3600 } : { error: 'invalid_grant' }));
+    }
+    if (req.url.startsWith('/graph/')) {
+      if (req.headers.authorization !== 'Bearer ms-token') { res.statusCode = 401; return res.end('{}'); }
+      res.statusCode = 302; res.setHeader('location', 'http://127.0.0.1:4401/download/policy.txt'); return res.end();
+    }
+    if (req.url.startsWith('/download/')) {
+      // The signed download link must not receive the Microsoft token.
+      if (req.headers.authorization) { res.statusCode = 400; return res.end('credential leaked to another site'); }
+      res.setHeader('content-type', 'text/plain'); return res.end('AI policy v3. Every credit model is approved by the Model Risk Committee.');
+    }
+    if (req.url.startsWith('/sheets/')) {
+      if (req.headers.authorization !== 'Bearer google-token') { res.statusCode = 401; return res.end('{}'); }
+      return res.end(JSON.stringify({ range: 'Risks!A1:C3', values: [['Risk', 'Owner', 'Score'], ['Biased approvals', 'Head of Credit', '20']] }));
+    }
+    if (req.url.startsWith('/jira/')) {
+      if (req.headers.authorization !== 'Basic ' + Buffer.from('qa@client.example:jira-token').toString('base64')) { res.statusCode = 401; return res.end('{}'); }
+      return res.end(JSON.stringify({ issues: [{ key: 'GRC-12', fields: { summary: 'Test human review of declines', status: { name: 'Done' } } }] }));
+    }
     const b = JSON.parse(body);
     // 'mock-slow' is mock-agent taking 1.2 s per step, so the live steps can be seen.
     if (b.model === 'mock-slow') { b.model = 'mock-agent'; return setTimeout(() => handle(b), 1200); }

@@ -4,6 +4,8 @@
 
 An AI governance, risk and assurance workbench. AI use cases move across a board from Intake to Board report. Agents draft the work at each stage; a named person approves at each gate; every action lands in a hash-chained audit trail.
 
+v1.7.1 puts client workflow steps in the client's business tools (Microsoft 365, ServiceNow, Jira, Google Workspace, Slack, a GRC platform and others) and lets ARGUS read those tools through read-only connectors, with Microsoft Entra app and Google service account sign-in. ARGUS never writes to them.
+
 v1.7 gives every working page the dashboard look (KPI tiles from `GET /engagements/:id/kpis`), adds **Client Workflows** (a builder for the client's own process around ARGUS's five governance gates, which can't be removed or skipped; versioned and audited), and makes the assistant work in the open: live steps, "Worked Ns · N steps", links to pages and records, @ to tag a record, thumbs up or down, and errors that say what to do. From here releases are 1.7.1, 1.7.2 and so on.
 
 v1.6 makes the agents reason: they look things up with read-only tools (the knowledge base, use cases, similar cases and past reviewer decisions, registers, evidence), can ask a person a question (the use case shows **Question for You** until someone answers or skips), and check their own draft before handing it in. Every step is in the run log. Each agent can be switched between Agentic and Single call. The assistant looks things up too and shows what each answer was based on. Uploaded documents are split at their headings, and Checking the AI has a Retrieval tab that scores how well the knowledge base finds the right passage. See `docs/plans/v1.6-agentic-ai.md` and CLAUDE.md rules 23 to 27.
@@ -99,7 +101,7 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run versions` | List versions; `-- use v1.1` switches (backing up data); `-- latest` returns |
 | `npm run test:v11` | v1.1 tests (65 checks): the Use Case Planner on rules and a mock model, new agents and routing, act as, provider service names, Overview activity. Fresh database |
 | `npm run test:verifier` | Verifier and agent-testing tests (36 checks): golden runs and regressions, the quote check, calibration, live checks, spend cap. Fresh database |
-| `npm run test:v17` | v1.7 tests (28 checks): client workflows and their rules, versions and audit; the KPI read; the assistant's steps, @ tags, ratings and actionable errors. Fresh database |
+| `npm run test:v17` | v1.7 and v1.7.1 tests (41 checks; set ARGUS_MS_TOKEN_URL and ARGUS_GOOGLE_TOKEN_URL to the mock for the sign-in checks): client workflows and their rules, versions and audit; the KPI read; the assistant's steps, @ tags, ratings and actionable errors. Fresh database |
 | `npm run test:v16` | v1.6 tests (34 checks): the agent loop, single-call mode, models without tool calls, the step limit, refused tools, members-only records, the self-check, questions (pause, answer, skip, audit), the assistant's look-ups, golden runs by mode. Fresh database |
 | `npm run test:rag` | Retrieval tests (8 checks): recall and MRR with keyword and meaning search, heading-aware passages with overlap, the per-document cap. Fresh database |
 | `npm run test:agents` | Drafting-agent tests (30 checks), including a mock model that tries to cheat the guardrails. Also needs a fresh database |
@@ -252,7 +254,7 @@ scripts/smoke.mjs          API smoke test
 | Runs, risks, audit | `GET /api/runs`, `GET /api/runs/:id`, `GET /api/engagements/:id/risks`, `PATCH /api/risks/:id`, `GET /api/engagements/:id/overview`, `GET /api/audit` (`q`, `actor`, `action`, `ip`, `from`, `to`, `page`, `pageSize`) |
 | Settings | `GET /api/settings`, `PUT /api/settings`, `PATCH /api/engagements/:id` |
 | Providers | `GET /api/providers`, `POST /api/providers`, `PATCH /api/providers/:id`, `DELETE /api/providers/:id`, `POST /api/providers/:id/test`, `POST /api/providers/test` |
-| Workflows | `GET/POST /api/engagements/:id/workflows` (`template`: standard or minimal), `GET/PATCH /api/workflows/:id` (a graph without the gates is refused), `POST /api/workflows/:id/publish` (`note`; 409 with problems), `GET /api/workflows/:id/versions/:v`, `POST /api/workflows/:id/restore` (`version`), `POST /api/workflows/:id/retire` |
+| Workflows | `GET/POST /api/engagements/:id/workflows` (`template`: standard or minimal), `GET/PATCH /api/workflows/:id` (a graph without the gates is refused), `POST /api/workflows/:id/publish` (`note`; 409 with problems), `GET /api/workflows/:id/versions/:v`, `POST /api/workflows/:id/restore` (`version`), `POST /api/workflows/:id/retire`. A step's `config` may name a `tool` (see `BUSINESS_TOOLS`), `toolDetail` and a `connectorId` |
 | KPIs | `GET /api/engagements/:id/kpis` (the numbers behind every page's tiles) |
 | Agents | `GET /api/engagements/:id/agents`, `PATCH /api/agents/:id` (incl. `mode` agentic or single, `maxSteps` 2 to 20, `selfCheck`, `tools`) |
 | Auth and people | `PATCH /api/auth/me`, `GET /api/auth/sessions`, `DELETE /api/auth/sessions/:id`, `POST /api/auth/sessions/end-all`, `GET /api/auth/state`, `POST /api/auth/setup`, `POST /api/auth/login`, `POST /api/auth/logout`, `POST /api/auth/password`, `GET/POST /api/users`, `PATCH /api/users/:id` |

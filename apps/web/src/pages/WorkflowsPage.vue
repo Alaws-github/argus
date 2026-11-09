@@ -3,7 +3,7 @@
 // for taking an AI use case live, drawn around ARGUS's governance gates.
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import type { Workflow } from '@gh/shared';
+import { WF_TEMPLATES, WF_TEMPLATE_INFO, toolById, type Workflow } from '@gh/shared';
 import { api, ago } from '../api';
 import { useApp } from '../stores/app';
 import Icon from '../components/Icon.vue';
@@ -13,7 +13,8 @@ const router = useRouter();
 const list = ref<(Workflow & { problems: number })[]>([]);
 const loading = ref(true);
 const adding = ref(false);
-const form = ref({ name: '', description: '', template: 'standard' as 'standard' | 'minimal' });
+const form = ref({ name: '', description: '', template: 'standard' as (typeof WF_TEMPLATES)[number] });
+const toolsOf = (w: Workflow) => [...new Set(w.graph.nodes.map((n) => n.config.tool).filter(Boolean) as string[])].map(toolById).filter((t): t is NonNullable<ReturnType<typeof toolById>> => !!t);
 const canEdit = computed(() => app.can('manage_engagement'));
 
 async function load() {
@@ -38,7 +39,7 @@ const live = computed(() => list.value.filter((w) => w.status === 'published').l
     <div class="page-head">
       <div>
         <h1>Client workflows</h1>
-        <p>Draw how the client takes an AI use case from idea to live: their own steps, who decides, where agents help. ARGUS's governance gates are built into every workflow and can't be removed or skipped.</p>
+        <p>Draw how the client takes an AI use case from idea to live: their own steps, who decides, where agents help, and which business tools each step happens in (Microsoft 365, ServiceNow, Jira, Google Workspace, Slack and others). ARGUS can read evidence and status from those tools through read-only connectors; it never changes anything in them. ARGUS's governance gates are built into every workflow and can't be removed or skipped.</p>
       </div>
       <button v-if="canEdit" class="btn primary" @click="adding = true"><Icon name="plus" :size="15" />New workflow</button>
     </div>
@@ -60,6 +61,7 @@ const live = computed(() => list.value.filter((w) => w.status === 'published').l
         <div class="spread"><span class="mono faint small">{{ w.key }}</span><span class="pill" :class="STATUS[w.status][1]"><span class="dot" />{{ STATUS[w.status][0] }}{{ w.version ? ` · v${w.version}` : '' }}</span></div>
         <h2>{{ w.name }}</h2>
         <p class="small muted">{{ w.description || 'No description' }}</p>
+        <div v-if="toolsOf(w).length" class="tool-chips"><span v-for="t in toolsOf(w)" :key="t.id"><i class="tool-mono" :style="{ background: t.color }">{{ t.mono }}</i>{{ t.name }}</span></div>
         <div class="spread small">
           <span class="faint">{{ w.graph.nodes.length }} steps · changed {{ ago(w.updatedAt) }} by {{ w.updatedBy }}</span>
           <span v-if="w.problems" class="badge warn">{{ w.problems }} to fix</span>
@@ -76,8 +78,7 @@ const live = computed(() => list.value.filter((w) => w.status === 'published').l
         <label class="field"><span>What it covers <span class="faint">optional</span></span><textarea v-model="form.description" class="textarea" placeholder="Which use cases follow it, and whose process it is" /></label>
         <div class="field">
           <span>Start from</span>
-          <label class="check-row"><input v-model="form.template" type="radio" value="standard" /><span><strong>Standard</strong><span class="muted small hint-inline">The five gates with agent drafts, reviewer approvals, a high-risk check and sign-off</span></span></label>
-          <label class="check-row"><input v-model="form.template" type="radio" value="minimal" /><span><strong>Gates only</strong><span class="muted small hint-inline">Just the five governance gates in a line, to build around</span></span></label>
+          <label v-for="t in WF_TEMPLATES" :key="t" class="check-row"><input v-model="form.template" type="radio" :value="t" /><span><strong>{{ WF_TEMPLATE_INFO[t].label }}</strong><span class="muted small hint-inline">{{ WF_TEMPLATE_INFO[t].hint }}</span></span></label>
         </div>
         <div class="row"><button class="btn primary" :disabled="form.name.trim().length < 2">Create and open</button><button type="button" class="btn" @click="adding = false">Cancel</button></div>
       </form>

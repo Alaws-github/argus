@@ -1,6 +1,6 @@
 # ARGUS: User Manual
 
-Version 1.7 · November 2026
+Version 1.7.1 · November 2026
 
 This manual explains ARGUS, the Assurance, Risk & Governance Unified System: what it is for, how to use the live site, and how a piece of work flows through it from the first request to the board report. It is written for assurance, risk and governance professionals, not for developers. Screenshots use the fictional demo engagement (Northshore Financial Group) on the live site, so you can follow along as you read (section 4).
 
@@ -804,7 +804,7 @@ Every release of ARGUS is a version in git, from v0.3 onwards. The live site alw
 
 **Settings > Client Workflows** holds the client's own processes for taking an AI use case live, drawn as steps and arrows around ARGUS's governance. Leads and admins draw them; everyone can view them.
 
-1. Click **New workflow**, name it, and start from **Standard** (the five gates with the usual agent and reviewer steps) or **Gates only**.
+1. Click **New workflow**, name it, and start from **Standard** (the five gates with the usual agent and reviewer steps), a version already placed in **Microsoft 365**, **ServiceNow and Jira** or **Google Workspace and Slack**, or **Gates only**.
 2. Add steps from the rail on the left: **Agent step** (an ARGUS agent drafts), **Person decides** (a role approves), **Client step** (for example a legal review), **Condition** (for example "Is the risk high?"), **Notify** (who should be told; ARGUS records it and doesn't send messages) and **End**.
 3. Drag a step to move it. Drag from a step's right-hand dot to another step to draw an arrow. An arrow back to an earlier step is marked **Rework** (for example "Changes requested").
 4. Click a step or arrow to name it and fill in its details on the right. Delete removes it; Ctrl+Z undoes.
@@ -817,6 +817,25 @@ The rules, which nobody can switch off:
 - Every path from the trigger to an end passes every gate, in order. A rework arrow is the only way back.
 - After an agent step, a person or a gate decides before the workflow ends.
 - Every condition has labelled ways out, and every step is connected.
+
+### 34.1 Steps in the client's business tools
+
+![A workflow with its steps in Microsoft 365 tools](images/manual/m51-workflow-tools.jpg)
+
+Most of a client's governance work already happens in their own tools: approvals in Power Automate or ServiceNow, policies in SharePoint or Confluence, testing in Excel or Jira, sign-off in Teams or Slack. For a trigger, person, client or notify step, choose **Happens in** (the tool) and **Where in** it (a site, list, project, queue or channel). The step shows the tool on the canvas.
+
+Where ARGUS can read the tool, link the step to a **connector** (**ARGUS reads it with**). The connector pulls the document, spreadsheet, ticket list or channel history in as evidence, read-only; ARGUS never changes anything in the client's tools. The **Business tools** button in the rail lists the tools the workflow uses, their steps, and whether a connector reads each one. **Set up a connector** opens the connector form with that tool picked.
+
+Setting up a connector (**Tests and Evidence > Connectors > Add connector**):
+
+![Adding a connector for SharePoint](images/manual/m52-connector-tool.jpg)
+
+1. Pick the tool. ARGUS fills in its usual address and sign-in, and says what the client's IT team needs to set up.
+2. Replace the {…} parts of the address with the real ids (a site, file, project or channel).
+3. Enter the sign-in: for Microsoft 365, the tenant ID, client ID and client secret of an app registered with read-only permissions; for Google, a service account's JSON key (share the file or folder with it); for ServiceNow, Jira and Confluence, a read-only user and API token; for Slack, a bot token with read scope.
+4. Choose the control the evidence belongs to and how often to pull it, then **Pull now** to check it works.
+
+Credentials are encrypted and never shown again or written to the audit log.
 
 Every save, publish, restore and retirement is in the audit log. A published workflow records how the client works and that it keeps ARGUS's governance; it doesn't yet move use cases on the board by itself.
 

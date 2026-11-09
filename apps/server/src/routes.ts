@@ -3,7 +3,7 @@
 // audit log. Mounts the other route files at the end.
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
-import { AGENT_ROLES, STAGES, UseCaseInput, riskRating, can, type Stage } from '@gh/shared';
+import { AGENT_ROLES, AnswerQuestion, STAGES, UseCaseInput, riskRating, can, type Stage } from '@gh/shared';
 import { configRoutes } from './routes-config.js';
 import { authRoutes } from './routes-auth.js';
 import { grcRoutes } from './routes-grc.js';
@@ -29,7 +29,7 @@ import { advance, emitCard } from './engine.js';
 import { emit } from './realtime.js';
 import {
   agentStages, getCard, getEngagement, getSettings, monthSpend,
-  toAudit, toCard, toEngagement, toEvent, toRisk, toRun, RISK_SELECT, RUN_SELECT,
+  toAudit, toCard, toEngagement, toEvent, toQuestion, toRisk, toRun, RISK_SELECT, RUN_SELECT,
 } from './store.js';
 
 // No sign-in yet: the web app sends the reviewer's name. Add real auth before
@@ -105,7 +105,34 @@ export function routes(db: Db) {
       card, runs: runs.map(toRun), risks: risks.map(toRisk), activity: audit.map(toAudit),
       controls: controls.map((c: any) => ({ id: c.id, key: `C-${c.number}`, title: c.title, status: c.status, owner: c.owner, libraryCode: c.library_code, tests: c.tests, evidence: c.evidence })),
       exitCriteria: { required: EXIT_CRITERIA[card.stage] ?? [], unmet: await exitCriteria(db, card) },
+      questions: (await db.query(`SELECT * FROM agent_questions WHERE card_id = $1 ORDER BY asked_at`, [card.id])).rows.map(toQuestion),
     });
+  }));
+
+  // An agent's question (rule 27). Anyone who can prepare work answers or skips
+  // it, under their own name; the card is queued again and the agent's next run
+  // gets every answer for this stage. The answer informs the draft; it decides nothing.
+  r.post('/cards/:id/questions/:qid/:verb(answer|skip)', wrap(async (req, res) => {
+    const verb = req.params.verb as 'answer' | 'skip';
+    const answer = verb === 'answer' ? AnswerQuestion.parse(req.body).answer : null;
+    const card = await getCard(db, req.params.id);
+    if (!card) return res.status(404).json({ error: 'Card not found' });
+    const { rows } = await db.query(`SELECT * FROM agent_questions WHERE id::text = $1 AND card_id = $2`, [req.params.qid, card.id]);
+    const qn = rows[0];
+    if (!qn) return res.status(404).json({ error: 'Question not found' });
+    if (qn.status !== 'open') return res.status(409).json({ error: 'This question was already answered or skipped' });
+    const actor = actorOf(req);
+    await db.tx(async (q) => {
+      await q.query(`UPDATE agent_questions SET status=$2, answer=$3, answered_by=$4, answered_at=now() WHERE id=$1`, [qn.id, verb === 'answer' ? 'answered' : 'skipped', answer, actor]);
+      // Back to the agent only when nothing else is open and the card is still waiting on it.
+      const { rows: open } = await q.query(`SELECT 1 FROM agent_questions WHERE card_id = $1 AND stage = $2 AND status = 'open'`, [card.id, qn.stage]);
+      if (!open.length && card.status === 'question' && card.stage === qn.stage) {
+        await q.query(`UPDATE cards SET status='queued', status_note=$2, updated_at=now() WHERE id=$1`, [card.id, qn.feedback ? `Feedback: ${qn.feedback}` : null]);
+      }
+      await logAudit(q, actor, verb === 'answer' ? 'agent.answered' : 'agent.question_skipped', `card:${card.key}`, { question: qn.question, ...(answer ? { answer } : {}), agent: qn.agent, stage: qn.stage });
+    });
+    await emitCard(db, card.id);
+    res.json({ ok: true });
   }));
 
   // A reviewer's decision on one item of an agent's draft, or "accept the rest".

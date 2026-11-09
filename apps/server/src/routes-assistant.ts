@@ -93,10 +93,10 @@ export function assistantRoutes(r: Router, db: Db, actorOf: (req: Request) => st
       }
       const ins = (role: string, text: string, extra: any = {}) =>
         q.query(
-          `INSERT INTO assistant_messages (engagement_id, user_id, conversation_id, context_kind, context_id, page, role, text, citations, passages, suggestions, dropped, model, runtime, author)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+          `INSERT INTO assistant_messages (engagement_id, user_id, conversation_id, context_kind, context_id, page, role, text, citations, passages, suggestions, dropped, model, runtime, author, basis, trail)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
           [req.params.id, req.user!.id, conv.id, b.kind, b.contextId, ctx.page?.path ?? null, role, text, JSON.stringify(extra.citations ?? []), JSON.stringify(extra.passages ?? []),
-            JSON.stringify(extra.suggestions ?? []), JSON.stringify(extra.dropped ?? []), extra.model ?? null, extra.runtime ?? null, role === 'user' ? actorOf(req) : 'Assistant'],
+            JSON.stringify(extra.suggestions ?? []), JSON.stringify(extra.dropped ?? []), extra.model ?? null, extra.runtime ?? null, role === 'user' ? actorOf(req) : 'Assistant', JSON.stringify(extra.basis ?? []), JSON.stringify(extra.trail ?? [])],
         );
       const u = (await ins('user', b.question)).rows[0];
       const a = (await ins('assistant', reply.text, reply)).rows[0];

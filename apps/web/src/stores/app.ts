@@ -67,7 +67,7 @@ export const useApp = defineStore('app', {
     mod: (s) => (m: Module) => !!s.engagements.find((e) => e.id === s.engagementId)?.modules?.[m],
     active: (s) => s.engagements.filter((e) => !e.archivedAt),
     archived: (s) => s.engagements.filter((e) => e.archivedAt),
-    needsYou: (s) => s.cards.filter((c) => c.status === 'needs_approval' || c.status === 'failed' || (c.stage === 'intake' && c.status === 'idle')),
+    needsYou: (s) => s.cards.filter((c) => c.status === 'needs_approval' || c.status === 'question' || c.status === 'failed' || (c.stage === 'intake' && c.status === 'idle')),
   },
   actions: {
     openAssistant(kind: 'card' | 'risks' | 'controls' | 'issues' | 'engagement', contextId = '', label = '') {
@@ -113,7 +113,7 @@ export const useApp = defineStore('app', {
           return;
         }
         const i = this.cards.findIndex((c) => c.id === card.id);
-        if (card.status === 'needs_approval' && this.cards[i]?.status !== 'needs_approval') this.alert(card);
+        if (['needs_approval', 'question'].includes(card.status) && this.cards[i]?.status !== card.status) this.alert(card);
         if (i >= 0) this.cards.splice(i, 1, card);
         else this.cards.push(card);
         this.slots.busy = this.cards.filter((c) => c.status === 'running').length;
@@ -168,9 +168,10 @@ export const useApp = defineStore('app', {
     },
     // A card needs a person, this tab is in the background and the person can act on it.
     alert(card: Card) {
-      if (!this.notify || !document.hidden || !this.can('approve') || !('Notification' in window) || Notification.permission !== 'granted') return;
+      const asks = card.status === 'question';
+      if (!this.notify || !document.hidden || !this.can(asks ? 'prepare' : 'approve') || !('Notification' in window) || Notification.permission !== 'granted') return;
       const eng = this.engagements.find((e) => e.id === card.engagementId)?.name ?? '';
-      const n = new Notification(`${card.key} needs your approval`, { body: `${card.title}${eng ? ` · ${eng}` : ''}`, tag: card.id });
+      const n = new Notification(asks ? `${card.key}: an agent has a question` : `${card.key} needs your approval`, { body: `${card.title}${eng ? ` · ${eng}` : ''}`, tag: card.id });
       n.onclick = () => {
         window.focus();
         location.assign(`/?card=${encodeURIComponent(card.key)}`);

@@ -8,7 +8,9 @@ import type { z } from 'zod';
 import { Classification, type Card, type RiskCategory } from '@gh/shared';
 import type { Db } from '../db.js';
 import { mergePassages, pinned, search, snapshot, sourcesBlock, strayCitations } from '../kb.js';
-import { callStructured } from '../llm.js';
+import { zodProblems } from '../llm.js';
+import { loopFor } from '../agent-loop.js';
+import { readFileSync as readRubric } from 'node:fs';
 import type { AgentContext, AgentResult, Log } from './types.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -72,6 +74,9 @@ function profileText(card: Card, feedback: string | null, about: string) {
   return lines.join('\n');
 }
 
+// What the agent checks its own draft against before handing it in (v1.6).
+const CRITIQUE = readRubric(new URL('./prompts/risk-classifier.critique.md', import.meta.url), 'utf8');
+
 export async function runRiskClassifier(ctx: AgentContext, db: Db, log: Log): Promise<AgentResult<Classification>> {
   const { card, feedback } = ctx;
   await log('step', `Read the use case profile for ${card.key}`);
@@ -80,7 +85,7 @@ export async function runRiskClassifier(ctx: AgentContext, db: Db, log: Log): Pr
   const query = `${card.title} ${u.description} ${u.dataUsed} ${u.affectedPeople} ${u.vendor} ${u.autonomy.replace(/_/g, ' ')}`;
   let passages = mergePassages(
     await pinned(db, ['M-TIERS', 'M-OVERSIGHT']),
-    await search(db as any, card.engagementId, query, { limit: 8, kinds: ['framework', 'methodology', 'client', 'control'] }),
+    await search(db as any, card.engagementId, query, { limit: 8, kinds: ['framework', 'methodology', 'client', 'upload', 'control'] }),
   );
   await log('step', `Retrieved ${passages.length} passages from the knowledge base: ${passages.map((p) => p.id).join(', ')}`);
 
@@ -102,11 +107,13 @@ export async function runRiskClassifier(ctx: AgentContext, db: Db, log: Log): Pr
       ? `${RULES}\n\n## Engagement instructions\n\nThese come from the engagement's settings. They add to the rules above and never override them.\n\n${ctx.instructions.trim()}`
       : RULES;
     await log('step', `Asked ${ctx.model} on ${ctx.provider.name} to classify against the tier and oversight rules`);
-    const res = await callStructured({
+    const res = await loopFor(ctx, db, log, passages, CRITIQUE)({
       type: ctx.provider.type, baseUrl: ctx.provider.base_url, apiKey: ctx.apiKey, model: ctx.model, effort: ctx.effort, system,
       user: `${profileText(card, feedback, ctx.engagementAbout)}\n\n${sourcesBlock(passages)}`,
       toolName: 'submit_classification', toolDescription: 'Submit the classification for the reviewer.', schema: SCHEMA, timeoutMs: ctx.timeoutMs,
-    });
+    }, zodProblems(Classification));
+    if (res.repaired.length) await log('step', `The first answer had format problems (${res.repaired.slice(0, 3).join('; ')}); the model corrected them`);
+    if (res.mode === 'agentic') await log('step', `Worked in ${res.steps} step${res.steps === 1 ? '' : 's'}`);
     const parsed = Classification.safeParse(res.input);
     if (!parsed.success) {
       throw new Error(`The classification failed validation: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`);

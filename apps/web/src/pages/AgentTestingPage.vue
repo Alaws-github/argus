@@ -26,6 +26,17 @@ const providers = ref<Provider[]>([]);
 const loading = ref(true);
 const admin = computed(() => app.canRaw('manage_models'));
 
+// Retrieval (v1.6): how well the knowledge base finds the right passage.
+interface RetrievalScore { mode: 'keyword' | 'hybrid'; recall5: number; recall10: number; mrr: number; perKind: Record<string, { recall5: number; n: number }>; misses: { query: string; expect: string[]; got: string[] }[] }
+const retrieval = ref<{ cases: number; embedModel: string | null; scores: RetrievalScore[] } | null>(null);
+const retrieving = ref(false);
+const pctOf = (x: number) => `${Math.round(x * 100)}%`;
+async function runRetrieval() {
+  retrieving.value = true;
+  try { retrieval.value = await api('/agent-testing/retrieval'); } catch (e: any) { app.toast(e.message, 'error'); } finally { retrieving.value = false; }
+}
+watch(tab, (t) => { if (t === 'retrieval' && !retrieval.value) void runRetrieval(); }, { immediate: true });
+
 async function load() {
   try {
     [data.value, providers.value] = await Promise.all([api<Data>('/agent-testing'), api<Provider[]>('/providers')]);
@@ -65,7 +76,7 @@ watch(agent, () => {
   shownRunId.value = null;
   void pickAgentDefaults();
 });
-const runForm = ref({ providerId: '', model: '', withVerifier: true });
+const runForm = ref({ providerId: '', model: '', withVerifier: true, useEngagement: false, mode: 'agentic' as 'agentic' | 'single' });
 // Default to the model this engagement's agent uses, so the test matches real work.
 async function pickAgentDefaults() {
   try {
@@ -83,7 +94,7 @@ async function pickAgentDefaults() {
 const running = computed(() => runsFor.value.some((r) => r.status === 'running'));
 async function runGolden() {
   try {
-    const { id } = await api<{ id: string }>('/agent-testing/runs', { method: 'POST', body: { agent: agent.value, ...runForm.value } });
+    const { id } = await api<{ id: string }>('/agent-testing/runs', { method: 'POST', body: { agent: agent.value, providerId: runForm.value.providerId, model: runForm.value.model, withVerifier: runForm.value.withVerifier, engagementId: runForm.value.useEngagement ? app.engagementId : null, mode: runForm.value.mode } });
     shownRunId.value = id;
     await load();
   } catch (e: any) {
@@ -210,6 +221,7 @@ const verifierName = computed(() => {
     <nav class="tabs">
       <RouterLink to="/agent-testing/golden" :class="{ active: tab === 'golden' }">Golden Dataset</RouterLink>
       <RouterLink to="/agent-testing/verifier" :class="{ active: tab === 'verifier' }">Verifier</RouterLink>
+      <RouterLink to="/agent-testing/retrieval" :class="{ active: tab === 'retrieval' }">Retrieval</RouterLink>
       <RouterLink to="/agent-testing/history" :class="{ active: tab === 'history' }">History</RouterLink>
     </nav>
     <div v-if="loading || !data" class="muted">Loading…</div>
@@ -233,14 +245,19 @@ const verifierName = computed(() => {
             <option v-for="p in enabled" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
           <select v-model="runForm.model" class="select" style="width: auto; max-width: 100%" aria-label="Model"><option v-for="m in modelsFor(runForm.providerId)" :key="m" :value="m">{{ m }}</option></select>
+          <select v-model="runForm.mode" class="select" style="width: auto" aria-label="How the agent works" title="Run both on the same model to see whether looking things up is worth its cost">
+            <option value="agentic">Agentic (tools and self-check)</option>
+            <option value="single">Single call</option>
+          </select>
           <label class="row small" style="gap: 6px"><input v-model="runForm.withVerifier" type="checkbox" /> Also ask the Verifier ({{ verifierName }})</label>
+          <label class="row small" style="gap: 6px" title="Without this, every run is the same neutral benchmark. With it, the agent also gets this engagement's description and its instructions, as it does on real work."><input v-model="runForm.useEngagement" type="checkbox" /> Run with {{ app.engagement?.client ?? 'this engagement' }}'s description and agent instructions</label>
           <button class="btn primary" :disabled="running || !runForm.model">{{ running ? 'Running…' : 'Run the golden set' }}</button>
         </div>
       </form>
 
       <template v-if="shown">
         <div class="spread" style="margin-bottom: 8px">
-          <h2>{{ shown.key }} · {{ shown.model }} <span class="small faint">({{ shown.runtime === 'live' ? 'live model' : 'offline rules' }}, rules {{ shown.rulesVersion }}, {{ ago(shown.startedAt) }} by {{ shown.startedBy }})</span></h2>
+          <h2>{{ shown.key }} · {{ shown.model }} <span class="small faint">({{ shown.runtime === 'live' ? 'live model' : 'offline rules' }}, {{ shown.mode === 'agentic' ? 'agentic' : 'single call' }}, rules {{ shown.rulesVersion }}, {{ ago(shown.startedAt) }} by {{ shown.startedBy }})</span></h2>
           <span class="badge" :class="shown.status === 'running' ? 'info' : shown.status === 'failed' ? 'danger' : 'ok'">{{ shown.status === 'running' ? `Running ${shown.results.length} of ${cases.length}` : shown.status }}</span>
         </div>
         <div v-if="shown.summary && shown.status === 'done'" class="metric-grid" style="margin-bottom: 16px">
@@ -273,6 +290,32 @@ const verifierName = computed(() => {
           </tbody>
         </table>
       </div>
+    </template>
+
+    <!-- Retrieval -->
+    <template v-else-if="tab === 'retrieval'">
+      <div class="card" style="margin-bottom: 16px; gap: 8px">
+        <div class="spread">
+          <h2>Does the knowledge base find the right passage?</h2>
+          <button class="btn sm" :disabled="retrieving" @click="runRetrieval">{{ retrieving ? 'Checking…' : 'Check again' }}</button>
+        </div>
+        <p class="small muted">{{ retrieval?.cases ?? 'A fixed set of' }} questions worded the way a person or an agent would ask them, each with the passages a good answer needs. Recall at 5 is how often a right passage is in the top five results; MRR is how high the first right one comes (1 is always first). It reads the shared passages only and changes nothing. {{ retrieval?.embedModel ? `Meaning search uses ${retrieval.embedModel}; switch the embedding model on Knowledge Base to compare.` : 'Set an embedding model on Knowledge Base to see what meaning search adds.' }}</p>
+      </div>
+      <div v-if="!retrieval" class="muted">{{ retrieving ? 'Checking…' : 'Not checked yet.' }}</div>
+      <template v-else>
+        <div v-for="s in retrieval.scores" :key="s.mode" style="margin-bottom: 18px">
+          <h3 style="margin-bottom: 8px">{{ s.mode === 'keyword' ? 'Keyword search' : 'Keyword and meaning search' }}</h3>
+          <div class="metric-grid" style="margin-bottom: 10px">
+            <div class="tile"><span class="label-caps">Recall at 5</span><span class="big">{{ pctOf(s.recall5) }}</span><span class="small faint">Right passage in the top 5</span></div>
+            <div class="tile"><span class="label-caps">Recall at 10</span><span class="big">{{ pctOf(s.recall10) }}</span><span class="small faint">Right passage in the top 10</span></div>
+            <div class="tile"><span class="label-caps">MRR</span><span class="big">{{ s.mrr.toFixed(2) }}</span><span class="small faint">1.00 means always first</span></div>
+            <div v-for="(k, kind) in s.perKind" :key="kind" class="tile"><span class="label-caps">{{ ({ framework: 'Frameworks', control: 'Controls', methodology: 'Method' } as any)[kind] ?? kind }}</span><span class="big">{{ pctOf(k.recall5) }}</span><span class="small faint">Recall at 5 over {{ k.n }} questions</span></div>
+          </div>
+          <details v-if="s.misses.length" class="small"><summary>{{ s.misses.length }} question{{ s.misses.length === 1 ? '' : 's' }} it missed</summary>
+            <ul class="plain"><li v-for="m in s.misses" :key="m.query" style="margin-top: 6px">“{{ m.query }}” <span class="faint">wanted {{ m.expect.join(' or ') }}; found {{ m.got.join(', ') || 'nothing' }}</span></li></ul>
+          </details>
+        </div>
+      </template>
     </template>
 
     <!-- Verifier -->
@@ -360,7 +403,7 @@ const verifierName = computed(() => {
             <tr v-for="r in data.runs" :key="r.id">
               <td class="mono"><RouterLink to="/agent-testing/golden" @click="agent = r.agent; shownRunId = r.id">{{ r.key }}</RouterLink></td>
               <td class="small">{{ AGENT_ROLES[r.agent].name }}</td>
-              <td class="small">{{ r.model }}<span class="faint"> · rules {{ r.rulesVersion }}</span></td>
+              <td class="small">{{ r.model }}<span class="faint"> · {{ r.mode === 'agentic' ? 'agentic' : 'single call' }} · rules {{ r.rulesVersion }}</span></td>
               <td class="num">{{ r.summary ? `${r.summary.passed}/${r.summary.cases}` : r.status }}</td>
               <td class="small" :style="{ color: r.regressions.length ? 'var(--danger)' : '' }">{{ r.regressions.join(', ') || 'None' }}</td>
               <td class="small">{{ r.startedBy }}</td>

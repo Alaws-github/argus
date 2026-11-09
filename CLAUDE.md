@@ -6,11 +6,13 @@ Context for Claude working on this project. Read this first, then:
 - [`docs/LESSONS.md`](docs/LESSONS.md): pitfalls and decisions already found. Read `docs/lessons/general.md` and the area files for what you change, and add a lesson whenever you fix a bug or the owner corrects you.
 - [`docs/context/project-history.md`](docs/context/project-history.md): who ARGUS is for, how the owner works, what was decided and why, and every version.
 
+**v1.6 built `docs/plans/v1.6-agentic-ai.md`** (agentic agents with read-only tools, follow-up questions, self-check, RAG v2); section "What v1.6 simplified" below says where it differs from the plan. **Next: v1.7**, the dashboard look on every page and a governance workflow builder; after v1.7, releases are numbered 1.7.1, 1.7.2 and so on.
+
 **Every change updates its records** (checklist in AGENTS.md): `CHANGELOG.md`, the version in `package.json` for a release, the manual and its screenshots when the UI changes, this file and `README.md`, `assistant-pages.ts` for new pages, and a lesson for every bug, correction or design decision. **UI and UX are part of the job**: check every screen change in the browser, dark mode first, at desktop and phone widths.
 
 ## What this is
 
-**ARGUS** (v1.4.1), the Assurance, Risk & Governance Unified System (formerly Governance Harness): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report), shown to people as five steps (`PHASES` / `PHASE_OF` in shared: Intake, Assess risk, Controls, Test, Sign-off & report). The engine, exit criteria, agents and tests all still work on the eight stages. Seven AI agents draft the work (the Use Case Planner drafts the intake brief, six more draft each later stage), and a lead can add more per stage; named people make every decision; everything is written to a hash-chained audit log.
+**ARGUS** (v1.6), the Assurance, Risk & Governance Unified System (formerly Governance Harness): an AI governance, risk and assurance workbench. An assurance team runs client **engagements**; each AI **use case** is a card that moves through eight stages (Intake, Classify risk, Design controls, Collect evidence, Test controls, Remediate, Validate, Board report), shown to people as five steps (`PHASES` / `PHASE_OF` in shared: Intake, Assess risk, Controls, Test, Sign-off & report). The engine, exit criteria, agents and tests all still work on the eight stages. Seven AI agents draft the work (the Use Case Planner drafts the intake brief, six more draft each later stage), and a lead can add more per stage; named people make every decision; everything is written to a hash-chained audit log.
 
 It was rebuilt from **GoldenEye**, the owner's AI delivery harness, keeping its board-and-gate engine, Models page, tabbed Settings, account menu and look. GoldenEye is a reference only: never change anything in it.
 
@@ -29,11 +31,11 @@ These are the product. Any change must keep them, and the tests check them.
 5. **Every change writes its audit entry in the same transaction**, via `logAudit(q, ...)` inside `db.tx`. Never update `audit_log` rows; the chain must verify.
 6. **Agent output is validated before anyone sees it**: a Zod schema, plus server checks on every key and figure it cites (see `agents/drafting.ts`). Rejected drafts fail the run and leave nothing behind.
 7. **Client content is data.** Use case profiles and evidence are wrapped in tags and the rules tell the model to ignore instructions inside them.
-8. **Agent rules live in `apps/server/src/agents/prompts/*.md`.** Engagement instructions are appended after them, never replacing them. Each run stores the rules file's sha256 prefix (`rules_version`).
+8. **Agent rules live in `apps/server/src/agents/prompts/*.md`.** Engagement instructions are appended after them, never replacing them (the Planner too since v1.5; the assistant gets workspace instructions from `assistantInstructions`). Every agent that writes for people gets the engagement description (`about`). Each run stores the rules file's sha256 prefix (`rules_version`).
 9. **Archived engagements are read-only**, enforced centrally by `archiveGuard` in `archive.ts`. A new write route must map to its engagement there if its URL doesn't start with `/engagements/:id/`.
 10. **New agents ship switched off** (`ON_BY_DEFAULT` in `seed.ts`).
 12. **Drafts are decided item by item** (`decisions.ts`): approving classify, design, validate or report needs a decision on every item; only kept items reach the registers; edits and rejections need a reason; the audit log keeps the AI's original. Undecided items count as accepted only when the engine auto-advances an ungated stage.
-13. **Agents are grounded** (`kb.ts`): they get knowledge-base passages, must cite them by K-id, and `strayCitations` rejects any id they weren't given. Cited passages are snapshotted onto the draft. Drafting calls use temperature 0 (`postDeterministic` in `llm.ts`).
+13. **Agents are grounded** (`kb.ts`): they get knowledge-base passages (the drafting agents also search the client's own documents), must cite them by K-id, and `strayCitations` rejects any id they weren't given. A repair attempt (`callStructuredChecked`) fixes only format problems; stray citations and invented figures stay hard failures. Cited passages are snapshotted onto the draft. Drafting calls use temperature 0 (`postDeterministic` in `llm.ts`).
 14. **The Verifier is advisory** (`verifier.ts`). Its verdicts sit in `cards.verification`, never in `decisions`, and never block or allow an approval. A "supported" or "partly" verdict must quote a cited passage word for word or it is downgraded. Live checks are off by default. Billed Verifier, golden and calibration calls go into `ai_spend`, which the spend cap counts.
 15. **The assistant only suggests** (`assistant.ts`, `routes-assistant.ts`). Conversations belong to the person who started them (404 for anyone else); each question carries the page and on-screen text, which is data like client content (`assistant-pages.ts` describes each page). Suggestion kinds are a whitelist (`AssistantSuggestion` in shared): decide_item, update_risk, update_control, raise_issue, rerun_agent. No approve, sign-off, conclude, accept-risk or close kinds, ever. Suggestions must name ids from the context it was shown (`checkSuggestion`). Apply replays the change through the API with the person's own cookie (and their client IP via `INTERNAL_TOKEN`), so RULES, SoD, exit criteria and audit apply unchanged.
 16. **Per-engagement access is enforced centrally** (`access.ts`, before `archiveGuard`): every request, reads included, is mapped to its engagement through `OWNERS` in `archive.ts`; non-members of a members-only engagement get 404. A new route whose URL doesn't start with `/engagements/:id/` must be added to `OWNERS`. Lists (`/engagements`, `/runs`, `/audit`, judge labels) filter with `visibleIds`; `emit()` in `realtime.ts` filters live updates; `logAudit` tags `audit_log.engagement_id` (outside the hash).
@@ -43,6 +45,11 @@ These are the product. Any change must keep them, and the tests check them.
 20. **More than one agent per stage** (`roleForStage`, `routeTakes`, `routeSpecificity` in shared; `pickAgent` in engine). A new agent takes its stage's built-in role (same rules version, same output checks); routing picks the most specific enabled agent; a card no agent takes goes idle with the reason. Built-in agents can't be deleted, only turned off; custom agents (`agents.custom`) can.
 21. **Act as is off by default and always recorded** (`userFromToken` in `auth.ts`, `/auth/act-as` in `routes-auth.ts`). Only a real admin, only while `allowActAs` is on, only as an active account; the acting user's role applies, never the admin's. `audit_log.real_actor` joins the hash only when present (`auditHash`), set only when the entry's actor is the person acted as. Password, name and session changes are refused while acting. Drag and drop on the board calls the same `/cards/:id/actions` (approve or advance) as the buttons.
 22. **Modules hide, they never remove** (`MODULES`, `engagements.modules`, `app.mod()` in the web store). New engagements start with every module off; engagements from before v1.2 were migrated with all on. Modules only change what the UI shows; the server routes and records are unchanged, so turning one off never loses data.
+23. **Agent tools only read** (`tools.ts`). Every tool reads; none writes, approves or sends. Each tool lists the roles that may use it, an agent's tick list (`agents.tools`, groups in `agent-loop.ts` `GROUPS`) narrows that, and a call to anything else is refused and logged. Look-ups across engagements see only open, unarchived ones (`shareable`); members-only engagements are never read from another engagement. Tool results are wrapped as data with an ignore-instructions note, like client content (rule 7).
+24. **Every step is recorded.** Each look-up, question, self-check and repair is a line in `run_events`; runs store `mode` and `steps`. The assistant's look-ups are returned as its `trail`.
+25. **Citations come from the run's ledger.** An agent may cite a passage it was given or found with `search_knowledge` in that run (the ledger), nothing else; `strayCitations` checks against the ledger. The Report Writer may quote a figure from its data or from a record it looked up (`seen`), nothing else.
+26. **Loops are bounded** (`runLoop` in `agent-loop.ts`): at most `max_steps` model steps (2 to 20; the last step forces the final tool), the run's time limit, one format repair, one self-check, two nudges. Models without tool calls and the offline rules run as one call (`mode` single).
+27. **Questions pause; they don't decide** (`ask_person`, `agent_questions`, `/cards/:id/questions/:qid/answer|skip`). A question stops the run as `waiting` and the card as `question`; anyone who can prepare answers or skips under their own name, audited; the card is queued again and the next run gets every answer for that stage. At most `MAX_QUESTIONS` (2) per card and stage. An answer is data for the draft; it never approves, concludes or moves anything. The Planner and the assistant never ask (they talk to the person already); golden runs can't.
 11. **Generic names only.** No client firm's trademarked service or product names in the app or docs. Demo data is fictional ("Northshore Financial Group (demo)", "Kestrel Bay Telecom (demo)" and so on); scenarios may be modelled on public cases, described without naming the companies involved.
 
 ## Run it
@@ -61,6 +68,9 @@ npm run test:operations # 58 checks: PDF/Excel/Word reading, incidents, monitori
 npm run test:assistant # 39 checks: assistant offline/live, conversations (new, list, search, private), page questions, workspace-default model, dropped citations and suggestions, apply under own role, discard, spend cap, JSON fallback
 npm run lessons        # rebuild the index in docs/LESSONS.md after adding a lesson
 npm run check:lessons  # lesson format and index, plus the code checks in scripts/checks/lesson-checks.mjs
+npm run test:v15       # flaky providers (429, max_tokens, truncation, malformed and broken JSON, rules fallback), Planner context, unclear input and suggestions, assistant instructions, golden runs with an engagement's context
+npm run test:v16       # 34 checks: agent loop (look-ups logged, ledger citations, single-call mode, no-tools fallback), step limit, refused tools, members-only records, self-check, questions (pause, answer, skip, viewer refused, audit), assistant trail and basis, golden runs by mode
+npm run test:rag       # 8 checks: retrieval recall@5/10 and MRR (keyword, and with meaning search), heading-aware chunks with overlap, per-document cap
 npm run test:v12       # modules per engagement; five steps still run the stage checks; upload controls (CSV/Excel preview, import, audit)
 npm run versions       # list git tags; -- use vX.Y (backs up data/), -- latest
 npm run release -- X.Y.Z # set the version (root package.json, shown under Sign Out) and start the CHANGELOG section
@@ -84,7 +94,8 @@ apps/server/src
   routes.ts       engagements, board, card actions (approve/request_changes/advance/retry/reject), runs, risks, audit
   routes-config.ts settings, providers, agents, engagement create and update
   routes-auth.ts  sign-in, sessions, your account, people, act as
-  planner.ts      Use Case Planner (offline rules and live); routes-plans.ts plans API; cards.ts createCard
+  planner.ts      Use Case Planner (offline rules and live): plannerContext (engagement, existing use cases, KB passages
+                  incl. M-INTAKE), unclear input, suggestions and picks; routes-plans.ts plans API; cards.ts createCard
   control-import.ts CSV/Excel parsing for POST /engagements/:id/controls/import (preview: true saves nothing)
   routes-grc.ts   library, SoA, controls, inventory, tests, evidence, issues, traceability, evals, assessment, report, kill switch
   archive.ts      read-only guard, archive, restore, export, delete
@@ -94,7 +105,12 @@ apps/server/src
   engine.ts       gate engine: picks queued cards, runs agents, fallback, spend cap, applies drafts, advance()
   exit-criteria.ts checks per stage
   agents/         risk-classifier, control-designer, drafting (the other four), prompts/, pricing, types
-  llm.ts          one structured-output call for Anthropic, OpenAI-compatible and Ollama; callText for evals;
+  agent-loop.ts   v1.6 agent loop: runLoop (tools, final tool, step limit, repair, self-check, QuestionPause), loopFor (engine agents)
+  tools.ts        v1.6 read-only tools for agents and the assistant (search_knowledge, get_use_case, find_similar_use_cases, registers, evidence, ask_person)
+  retrieval.ts    v1.6 retrieval checks: fixed question set, recall@5/10 and MRR (Checking the AI > Retrieval)
+  llm.ts          chatStep (one model step with tools, Anthropic/OpenAI/Ollama, v1.6); one structured-output call for Anthropic, OpenAI-compatible and Ollama; callText for evals;
+                  retries on 429/5xx (Retry-After), max_completion_tokens fallback, TruncatedError and a second try
+                  with twice the room, callStructuredChecked (one repair attempt for format problems, zodProblems);
                   the offline "rules" provider and demo-chatbot-v1
   library.ts      31 controls, 23 obligations, eval templates, the demo chatbot
   kb.ts           knowledge base: ingest, chunk, hybrid search (full text + pgvector, rank fusion), pluggable embeddings
@@ -152,8 +168,16 @@ The working copy lives in `~/Documents/Governance and Risk - AI/governance-harne
 - The connected folder doesn't allow deletes, so `tar x` must use `--overwrite`; archives go into `_to_delete/` for the owner to remove.
 - Never stage files just to read them; never stage the live `data/` folder while the app may be running.
 
+## What v1.6 simplified from its plan
+
+- A paused run is not resumed mid-conversation: answering queues the card again and the new run gets every answer (`<answers_to_your_questions>`). Simpler and survives restarts; costs one more brief.
+- The step trail lives in `run_events` (no separate `run_steps` table); runs store `mode` and `steps`.
+- `find_similar_use_cases` is SQL word overlap over cards, not a separate records index. Use cases are also indexed as kind `use_case` for search.
+- No reranker and no HNSW index yet: the vector column has no fixed dimension (it holds whatever model is set), and the volumes are small enough for a scan.
+- Card status is `question` (label "Question for You"), not `waiting_for_answer`.
+
 ## Not built yet
 
-OCR for scanned evidence; the Planner reading the knowledge base or suggesting similar existing use cases; SAML, sign-out at the provider and MFA inside the app; OAuth connectors for document stores; sign-in rate limiting; Verifier coverage of the four drafting agents; the assistant streaming answers.
+A reranker and an HNSW index for meaning search; OCR for scanned evidence; SAML, sign-out at the provider and MFA inside the app; OAuth connectors for document stores; sign-in rate limiting; Verifier coverage of the four drafting agents; the assistant streaming answers.
 
 The full manual is `docs/manual.md`, rendered to `docs/manual.pdf` by `scripts/build-manual.mjs` (Playwright). Rebuild the PDF after changing the manual or its screenshots.

@@ -20,6 +20,7 @@ const LABELS: Record<string, string> = {
   'agent.changed': 'Changed the agent', 'agent.killed': 'Stopped the agent', 'agent.kill_switch_tested': 'Tested the kill switch',
   'card.created': 'Added a use case', 'card.rejected': 'Did not take forward', 'card.moved': 'Moved on', 'gate.approved': 'Approved the gate',
   'gate.changes_requested': 'Requested changes', 'run.started': 'Started a run', 'run.succeeded': 'Run succeeded', 'run.failed': 'Run failed',
+  'agent.asked': 'An agent asked a question', 'agent.answered': 'Answered an agent\'s question', 'agent.question_skipped': 'Skipped an agent\'s question',
   'run.retried': 'Retried a run', 'run.blocked': 'Run blocked', 'controls.created_from_design': 'Created controls from the design',
   'risk.updated': 'Changed a risk', 'risk.accepted': 'Accepted a risk', 'risk.acceptance_withdrawn': 'Withdrew risk acceptance',
   'library.control_added': 'Added a library control', 'soa.decided': 'Decided applicability', 'control.added': 'Added a control',

@@ -233,6 +233,7 @@ const overrides = computed(() => {
 const draft = reactive({
   name: '', enabled: false, route: 'all', summary: '', providerId: '', model: '', effort: 'medium',
   fallback: '', instructions: '', tools: [] as string[], maxCostUsd: '1', timeoutMin: '10', concurrency: '2',
+  mode: 'agentic' as 'agentic' | 'single', maxSteps: '8', selfCheck: true,
 });
 function resetAgent() {
   const a = selected.value;
@@ -241,6 +242,7 @@ function resetAgent() {
     name: a.name, enabled: a.enabled, route: a.route, summary: a.summary, providerId: a.providerId ?? '', model: a.model,
     effort: a.effort, fallback: a.fallbackModel ? `${a.fallbackProviderId ?? a.providerId}|${a.fallbackModel}` : '',
     instructions: a.instructions, tools: [...a.tools], maxCostUsd: String(a.maxCostUsd), timeoutMin: String(a.timeoutMin), concurrency: String(a.concurrency),
+    mode: a.mode, maxSteps: String(a.maxSteps), selfCheck: a.selfCheck,
   });
 }
 watch(selectedId, resetAgent);
@@ -253,11 +255,14 @@ const modelOptions = computed(() => {
   if (draft.model && !list.includes(draft.model)) list.unshift(draft.model);
   return list;
 });
+// The offline rules come first: as a fallback they mean a failed model call
+// still leaves a cautious draft for a person, instead of a failed card.
 const fallbackOptions = computed(() =>
   providers.value
     .filter((p) => p.enabled)
-    .flatMap((p) => p.models.map((m) => ({ value: `${p.id}|${m}`, label: `${m} · ${p.name}` })))
-    .filter((o) => o.value !== `${draft.providerId}|${draft.model}`),
+    .flatMap((p) => p.models.filter((m) => m !== 'demo-chatbot-v1').map((m) => ({ value: `${p.id}|${m}`, label: p.type === 'rules' ? 'Built-in rules (offline): a cautious draft instead of a failed card' : `${m} · ${p.name}`, rules: p.type === 'rules' })))
+    .filter((o) => o.value !== `${draft.providerId}|${draft.model}`)
+    .sort((a, b) => Number(b.rules) - Number(a.rules)),
 );
 function onProviderChange() {
   const p = providerOf(draft.providerId);
@@ -272,7 +277,8 @@ const agentDirty = computed(() => {
     draft.name !== a.name || draft.enabled !== a.enabled || draft.route !== a.route || draft.summary !== a.summary ||
     draft.providerId !== (a.providerId ?? '') || draft.model !== a.model || draft.effort !== a.effort || draft.fallback !== fb ||
     draft.instructions !== a.instructions || draft.tools.join() !== a.tools.join() || Number(draft.maxCostUsd) !== a.maxCostUsd ||
-    Number(draft.timeoutMin) !== a.timeoutMin || Number(draft.concurrency) !== a.concurrency
+    Number(draft.timeoutMin) !== a.timeoutMin || Number(draft.concurrency) !== a.concurrency ||
+    draft.mode !== a.mode || Number(draft.maxSteps) !== a.maxSteps || draft.selfCheck !== a.selfCheck
   );
 });
 async function kill(test: boolean) {
@@ -301,6 +307,7 @@ async function saveAgent() {
         providerId: draft.providerId || null, model: draft.model, effort: draft.effort,
         fallbackProviderId: fbProvider, fallbackModel: fbModel, instructions: draft.instructions, tools: draft.tools,
         maxCostUsd: Number(draft.maxCostUsd), timeoutMin: Number(draft.timeoutMin), concurrency: Number(draft.concurrency),
+        mode: draft.mode, maxSteps: Number(draft.maxSteps), selfCheck: draft.selfCheck,
       },
     });
     agents.value.splice(agents.value.indexOf(a), 1, next);
@@ -531,6 +538,22 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
           <span>Instructions <span class="faint">added after the harness's own rules</span></span>
           <textarea v-model="draft.instructions" class="textarea mono" style="min-height: 120px" placeholder="What this agent should always do on this engagement. For example: cite Bank of Jamaica guidance where it applies." />
         </label>
+
+        <div class="field">
+          <span>How it works</span>
+          <div class="segmented" role="group" aria-label="How the agent works" style="align-self: flex-start">
+            <button type="button" :class="{ on: draft.mode === 'agentic' }" @click="draft.mode = 'agentic'">Agentic</button>
+            <button type="button" :class="{ on: draft.mode === 'single' }" @click="draft.mode = 'single'">Single call</button>
+          </div>
+          <span class="hint">{{ draft.mode === 'agentic'
+            ? 'It looks things up with the tools below as often as it needs, can ask a person, and checks its own draft before handing it in. Every step is in the run log.'
+            : 'One call with a fixed brief, as before v1.6. Cheaper and predictable, but it can\'t look anything up or ask.' }}</span>
+          <div v-if="draft.mode === 'agentic'" class="grid" style="grid-template-columns: repeat(2, 1fr); align-items: end">
+            <label class="field"><span class="small muted">Most steps per run (2 to 20)</span><input v-model="draft.maxSteps" class="input" inputmode="numeric" /></label>
+            <label class="check-row"><input v-model="draft.selfCheck" type="checkbox" /><span><strong>Self-check</strong><span class="muted small hint-inline">Reviews its own draft once against its rubric</span></span></label>
+          </div>
+          <span v-if="providerOf(draft.providerId)?.type === 'rules'" class="hint">The offline rules always run as one call.</span>
+        </div>
 
         <div class="field">
           <span>Tools it may use</span>

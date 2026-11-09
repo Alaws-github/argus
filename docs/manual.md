@@ -1,6 +1,6 @@
 # ARGUS: User Manual
 
-Version 1.2.3 · November 2026
+Version 1.6 · November 2026
 
 This manual explains ARGUS, the Assurance, Risk & Governance Unified System: what it is for, how to use the live site, and how a piece of work flows through it from the first request to the board report. It is written for assurance, risk and governance professionals, not for developers. Screenshots use the fictional demo engagement (Northshore Financial Group) on the live site, so you can follow along as you read (section 4).
 
@@ -205,7 +205,7 @@ Free tiers are fine for trying the harness and for demos with the fictional data
 ### 6.3 Pointing the harness at a model
 
 - **Agents**: **Settings > Engagement Settings > Agents**. For each agent, choose the provider, model, effort and an optional fallback, then **Save agent**. New engagements can start from defaults set under Workspace Settings > Models & Keys.
-- **The assistant**: Models & Keys page, **Assistant** card. If you leave it empty, the assistant uses the workspace default model.
+- **The assistant**: Models & Keys page, **Assistant** card. Leave the provider on **Workspace default** to use the default model. **Instructions** (optional) are added to the assistant's own rules for every answer: house style, the names your firm uses, what to stress. They can't switch off its safeguards.
 - **The Verifier**: **AI > Checking the AI > Verifier**. Pick a model from a different company than the drafting agents.
 - **Meaning-based search** (optional): Models & Keys page. An embedding model lets agents find passages that say the same thing in other words.
 
@@ -268,7 +268,9 @@ An engagement is either **open to everyone signed in**, or **members only**. Mem
 
 **Engagement Settings > AI Agents** lists each agent under its stage, with the stage's gate ("You Triage", "You Decide"). Select one to change it: on or off, its name, which cards it takes, its provider and model, effort, a fallback model for when the first fails or its provider is off, instructions added after the harness's own rules, the tools it may use, and its limits per run (maximum spend, timeout and how many run at once). The kill switch stops it at once.
 
-**+ New agent** adds a second agent to a stage, for example a classifier just for chatbots with instructions about prompt injection. It shows in the list as **Not saved yet** until you click **Create agent**, and **Discard** throws it away. A new agent does its stage's job (a new agent on Classify risk classifies) and starts from the stage agent's model, tools and limits; anything you change is listed as **Set here** with a **Reset** link. **Duplicate** copies an agent, switched off. **Delete agent** removes one you added; the built-in agent for a stage can only be turned off.
+**+ New agent** adds a second agent to a stage, for example a classifier just for chatbots with instructions about prompt injection. It shows in the list as **Not saved yet** until you click **Create agent**, and **Discard** throws it away. **Fallback.** If an agent's model fails (the provider is down, the key is rate-limited, the answer is unusable), its fallback takes over. **Built-in rules (offline)** is listed first: with it, a failed model still leaves a cautious draft for a person instead of a failed card. Before falling back, ARGUS already retries a busy provider a few times, asks again with more room if an answer was cut off, and gives the model one chance to correct a badly formatted answer; the run log shows each of these. It never lets a model "correct" a source it wasn't given or a figure that isn't in the records: those still fail the run.
+
+A new agent does its stage's job (a new agent on Classify risk classifies) and starts from the stage agent's model, tools and limits; anything you change is listed as **Set here** with a **Reset** link. **Duplicate** copies an agent, switched off. **Delete agent** removes one you added; the built-in agent for a stage can only be turned off.
 
 ![Adding an agent](images/manual/m12-new-agent.jpg)
 
@@ -349,6 +351,10 @@ Anyone who prepares work clicks **+** in the top bar (Add Use Case). This opens 
 ![Planning a use case with the Use Case Planner](images/manual/m17-plan.jpg)
 
 **Plan with AI** (the default). Describe the idea in a sentence or two. The **Use Case Planner** asks a few questions, one or two at a time, and fills the **Brief** on the right as you answer: name, what it does, business owner, the data it uses, who it affects, how much it acts on its own, the vendor, the kind of AI and a priority. Fields it filled carry a small **AI** tag. Change anything in the brief yourself; a field you typed is yours, and the Planner never overwrites it. When nothing required is missing, click **Add to Intake**. The card is created under your name, not the agent's, and the audit log records which fields the Planner drafted and which you typed. Drafts are kept on the left; **+ New plan** starts another.
+
+**What the Planner knows.** Besides your conversation it reads the client and the engagement description (Engagement Settings > General), the use cases already on the board, and matching passages from the Knowledge Base, including the client's own documents and ARGUS's guidance on a good brief. A lead can add instructions for it under **Engagement Settings > AI Agents > Use Case Planner** (for example "always ask whether the Model Risk Committee has approved it"); they are added after its own rules and can't switch them off.
+
+**When you're not sure what to add.** Ask "suggest some use cases" or "give me an example". The Planner offers two or three that fit the client and aren't on the board yet, numbered. Reply with a number to start from one: it fills the title, description and kind of AI, then asks you to confirm and to name the owner and the data. It never invents an owner or data for you. If you type something it can't use, such as "test", it says so, leaves the brief alone and asks again with an example answer. If what you describe looks like a use case already on the board, it names it and asks whether yours is different.
 
 On the offline rules the Planner only files your answers under the questions it asked and spots a few obvious things from your words (a scoring model is a decision system; "checks each one" means a person approves each output). With a model (Engagement Settings > AI Agents > Use Case Planner) it drafts the whole brief from the conversation.
 
@@ -574,7 +580,7 @@ Closing needs a reviewer or lead who didn't report it, the root cause and lesson
 
 ![Evals](images/manual/m36-evals.jpg)
 
-A suite puts questions to an AI system and checks the answers (contains, doesn't contain, a pattern, refuses, a length limit, or a judge model). **Quality** suites check answers; **red-team** suites attack the system using the OWASP LLM Top 10 (prompt injection, data leakage, excessive agency and so on). Each run is stored as fingerprinted evidence. From a run, **Raise issues** creates one issue per failed case.
+A suite puts questions to an AI system and checks the answers (contains, doesn't contain, a pattern, refuses, a length limit, or a judge model). The **refuses** check recognises the usual ways of saying no ("I can't", "I must decline", "that's against our policy"); for anything subtler, use a judge check. **Quality** suites check answers; **red-team** suites attack the system using the OWASP LLM Top 10 (prompt injection, data leakage, excessive agency and so on). Each run is stored as fingerprinted evidence. From a run, **Raise issues** creates one issue per failed case.
 
 To create one: **New suite**, choose red team or quality, link the AI system from the inventory, choose the provider and model the system runs on (the offline demo chatbot works for practice), its system prompt, starting cases and the pass threshold.
 
@@ -616,11 +622,38 @@ Seven areas (governance and accountability, inventory and risk classification, c
 
 Every agent's output is checked by the server before anyone sees it: its structure, and every key, figure and citation it uses. A draft that fails is rejected and leaves nothing behind. Drafting runs at temperature 0, so the same input gives the same draft. Each run records the agent's model and the version of its rules.
 
+### 28.1 How an agent works
+
+An agent works like an analyst. Given a use case, it can look things up as often as it needs before it drafts: the knowledge base (searching again with better words if the first search finds nothing useful), the use case and the engagement, similar use cases and how reviewers decided them, the registers, and the evidence. It then checks its own draft once against a short list of what a good draft needs, fixes what it finds, and hands it in. Every look-up is a line in the run log, so you can see how it got to its draft (open the run from the use case). Its tools only read: an agent can't change, approve or send anything, and it never sees a members-only engagement it isn't working on.
+
+### 28.2 When an agent asks you a question
+
+![An agent's question on a use case](images/manual/m43-question.png)
+
+If something essential is missing and no record has it, the agent asks. The use case shows **Question for You** (its dot blinks, like Needs Your Approval) and its side panel shows the question, why the agent asks and who is best placed to answer. Anyone who can prepare work can answer:
+
+1. Open the use case.
+2. Type your answer and click **Send answer**. Or click **Skip question**, and the agent carries on with what it has and says what it assumed.
+3. The agent picks the work up again with your answer and drafts as usual. You decide on the draft as before.
+
+Your answer is recorded under your name in the audit log and listed on the use case under "Questions the agents asked". It informs the draft; it never approves anything. An agent asks at most two questions per stage.
+
+### 28.3 Agent settings
+
+![How an agent works and the tools it may use](images/manual/m44-agent-mode.png)
+
+In **Settings > AI Agents**, each agent has:
+
+- **How it works**: **Agentic** (looks things up, may ask, checks its own work) or **Single call** (one call with a fixed brief: cheaper and predictable, but it can't look anything up or ask). Agents start agentic. The offline rules, and models that don't support tool calls, always run as a single call.
+- **Most steps per run** (2 to 20, default 8). On its last step the agent must hand in its draft.
+- **Self-check** on or off.
+- **Tools it may use**: reading use cases and the engagement, reading the registers, reading evidence, and asking a person. Approving or signing off is never possible.
+
 ## 29. Grounding: why the agents cite sources
 
-Before drafting, an agent searches the knowledge base and is given the passages it finds. It must cite the ones it relies on by K-number. A citation of a passage it wasn't given fails the run. The cited passages are copied onto the draft, so the reviewer reads exactly what the agent saw.
+Before drafting, an agent searches the knowledge base and is given the passages it finds; it can search again while it works. It must cite the ones it relies on by K-number. A citation of a passage it was neither given nor found itself fails the run. The cited passages are copied onto the draft, so the reviewer reads exactly what the agent saw.
 
-Search works by **keyword** (exact terms such as "Article 14") and, if an embedding model is set, by **meaning** (passages that say the same thing in other words).
+Search works by **keyword** (exact terms such as "Article 14") and, if an embedding model is set, by **meaning** (passages that say the same thing in other words). An uploaded document is split at its headings, and each passage keeps its section name (for example "Model Risk Policy › 2. Human oversight"), so you can see where a passage comes from. No more than two passages come from one document unless nothing else matches.
 
 ## 30. The assistant
 
@@ -641,6 +674,8 @@ A suggestion changes nothing until you click **Apply**. Applying runs it under y
 
 ![Your conversations, with search](images/manual/m40-assistant-history.png)
 
+**What it based an answer on.** Under each answer, **Based on** says whether it drew on the page you're on, ARGUS records, or the knowledge base. Its sources are grouped by kind (frameworks, controls, method guidance, client documents), and **How I got here** lists what it looked up before answering. A question about the page is answered from the page.
+
 **Which model answers.** The assistant uses the model picked for it on Models & Keys, or the workspace default if none is picked. With neither, it runs offline and reports what the harness can check by itself.
 
 ## 31. Checking the AI
@@ -657,13 +692,21 @@ On a draft, **Check with the Verifier** asks for a check. An admin can turn on a
 
 ![Golden dataset](images/manual/m41-golden.jpg)
 
-**AI > Checking the AI > Golden dataset** holds 15 fictional use cases with known right answers (10 for the Risk Classifier, including one with a hidden instruction, and 5 for the Control Designer). Before switching an agent's model or changing its rules, run it over the set: each case is scored check by check, and any case that passed last time and fails now is a **regression**. Admins can add their own cases.
+**AI > Checking the AI > Golden dataset** holds 15 fictional use cases with known right answers (10 for the Risk Classifier, including one with a hidden instruction, and 5 for the Control Designer). Before switching an agent's model or changing its rules, run it over the set (tick **Run with ... description and agent instructions** to test it as it runs on the engagement you have open; leave it unticked for the same neutral benchmark every time): each case is scored check by check, and any case that passed last time and fails now is a **regression**. Admins can add their own cases.
 
 ### 31.3 Can you trust the Verifier?
 
 ![Measuring the Verifier](images/manual/m42-verifier.jpg)
 
 The Verifier is measured against claims people already judged good or bad: 18 built-in examples, examples you add, and reviewers' real accept and reject decisions (**Add from reviewers' decisions**). The page shows agreement, kappa (agreement beyond chance) and the **false pass rate** (bad claims it called supported). It is marked trusted only with at least 10 examples, kappa of 0.6 or more, and false passes of 10% or less.
+
+### 31.4 Retrieval: does the knowledge base find the right passage?
+
+![Retrieval scores](images/manual/m46-retrieval.jpg)
+
+**AI > Checking the AI > Retrieval** asks the knowledge base 23 questions, worded the way a person or an agent would ask them, and checks whether the passages a good answer needs come back. **Recall at 5** is how often a right passage is in the top five results; **MRR** is how high the first right one comes (1.00 means always first). Scores are shown per kind and for keyword search alone and, when an embedding model is set, with meaning search added. Switch the embedding model and check again to compare models. The questions it missed are listed.
+
+The golden dataset can also be run **Agentic** or **Single call** on the same model, to see whether looking things up is worth its cost.
 
 ---
 
@@ -760,7 +803,7 @@ Every release of ARGUS is a version in git, from v0.3 onwards. The live site alw
 
 ## B. What isn't built yet
 
-Reading scanned documents (OCR); SAML, signing out at the identity provider and multi-factor sign-in inside the app; connectors to document stores that need their own sign-in (OAuth); and a limit on repeated failed sign-ins. Evidence connectors read report and export links over HTTPS.
+Reading scanned documents (OCR); a reranker for knowledge-base search; SAML, signing out at the identity provider and multi-factor sign-in inside the app; connectors to document stores that need their own sign-in (OAuth); and a limit on repeated failed sign-ins. Evidence connectors read report and export links over HTTPS.
 
 ## C. Glossary
 

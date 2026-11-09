@@ -10,8 +10,12 @@ import { fileURLToPath } from 'node:url';
 import type { z } from 'zod';
 import { BoardSummary, EvidencePlan, ReviewChallenges, TestDrafts, riskRating, type SourcePassage } from '@gh/shared';
 import { DATA_DIR, type Queryable } from '../db.js';
-import { callStructured } from '../llm.js';
-import { mergePassages, pinned, snapshot, sourcesBlock, strayCitations } from '../kb.js';
+import { zodProblems } from '../llm.js';
+import { loopFor } from '../agent-loop.js';
+import { readFileSync as readRubric } from 'node:fs';
+
+const CRITIQUE = readRubric(new URL('./prompts/drafting.critique.md', import.meta.url), 'utf8');
+import { mergePassages, pinned, search, snapshot, sourcesBlock, strayCitations } from '../kb.js';
 import type { AgentContext, AgentResult, Log } from './types.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -69,9 +73,16 @@ async function evidenceOf(q: Queryable, controls: Ctl[]): Promise<Ev[]> {
 
 const wrapEvidence = (e: Ev) => `<evidence key="${e.key}" kind="${e.kind}" title="${e.title.replace(/"/g, "'")}">\n${e.text}\n</evidence>`;
 
+// The client's own documents (policies, procedures, minutes) that match this
+// work, so drafts reflect what the client itself requires, not only the method.
+async function clientPassages(q: Queryable, engagementId: string, query: string, limit = 3) {
+  return search(q as any, engagementId, query.slice(0, 900), { limit, kinds: ['upload', 'client'] }).catch(() => []);
+}
+
 // --------------------------------------------------------------- the model
 async function ask<T extends z.ZodTypeAny>(
   ctx: AgentContext, log: Log, role: keyof typeof RULES, tool: string, schema: Record<string, unknown>, zod: T, user: string,
+  q: Queryable, ledger: SourcePassage[] = [], seen?: string[],
 ): Promise<AgentResult<z.infer<T>>> {
   const rules = RULES[role];
   const system = ctx.instructions.trim() ? `${rules}\n\n## Engagement instructions\n\nThese add to the rules above and never override them.\n\n${ctx.instructions.trim()}` : rules;
@@ -81,10 +92,11 @@ async function ask<T extends z.ZodTypeAny>(
     ctx.feedback ? `<reviewer_feedback>${ctx.feedback}</reviewer_feedback>` : '',
   ].filter(Boolean).join('\n\n');
   await log('step', `Asked ${ctx.model} on ${ctx.provider.name}`);
-  const res = await callStructured({
+  const res = await loopFor(ctx, q, log, ledger, CRITIQUE, seen)({
     type: ctx.provider.type, baseUrl: ctx.provider.base_url, apiKey: ctx.apiKey, model: ctx.model, effort: ctx.effort,
     system, user: body, toolName: tool, toolDescription: 'Submit the draft for a person to review.', schema, timeoutMs: ctx.timeoutMs,
-  });
+  }, zodProblems(zod));
+  if (res.repaired.length) await log('step', `The first answer had format problems (${res.repaired.slice(0, 3).join('; ')}); the model corrected them`);
   const parsed = zod.safeParse(res.input);
   if (!parsed.success) throw new Error(`The draft failed validation: ${parsed.error.issues.map((i: any) => `${i.path.join('.')}: ${i.message}`).join('; ')}`);
   return { output: parsed.data, tokensIn: res.tokensIn, tokensOut: res.tokensOut, tokensCached: res.tokensCached };
@@ -104,10 +116,13 @@ export async function runEvidenceCollector(ctx: AgentContext, q: Queryable, log:
   const ctlKeys = new Set(controls.map((c) => c.key));
   const evKeys = new Set(evidence.map((e) => e.key));
   // Ground it in each control's library entry and the evidence-strength guidance.
-  const passages = await pinned(q, ['M-EVIDENCE', ...controls.map((c) => c.code).filter(Boolean) as string[]]);
+  const passages = mergePassages(
+    await pinned(q, ['M-EVIDENCE', ...controls.map((c) => c.code).filter(Boolean) as string[]]),
+    await clientPassages(q, ctx.card.engagementId, `evidence ${ctx.card.title} ${controls.map((c) => c.title).join(' ')}`),
+  );
   const libPassage = (c: Ctl) => passages.filter((p) => p.ref === c.code).map((p) => p.id);
   const guide = passages.filter((p) => p.ref === 'M-EVIDENCE').map((p) => p.id);
-  await log('step', `Retrieved ${passages.length} passages: library entries and evidence guidance`);
+  await log('step', `Retrieved ${passages.length} passages: library entries, evidence guidance and matching client documents`);
 
   let result: AgentResult<EvidencePlan>;
   if (ctx.provider.type === 'rules') {
@@ -138,7 +153,7 @@ export async function runEvidenceCollector(ctx: AgentContext, q: Queryable, log:
     result = await ask(ctx, log, 'evidence_collector', 'submit_evidence_plan', S({
       requests: { type: 'array', items: S({ controlKey: str, item: str, why: str, askFrom: str, status: { type: 'string', enum: ['received', 'partial', 'missing'] }, evidenceKeys: strs, note: str, sources: strs }) },
       summary: str,
-    }), EvidencePlan, user);
+    }), EvidencePlan, user, q, passages);
   }
   const bad = result.output.requests.flatMap((r) => [...(ctlKeys.has(r.controlKey) ? [] : [r.controlKey]), ...r.evidenceKeys.filter((k) => !evKeys.has(k))]);
   const strayK = strayCitations(result.output.requests.flatMap((r) => r.sources), passages);
@@ -165,7 +180,10 @@ export async function runControlTester(ctx: AgentContext, q: Queryable, log: Log
   const evidence = await evidenceOf(q, controls);
   await log('step', `Read ${tests.length} open tests and ${evidence.length} evidence items`);
   const keyOf = (t: any) => `T-${t.number}`;
-  const passages = await pinned(q, ['M-SAMPLING', 'M-EXCEPTIONS', 'M-EVIDENCE']);
+  const passages = mergePassages(
+    await pinned(q, ['M-SAMPLING', 'M-EXCEPTIONS', 'M-EVIDENCE']),
+    await clientPassages(q, ctx.card.engagementId, `testing sample ${tests.map((t: any) => t.title).join(' ')}`),
+  );
   const guide = (ref: string) => passages.filter((p) => p.ref === ref).map((p) => p.id);
   const allowed = (t: any) => new Set(evidence.filter((e) => e.testId === t.id || e.controlId === t.control_id).map((e) => e.key));
 
@@ -214,7 +232,7 @@ export async function runControlTester(ctx: AgentContext, q: Queryable, log: Log
     const r = await ask(ctx, log, 'control_tester', 'submit_test_drafts', S({
       results: { type: 'array', items: S({ testKey: str, proposed: { type: 'string', enum: ['pass', 'fail', 'cannot_assess'] }, actual: str, exceptions: { type: 'integer', minimum: 0 }, evidenceKeys: strs, reasoning: str, sources: strs }) },
       summary: str,
-    }), TestDrafts, user);
+    }), TestDrafts, user, q, passages);
     drafts = r.output;
     usage = { tokensIn: r.tokensIn, tokensOut: r.tokensOut, tokensCached: r.tokensCached };
   }
@@ -296,6 +314,8 @@ export async function runReviewAssistant(ctx: AgentContext, q: Queryable, log: L
 
   let output: ReviewChallenges;
   let usage = { tokensIn: 0, tokensOut: 0, tokensCached: 0 };
+  const policy = ctx.provider.type === 'rules' ? [] : await clientPassages(q, ctx.card.engagementId, `${ctx.card.title} ${ctx.card.useCase.description} policy requirements`);
+  if (policy.length) await log('step', `Read ${policy.length} matching client documents: ${policy.map((p) => p.id).join(', ')}`);
   if (ctx.provider.type === 'rules') {
     await log('step', 'Provider is the built-in rules: applying the standard review checks');
     output = { challenges: ch.slice(0, 30), readiness: ch.some((c) => c.severity === 'high') ? 'not_ready' : 'ready', summary: `${ch.length} challenges from the standard checks, ${ch.filter((c) => c.severity === 'high').length} high. Rule-based: judgement calls on evidence quality need a person or a model.` };
@@ -308,12 +328,16 @@ export async function runReviewAssistant(ctx: AgentContext, q: Queryable, log: L
       '<issues>', ...(issues.length ? issues.map((i: any) => `- I-${i.number} ${i.title}: ${i.severity}, ${i.status}, owner ${i.owner || '-'}`) : ['None.']), '</issues>',
       '<risks>', ...risks.map((r: any) => `- R-${r.number} ${r.title}: inherent ${r.likelihood * r.impact}, residual ${r.residual_likelihood ? r.residual_likelihood * r.residual_impact : 'not set'}, accepted by ${r.accepted_by ?? '-'}, operating controls ${r.operating}`), '</risks>',
       '<checks_already_found>', ...ch.map((c) => `- [${c.severity}] ${c.finding}`), '</checks_already_found>',
+      ...(policy.length ? ['', 'The client\'s own documents that bear on this use case. A challenge based on one gives its K-number as ref.', sourcesBlock(policy)] : []),
     ].join('\n');
     const r = await ask(ctx, log, 'independent_reviewer', 'submit_challenges', S({
       challenges: { type: 'array', items: S({ severity: { type: 'string', enum: ['high', 'medium', 'low'] }, area: { type: 'string', enum: ['evidence', 'testing', 'issues', 'risk', 'controls', 'other'] }, finding: str, ref: str }) },
       readiness: { type: 'string', enum: ['ready', 'not_ready'] },
       summary: str,
-    }), ReviewChallenges, user);
+    }), ReviewChallenges, user, q, policy);
+    // A challenge may cite a client passage it was given, and no other.
+    const strayRefs = r.output.challenges.map((c) => c.ref).filter((x) => /^K-\d+$/.test(x ?? '') && !policy.some((p) => p.id === x));
+    if (strayRefs.length) throw new Error(`The review cites sources it wasn't given: ${[...new Set(strayRefs)].join(', ')}`);
     // The rule findings always stand, whatever the model says.
     const merged = [...ch, ...r.output.challenges.filter((m) => !ch.some((c) => c.ref && c.ref === m.ref && c.area === m.area))].slice(0, 30);
     output = { challenges: merged, readiness: merged.some((c) => c.severity === 'high') ? 'not_ready' : r.output.readiness, summary: r.output.summary };
@@ -335,6 +359,7 @@ export function unknownFigures(text: string, data: string, keys: string[]): stri
 
 export async function runReportWriter(ctx: AgentContext, q: Queryable, log: Log): Promise<AgentResult<BoardSummary>> {
   const c = ctx.card;
+  const seen: string[] = [];
   const controls = await controlsOf(q, c.id);
   const ids = controls.map((x) => x.id);
   const { rows: risks } = await q.query(`SELECT * FROM risks WHERE card_id = $1 ORDER BY likelihood * impact DESC`, [c.id]);
@@ -396,12 +421,13 @@ export async function runReportWriter(ctx: AgentContext, q: Queryable, log: Log)
       headline: str, summary: str,
       keyFigures: { type: 'array', items: S({ label: str, value: str }) },
       recommendations: strs, decisionsNeeded: strs,
-    }), BoardSummary, `<data>\n${data}\n</data>`);
+    }), BoardSummary, `<data>\n${data}\n</data>`, q, [], seen);
   }
   const o = result.output;
   const text = [o.headline, o.summary, ...o.keyFigures.map((k) => `${k.label} ${k.value}`), ...o.recommendations, ...o.decisionsNeeded].join('\n');
   const keys = [c.key, ...facts.risks.map((r) => r.key), ...controls.map((x) => x.key)];
-  const stray = unknownFigures(text, data, keys);
+  // Figures may come from the data given or from records the writer looked up (rule 25).
+  const stray = unknownFigures(text, `${data}\n${seen.join('\n')}`, keys);
   if (stray.length) throw new Error(`The draft cites figures that aren't in the data: ${stray.join(', ')}`);
   await log('step', 'Checked every figure in the draft against the data');
   await log('output', o.headline);

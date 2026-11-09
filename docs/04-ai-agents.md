@@ -57,6 +57,10 @@ The last four are switched off when an engagement starts. A lead turns them on i
 - **Its rules are fixed and versioned.** Each agent's rules live in a file on the server. Every run records a fingerprint of that file, so any result can be traced to the exact rules that produced it. An engagement can add instructions, but can't replace the rules.
 - **It can be stopped.** Each agent has a kill switch, and the switch can be tested without leaving the agent off.
 - **It runs within limits.** Each run has a time limit and a cost limit. The workspace has a monthly spending cap.
+- **It looks things up, but only reads.** Since v1.6 an agent works in steps: it can search the knowledge base again, open the use case and the engagement, find similar use cases and how reviewers decided them, and read the registers and evidence, as often as it needs within a step limit (8 by default). Each look-up is written to the run log. Its tools can't change, approve or send anything, and it never sees a members-only engagement it isn't working on.
+- **It asks rather than guesses.** If something essential is missing, it asks a person. The use case shows **Question for You** until someone who can prepare work answers or skips it; then the agent carries on with the answer. At most two questions per stage, and an answer never approves anything.
+- **It checks its own work.** Before handing in, it reviews its draft once against a short checklist for its role and fixes what it finds. The harness's own checks still run after that.
+- **It can be kept simple.** Each agent can be switched to **Single call** (one call with a fixed brief, as before v1.6) in Settings > AI Agents.
 
 ## Agent by agent
 

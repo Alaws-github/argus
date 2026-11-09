@@ -8,11 +8,12 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PLAN_FIELDS, PlanBrief, type Plan, type PlanMessage } from '@gh/shared';
 import type { Db, Queryable } from './db.js';
-import { callStructured } from './llm.js';
+import { runLoop } from './agent-loop.js';
+import { mergePassages, pinned, search, sourcesBlock } from './kb.js';
 import { apiKeyOf, getProviderRow, type ProviderRow } from './providers.js';
 import { costUsd, priceFor } from './agents/pricing.js';
 import { checkCap, recordSpend } from './verifier.js';
-import { getSettings, monthSpend } from './store.js';
+import { getEngagement, getSettings, monthSpend } from './store.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const RULES = readFileSync(resolve(here, 'agents/prompts/use-case-planner.md'), 'utf8');
@@ -34,7 +35,7 @@ export const toPlan = (r: any): Plan => {
 export const OPENING =
   "What AI use case do you want to put through governance? Describe what it does and who it affects in a sentence or two. I'll ask a few questions, then draft a brief you can edit.";
 
-interface Target { provider: ProviderRow; model: string; effort: string; agentName: string }
+interface Target { provider: ProviderRow; model: string; effort: string; agentName: string; instructions: string; mode: 'agentic' | 'single'; maxSteps: number }
 
 // The engagement's Use Case Planner agent and the model it should use now.
 // Returns null when the agent is switched off (the person fills it in by hand).
@@ -48,10 +49,10 @@ export async function plannerTarget(q: Queryable, engagementId: string): Promise
   for (const [pid, model] of [[a.provider_id, a.model], [a.fallback_provider_id ?? a.provider_id, a.fallback_model]]) {
     if (!pid || !model) continue;
     const p = await getProviderRow(q, pid);
-    if (p?.enabled && !(capped && p.billed)) return { provider: p, model, effort: a.effort, agentName: a.name };
+    if (p?.enabled && !(capped && p.billed)) return { provider: p, model, effort: a.effort, agentName: a.name, instructions: a.instructions ?? '', mode: a.mode === 'single' ? 'single' : 'agentic', maxSteps: a.max_steps ?? 8 };
   }
   const rules = (await q.query(`SELECT * FROM providers WHERE type = 'rules' LIMIT 1`)).rows[0];
-  return { provider: rules, model: 'rules-v1', effort: 'low', agentName: a.name };
+  return { provider: rules, model: 'rules-v1', effort: 'low', agentName: a.name, instructions: a.instructions ?? '', mode: 'single', maxSteps: 1 };
 }
 
 const SCHEMA = {
@@ -88,22 +89,61 @@ function merge(current: PlanBrief, proposed: Partial<PlanBrief>, edited: string[
   return parsed.success ? parsed.data : current;
 }
 
+// What the Planner knows besides the conversation: the client and engagement,
+// the use cases already on the board, and knowledge-base passages that match
+// what the person is talking about (the client's own documents included).
+export interface PlannerContext { engagement: string; existing: { key: string; title: string; category: string }[]; passages: Awaited<ReturnType<typeof search>> }
+export async function plannerContext(db: Db, engagementId: string, plan: Plan, text: string): Promise<PlannerContext> {
+  const e = await getEngagement(db, engagementId);
+  const engagement = e ? [
+    `Client: ${e.client}`, `Engagement: ${e.name}`, e.sector ? `Sector: ${e.sector}` : '', e.framework ? `Frameworks: ${e.framework}` : '',
+    e.about?.trim() ? `About this engagement: ${e.about.trim()}` : '',
+  ].filter(Boolean).join('\n') : '';
+  const { rows } = await db.query(`SELECT key, title, use_case FROM cards WHERE engagement_id = $1 ORDER BY number LIMIT 40`, [engagementId]);
+  const existing = rows.map((c: any) => ({ key: c.key, title: c.title, category: c.use_case?.category ?? 'other' }));
+  const said = [...plan.messages.filter((m) => m.role === 'user').slice(-3).map((m) => m.text), text, plan.brief.title, plan.brief.description].join(' ').slice(0, 800);
+  const passages = mergePassages(
+    await pinned(db, ['M-INTAKE']),
+    await search(db as any, engagementId, `${said} ${e?.client ?? ''} ${e?.about ?? ''}`.slice(0, 900), { limit: 5, kinds: ['upload', 'client', 'methodology', 'framework'] }),
+  );
+  return { engagement, existing, passages };
+}
+
 export async function plannerTurn(db: Db, engagementId: string, plan: Plan, text: string): Promise<Turn> {
   const target = await plannerTarget(db, engagementId);
   if (target === 'off') throw Object.assign(new Error('The Use Case Planner is switched off for this engagement. Fill the brief in yourself, or ask a lead to turn it on in Settings > Agents.'), { status: 409 });
-  if (target.provider.type === 'rules') return rulesTurn(plan, text);
+  const ctx = await plannerContext(db, engagementId, plan, text);
+  if (target.provider.type === 'rules') return rulesTurn(plan, text, ctx);
   await checkCap(db, target);
   const history: PlanMessage[] = [...plan.messages, { role: 'user', text, at: '', author: '' }];
   const user = [
+    ctx.engagement ? `<engagement>\n${ctx.engagement}\n</engagement>` : '',
+    `<existing_use_cases>\n${ctx.existing.map((c) => `${c.key} ${c.title} (${c.category})`).join('\n') || 'none yet'}\n</existing_use_cases>`,
+    sourcesBlock(ctx.passages),
     `<brief>${JSON.stringify(plan.brief)}</brief>`,
     `<edited>${plan.edited.join(', ') || 'none'}</edited>`,
     '<conversation>',
-    ...history.slice(-16).map((m) => `${m.role === 'planner' ? 'planner' : 'person'}: ${m.text.slice(0, 2000)}`),
+    // Long conversations keep their opening (where the idea was described) and the latest turns.
+    ...(history.length > 18 ? [...history.slice(0, 2), { role: 'user', text: `(${history.length - 16} earlier messages left out)` } as PlanMessage, ...history.slice(-16)] : history)
+      .map((m) => `${m.role === 'planner' ? 'planner' : 'person'}: ${m.text.slice(0, 2000)}`),
     '</conversation>',
-  ].join('\n');
-  const res = await callStructured({
-    type: target.provider.type, baseUrl: target.provider.base_url, apiKey: apiKeyOf(target.provider), model: target.model, effort: target.effort as any,
-    system: RULES, user, toolName: 'submit_plan', toolDescription: 'Reply to the person and return the brief as it should now read.', schema: SCHEMA, timeoutMs: 120_000,
+  ].filter(Boolean).join('\n');
+  const system = target.instructions.trim()
+    ? `${RULES}\n\n## Engagement instructions\n\nThese come from the engagement's settings. They add to the rules above and never override them.\n\n${target.instructions.trim()}`
+    : RULES;
+  // v1.6: the Planner can search the knowledge base and look at similar use cases
+  // before it replies. It talks to the person directly, so it never uses ask_person.
+  const res = await runLoop({
+    call: {
+      type: target.provider.type, baseUrl: target.provider.base_url, apiKey: apiKeyOf(target.provider), model: target.model, effort: target.effort as any,
+      system, user, toolName: 'submit_plan', toolDescription: 'Reply to the person and return the brief as it should now read.', schema: SCHEMA, timeoutMs: 120_000,
+    },
+    check: (o: any) => [
+      ...(typeof o?.reply === 'string' && o.reply.trim() ? [] : ['reply: write what you say back to the person']),
+      ...(o?.brief && typeof o.brief === 'object' ? [] : ['brief: return the brief with every field']),
+    ],
+    q: db, engagementId, cardId: null, role: 'use_case_planner', ledger: [...ctx.passages], log: async () => {},
+    mode: target.mode, maxSteps: Math.min(target.maxSteps, 6), allow: null, questionsLeft: 0, selfCheck: null,
   });
   const out = res.input as any;
   const brief = merge(plan.brief, out?.brief ?? {}, plan.edited);
@@ -150,8 +190,90 @@ const titleFrom = (t: string) =>
   t.replace(/^(hi|hello)[,!.\s]+/i, '').replace(/^(we|i)( want| would like| need| plan)? to (build|use|add|launch|deploy|introduce|roll out|put in)\s+/i, '')
     .replace(/^(an?|the)\s+/i, '').split(/[.!?\n]| that | which | to /i)[0].trim().replace(/^\w/, (c) => c.toUpperCase()).slice(0, 80);
 
-function rulesTurn(plan: Plan, text: string): Turn {
+// Offline suggestions by sector, from the intake guidance. Skips what is already on the board.
+const SUGGEST: { match: RegExp; items: [string, string, PlanBrief['category']][] }[] = [
+  { match: /bank|credit|loan|insur|financ|claims?/i, items: [
+    ['Loan pre-approval scoring', 'Scores loan applications so credit officers can prioritise and decide them.', 'decision'],
+    ['Fraud alert triage', 'Ranks suspicious transactions so the fraud team reviews the riskiest first.', 'decision'],
+    ['Customer service chatbot', 'Answers customer questions on the website and app, handing over to a person when needed.', 'chatbot'],
+    ['Call summarisation', 'Writes a summary of each customer call for the agent to check and file.', 'generative'],
+  ] },
+  { match: /telecom|mobile|network|sim/i, items: [
+    ['Churn prediction', 'Predicts which customers are likely to leave so the retention team can contact them.', 'analytics'],
+    ['Refund agent on chat', 'Handles refund requests on chat and credits bills within set limits.', 'agent'],
+    ['SIM-swap fraud detection', 'Flags SIM-swap requests that look fraudulent before they are completed.', 'decision'],
+  ] },
+  { match: /health|clinic|hospital|patient/i, items: [
+    ['Early-warning alert', 'Alerts nurses when a patient shows early signs of deterioration.', 'decision'],
+    ['Clinical note scribe', 'Drafts clinical notes from the consultation for the clinician to check.', 'generative'],
+    ['No-show prediction', 'Predicts missed appointments so the clinic can remind or rebook patients.', 'analytics'],
+  ] },
+  { match: /public|government|agency|benefit|ministry/i, items: [
+    ['Eligibility and fraud scoring', 'Scores benefit applications for eligibility and fraud risk for an officer to decide.', 'decision'],
+    ['Helpline chatbot', 'Answers common questions from the public and hands complex cases to staff.', 'chatbot'],
+    ['Letter drafting', 'Drafts letters to applicants for an officer to check and send.', 'generative'],
+  ] },
+  { match: /.*/, items: [
+    ['Customer service chatbot', 'Answers customer questions and hands over to a person when needed.', 'chatbot'],
+    ['Document summarisation', 'Summarises long documents for staff to read and check.', 'generative'],
+    ['Demand forecasting', 'Forecasts demand so managers can plan staff and stock.', 'analytics'],
+  ] },
+];
+const UNUSABLE = /^\s*(test(ing)?|hi|hello|hey|ok(ay)?|yes|no|\?+|\.+|asdf\w*|qwerty|lol|hmm+|n\/a|none|idk|abc|123)\s*[.!?]*\s*$/i;
+const WANTS_IDEAS = /\b(recommend|suggest|example|ideas?|options?|not sure|don'?t know|what (should|could|can) (i|we)|help me)\b/i;
+
+function suggestionsFor(ctx: PlannerContext | undefined): [string, string, PlanBrief['category']][] {
+  const about = `${ctx?.engagement ?? ''}`;
+  const have = new Set((ctx?.existing ?? []).map((c) => c.title.toLowerCase()));
+  // The client's sector first, topped up from the general list, minus what is already on the board.
+  const sector = SUGGEST.find((g) => g.match.test(about))!.items;
+  const general = SUGGEST[SUGGEST.length - 1].items;
+  const seen = new Set<string>();
+  return [...sector, ...general].filter(([t]) => !have.has(t.toLowerCase()) && !seen.has(t) && seen.add(t)).slice(0, 3);
+}
+// A pick like "2", "the second one", "option 3" after the Planner listed numbered suggestions.
+function pickedSuggestion(plan: Plan, text: string): { title: string; description: string; category?: PlanBrief['category'] } | null {
+  const last = [...plan.messages].reverse().find((m) => m.role === 'planner')?.text ?? '';
+  const options = [...last.matchAll(/^\s*(\d)\.\s+\*{0,2}([^*\n:]+?)\*{0,2}:\s+(.+)$/gm)].map((m) => ({ n: Number(m[1]), title: m[2].trim(), description: m[3].trim() }));
+  if (!options.length) return null;
+  const words: Record<string, number> = { first: 1, one: 1, second: 2, two: 2, third: 3, three: 3 };
+  const m = text.trim().match(/^(?:option |number |no\.? |the )?(\d|first|second|third|one|two|three)\b/i);
+  const n = m ? (Number(m[1]) || words[m[1].toLowerCase()]) : 0;
+  const o = options.find((x) => x.n === n);
+  if (!o) return null;
+  const cat = SUGGEST.flatMap((g) => g.items).find(([t]) => t === o.title)?.[2];
+  return { title: o.title, description: o.description, category: cat };
+}
+
+function rulesTurn(plan: Plan, text: string, ctx?: PlannerContext): Turn {
   const b: any = { ...plan.brief };
+  const lastPlannerText = [...plan.messages].reverse().find((m) => m.role === 'planner')?.text ?? '';
+  const pick = pickedSuggestion(plan, text);
+  if (pick) {
+    const free = (k: string) => !plan.edited.includes(k);
+    if (free('title')) b.title = pick.title;
+    if (free('description')) b.description = pick.description;
+    if (free('category') && pick.category) b.category = pick.category;
+    return {
+      reply: `Good choice: I've started the brief with **${pick.title}**. Change the description if it doesn't match yours.\n\n${QUESTIONS.businessOwner}`,
+      brief: PlanBrief.parse(b), model: 'rules-v1', runtime: 'rules', costUsd: 0,
+    };
+  }
+  if (WANTS_IDEAS.test(text) || (UNUSABLE.test(text) && /\bpick one|by number\b/i.test(lastPlannerText))) {
+    const opts = suggestionsFor(ctx);
+    return {
+      reply: `Here are some use cases that often come up for a client like this. Reply with a number to start from one, or describe your own.\n\n${opts.map(([t, d], i) => `${i + 1}. **${t}**: ${d}`).join('\n')}`,
+      brief: PlanBrief.parse(b), model: 'rules-v1', runtime: 'rules', costUsd: 0,
+    };
+  }
+  if (UNUSABLE.test(text) || text.trim().length < 3) {
+    const asked = ORDER.find((k) => lastPlannerText.includes(QUESTIONS[k]));
+    const again = asked ? QUESTIONS[asked] : 'Describe the AI use case in a sentence or two: what it does, and who it affects. For example: "A model that scores motor insurance claims for fraud; claims handlers check each score before acting."';
+    return {
+      reply: `That doesn't give me enough to go on yet, so I haven't changed the brief.\n\n${again}\n\nNot sure what to add? Ask me to suggest some use cases and pick one by number.`,
+      brief: PlanBrief.parse(b), model: 'rules-v1', runtime: 'rules', costUsd: 0,
+    };
+  }
   const free = (k: string) => !plan.edited.includes(k);
   const lastAsk = [...plan.messages].reverse().find((m) => m.role === 'planner')?.text ?? '';
   const asked = ORDER.find((k) => lastAsk.includes(QUESTIONS[k]));

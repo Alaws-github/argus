@@ -200,7 +200,7 @@ function exportTests() {
     <nav class="tabs">
       <RouterLink to="/testing/tests" :class="{ active: tab === 'tests' }">Tests</RouterLink>
       <RouterLink to="/testing/evidence" :class="{ active: tab === 'evidence' }">Evidence Vault</RouterLink>
-      <RouterLink v-if="app.mod('connectors') || tab === 'connectors'" to="/testing/connectors" :class="{ active: tab === 'connectors' }">Connectors</RouterLink>
+      <RouterLink v-if="app.mod('connectors') || tab === 'connectors'" to="/testing/connectors" :class="{ active: tab === 'connectors' }">From Client Tools</RouterLink>
     </nav>
     <div v-if="loading" class="muted">Loading…</div>
 

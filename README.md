@@ -4,6 +4,8 @@
 
 An AI governance, risk and assurance workbench. AI use cases move across a board from Intake to Board report. Agents draft the work at each stage; a named person approves at each gate; every action lands in a hash-chained audit trail.
 
+v1.7.2 moves connectors to Settings > Connected tools (with the tools the client uses), lets you add one in place from a workflow step, keeps a read-only From Client Tools view in Tests and Evidence, and adds an optional "How does the client work?" step to Add engagement that drafts a client workflow from a template. Settings > Workflow is now Approval gates.
+
 v1.7.1 puts client workflow steps in the client's business tools (Microsoft 365, ServiceNow, Jira, Google Workspace, Slack, a GRC platform and others) and lets ARGUS read those tools through read-only connectors, with Microsoft Entra app and Google service account sign-in. ARGUS never writes to them.
 
 v1.7 gives every working page the dashboard look (KPI tiles from `GET /engagements/:id/kpis`), adds **Client Workflows** (a builder for the client's own process around ARGUS's five governance gates, which can't be removed or skipped; versioned and audited), and makes the assistant work in the open: live steps, "Worked Ns · N steps", links to pages and records, @ to tag a record, thumbs up or down, and errors that say what to do. From here releases are 1.7.1, 1.7.2 and so on.
@@ -101,7 +103,7 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run versions` | List versions; `-- use v1.1` switches (backing up data); `-- latest` returns |
 | `npm run test:v11` | v1.1 tests (65 checks): the Use Case Planner on rules and a mock model, new agents and routing, act as, provider service names, Overview activity. Fresh database |
 | `npm run test:verifier` | Verifier and agent-testing tests (36 checks): golden runs and regressions, the quote check, calibration, live checks, spend cap. Fresh database |
-| `npm run test:v17` | v1.7 and v1.7.1 tests (41 checks; set ARGUS_MS_TOKEN_URL and ARGUS_GOOGLE_TOKEN_URL to the mock for the sign-in checks): client workflows and their rules, versions and audit; the KPI read; the assistant's steps, @ tags, ratings and actionable errors. Fresh database |
+| `npm run test:v17` | v1.7 to v1.7.2 tests (46 checks; set ARGUS_MS_TOKEN_URL and ARGUS_GOOGLE_TOKEN_URL to the mock for the sign-in checks): client workflows and their rules, versions and audit; the KPI read; the assistant's steps, @ tags, ratings and actionable errors; client tools and the workflow drafted with a new engagement. Fresh database |
 | `npm run test:v16` | v1.6 tests (34 checks): the agent loop, single-call mode, models without tool calls, the step limit, refused tools, members-only records, the self-check, questions (pause, answer, skip, audit), the assistant's look-ups, golden runs by mode. Fresh database |
 | `npm run test:rag` | Retrieval tests (8 checks): recall and MRR with keyword and meaning search, heading-aware passages with overlap, the per-document cap. Fresh database |
 | `npm run test:agents` | Drafting-agent tests (30 checks), including a mock model that tries to cheat the guardrails. Also needs a fresh database |

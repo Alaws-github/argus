@@ -27,6 +27,7 @@ export function toEngagement(r: any): Engagement {
     archiveReason: r.archive_reason ?? null,
     access: r.access ?? 'open',
     modules: { ...NO_MODULES, ...(r.modules ?? {}) },
+    clientTools: Array.isArray(r.client_tools) ? r.client_tools : [],
     createdAt: iso(r.created_at)!,
   };
 }

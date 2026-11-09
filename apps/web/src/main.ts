@@ -22,6 +22,8 @@ const router = createRouter({
     { path: '/runs/:id', component: () => import('./pages/RunDetailPage.vue') },
     { path: '/audit', component: () => import('./pages/AuditPage.vue') },
     { path: '/settings', redirect: '/settings/general' },
+    { path: '/settings/tools', redirect: '/settings/integrations' },
+    { path: '/settings/gates', redirect: '/settings/workflow' },
     { path: '/settings/:tab(general|workflow|integrations|agents|access)', component: () => import('./pages/SettingsPage.vue') },
     { path: '/agents', redirect: '/settings/agents' },
     { path: '/models', redirect: '/workspace/models' },

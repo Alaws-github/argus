@@ -1,6 +1,6 @@
 # ARGUS: User Manual
 
-Version 1.2.4 · November 2026 · for ARGUS 1.7.1
+Version 1.2.5 · November 2026 · for ARGUS 1.7.2
 
 This manual explains ARGUS, the Assurance, Risk & Governance Unified System: what it is for, how to use the live site, and how a piece of work flows through it from the first request to the board report. It is written for assurance, risk and governance professionals, not for developers. Screenshots use the fictional demo engagement (Northshore Financial Group) on the live site, so you can follow along as you read (section 4).
 
@@ -10,7 +10,13 @@ This manual explains ARGUS, the Assurance, Risk & Governance Unified System: wha
 
 ## What's new in this edition
 
-This edition (1.2.4) follows edition 1.2.3 and covers ARGUS 1.4.1 to 1.7.1. Every screenshot has been retaken. The main changes:
+This edition (1.2.5) follows edition 1.2.4 and covers ARGUS 1.4.1 to 1.7.2. Every screenshot was retaken for 1.2.4. New in 1.2.5 (ARGUS 1.7.2):
+
+- **Connected tools.** Connectors are set up in **Settings > Connected tools**, beside the tools the client uses, or in place from a workflow step; **Tests and Evidence > From Client Tools** shows them read-only (sections 23.2 and 34.1).
+- **How does the client work?** An optional step when adding an engagement drafts a client workflow and records the client's tools (section 7).
+- **Approval gates** is the new name for the Settings tab that was called Workflow (section 7.1).
+
+The main changes in 1.2.4:
 
 - **The dashboard look.** Each working page opens with a row of tiles showing the numbers that matter there (section 5.1). Tabs and switches are pill-shaped.
 - **Agents that reason.** Agents look things up before they draft, check their own draft, and can ask you a question; the use case then shows **Question for You** (sections 28.1 to 28.3).
@@ -246,6 +252,15 @@ Admins and leads open the engagement switcher and choose **+ Add engagement**.
 
 The wizard asks for the client, the engagement name and a short prefix for use case keys (for example "AI" gives AI-1, AI-2), the sector, the frameworks in scope, the risk appetite, which AI models the agents use, and whether to start the Statement of Applicability from the chosen frameworks. Whoever creates the engagement becomes its first member.
 
+The six steps are Client, Scope, Gates, Tools, Models and Review. **Tools** ("How does the client work?") is optional:
+
+![How does the client work?](images/manual/m08b-wizard-tools.jpg)
+
+- **Start a client workflow from** a template (Standard, Microsoft 365, ServiceNow and Jira, Google Workspace and Slack, or Gates only) and ARGUS adds it as a draft for you to change with the client (section 34). Choose **Decide later** to add none.
+- **Tools this client uses**: tick the business tools the client works in. They're listed first wherever you pick a tool.
+
+Nothing connects at this point and no passwords or keys are asked for. Connect the tools later in **Settings > Connected tools** (section 23.2).
+
 ### 7.1 Engagement settings and workspace settings
 
 There are two levels of settings:
@@ -253,12 +268,12 @@ There are two levels of settings:
 - **Workspace settings** (Settings > Workspace Settings, admins and leads): what applies to every engagement. **Models & Keys** (providers, spending limit, defaults for new agents, the assistant's model, meaning-based search), **People & Roles**, and **Sign-in & Security** (single sign-on, act as, and whether connectors may reach private networks).
 - **Engagement settings** (Settings > Engagement Settings): one engagement. The engagements are listed on the left, with **+ Add engagement**; pick one to see its five tabs:
   - **General**: name, client, prefix, frameworks, a description every agent reads with each use case (the client's sector, regulators and anything that changes how risk is judged), **Modules** (below), **Pause this engagement** and **Archive or delete**.
-  - **Workflow**: which stages stop for a person, and which agents work each stage. Drafting stages (Collect evidence, Test controls, Validate, Board report) always stop.
-  - **Integrations**: the evidence connectors that pull reports from the client's systems (section 14.2).
+  - **Approval gates**: which stages stop for a person, and which agents work each stage. Drafting stages (Collect evidence, Test controls, Validate, Board report) always stop. (Called Workflow before ARGUS 1.7.2; the client's own process is under Client workflows, section 34.)
+  - **Connected tools**: the business tools the client uses, and the read-only connectors that pull evidence from them (section 23.2).
   - **AI Agents**: every agent, grouped by stage (section 7.3).
   - **Access**: who can see the engagement (section 7.2).
 
-![Workflow and gates](images/manual/m09-workflow.jpg)
+![Approval gates](images/manual/m09-workflow.jpg)
 
 **Modules.** A new engagement starts simple: the core flow (intake, risk, controls, testing, issues, sign-off and the report, with the AI drafting each step) is always on. Switch on more under **General > Modules** when the engagement needs them:
 
@@ -267,7 +282,7 @@ There are two levels of settings:
 | AI testing and monitoring | Evaluation suites, red teaming against the OWASP LLM Top 10, scheduled runs and drift alerts |
 | Incidents | AI incidents with their regulatory notification deadlines |
 | AI inventory | Every AI system and agent at the client, with the agent register checks |
-| Evidence connectors | Scheduled pulls of reports and exports from the client's systems (the Integrations tab) |
+| Evidence connectors | Scheduled pulls of reports and exports from the client's systems (Settings > Connected tools) |
 | Statement of Applicability and traceability | Which controls apply and why, and the chain from obligation to evidence |
 | Advanced AI settings | More than one agent per step with routing, and testing the agents on the golden dataset |
 
@@ -437,7 +452,7 @@ Every item is fingerprinted with SHA-256 when collected. **Verify** recomputes t
 
 ### 14.2 Pulling evidence from client systems
 
-**Registers > Tests and Evidence > Connectors** sets up read-only pulls from a client system (section 23.2). Each pull files a new, fingerprinted evidence item against its control.
+**Registers > Tests and Evidence > From Client Tools** shows the read-only connectors that pull evidence from the client's tools, with **Pull now**. They're set up in **Settings > Connected tools** (section 23.2). Each pull files a new, fingerprinted evidence item against its control.
 
 The use case can move on when every control has at least one evidence item.
 
@@ -543,16 +558,18 @@ Covered in section 14.1.
 
 ### 23.2 Connectors
 
-![Adding a connector](images/manual/m33-connectors.png)
+![Connected tools](images/manual/m33-connected-tools.jpg)
 
 A connector fetches a report, export or file from a client system over HTTPS and files it as evidence. To set one up (leads and admins):
 
-1. **Registers > Tests and Evidence > Connectors > Add connector**.
-2. Give it a name and the address (a report or export link), and how it signs in: none, a bearer token, an API key in a header, or a user and password. The credential is encrypted and never shown again, including in the audit log.
+**Settings > Engagement Settings > Connected tools** holds them. First tick **Tools this client uses** and **Save**: those tools are listed first in workflow steps and in the connector form. Then:
+
+1. **Add connector**. (From a workflow step, **Add a read-only connector** opens the same form in place; section 34.1.)
+2. Pick the tool or **A report link**, give it a name and the address, and how it signs in: none, a bearer token, an API key in a header, a user and password, a Microsoft Entra app or a Google service account. The credential is encrypted and never shown again, including in the audit log.
 3. Choose the control it files evidence against, and whether to pull on request, daily or weekly.
 4. **Pull now** to test it.
 
-Each pull that brings new content adds a fingerprinted, readable evidence item; identical content adds nothing. Connectors only ever read. By default they refuse addresses on this machine or a private network; an admin can allow that for client systems on your own network, with the switch on the same page.
+**Tests and Evidence > From Client Tools** shows the same connectors read-only, with **Pull now**, for anyone working on tests. Each pull that brings new content adds a fingerprinted, readable evidence item; identical content adds nothing. Connectors only ever read. By default they refuse addresses on this machine or a private network; an admin can allow that for client systems on your own network, with the switch on the same page.
 
 ## 24. Issues
 
@@ -836,9 +853,11 @@ The rules, which nobody can switch off:
 
 Most of a client's governance work already happens in their own tools: approvals in Power Automate or ServiceNow, policies in SharePoint or Confluence, testing in Excel or Jira, sign-off in Teams or Slack. For a trigger, person, client or notify step, choose **Happens in** (the tool) and **Where in** it (a site, list, project, queue or channel). The step shows the tool on the canvas.
 
-Where ARGUS can read the tool, link the step to a **connector** (**ARGUS reads it with**). The connector pulls the document, spreadsheet, ticket list or channel history in as evidence, read-only; ARGUS never changes anything in the client's tools. The **Business tools** button in the rail lists the tools the workflow uses, their steps, and whether a connector reads each one. **Set up a connector** opens the connector form with that tool picked.
+Where ARGUS can read the tool, link the step to a **connector** (**ARGUS reads it with**). The connector pulls the document, spreadsheet, ticket list or channel history in as evidence, read-only; ARGUS never changes anything in the client's tools. The **Business tools** button in the rail lists the tools the workflow uses, their steps, and whether a connector reads each one. If no connector reads that tool yet, **Add a read-only connector for** the tool opens the connector form over the builder, with the tool picked; save it and it's linked to the step. You stay in the builder. The panel's **Add a connector** does the same.
 
-Setting up a connector (**Tests and Evidence > Connectors > Add connector**):
+![Adding a connector from a workflow step](images/manual/m53-builder-connector.jpg)
+
+Setting up a connector (from the builder, or **Settings > Connected tools > Add connector**):
 
 ![Adding a connector for SharePoint](images/manual/m52-connector-tool.jpg)
 

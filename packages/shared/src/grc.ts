@@ -509,6 +509,9 @@ export const NewEngagement = z.object({
   gates: z.record(z.boolean()),
   agents: z.record(AgentModelChoice),
   useCases: z.array(z.string().trim().min(3).max(200)).max(100).default([]),
+  // v1.7.2: the tools the client uses, and a starting client workflow (a draft) if wanted.
+  clientTools: z.array(z.string().max(40)).max(40).default([]),
+  workflow: z.object({ template: z.enum(['standard', 'm365', 'servicenow', 'google', 'minimal']), name: z.string().trim().min(2).max(80).optional() }).nullable().default(null),
 });
 export type NewEngagement = z.infer<typeof NewEngagement>;
 

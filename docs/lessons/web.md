@@ -87,3 +87,7 @@ Links in AI answers are kept only when they point to a path inside ARGUS (one le
 ### the-assistant-works-in-the-open `design`
 While the assistant works, its steps show live ("Working · N steps", each look-up, its own reasoning), then fold into "Worked Ns · N steps" above the answer. The answer arrives whole: no word-by-word streaming (the owner's choice). Thumbs up or down and copy sit under each answer.
 **Enforced by:** test scripts/v17-test.mjs (trail, worked time, ratings)
+
+### connectors-live-in-settings-and-start-in-place `design`
+Connectors are engagement configuration, so they are managed in Settings > Connected tools beside the tools the client uses; Tests and Evidence keeps a read-only view of what they pull. Where the need arises (a workflow step in a tool ARGUS can read) the connector form opens in place and links the new connector to the step: no new tab, no losing your place. A client workflow can be drafted when the engagement is added (no credentials then). The engagement setting that decides where people approve is called "Approval gates", so "workflow" means only the client's process.
+**Enforced by:** test scripts/v17-test.mjs (clientTools saved and filtered, workflow drafted with the engagement, no connector made); browser check of Settings, the builder modal and the wizard at 1440 and 390

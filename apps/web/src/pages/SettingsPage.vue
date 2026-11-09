@@ -15,14 +15,28 @@ import {
 import { useApp } from '../stores/app';
 import EngagementAccess from '../components/EngagementAccess.vue';
 import ConnectorsTab from '../components/ConnectorsTab.vue';
+import { BUSINESS_TOOLS } from '@gh/shared';
 import { api } from '../api';
 
 const app = useApp();
 const route = useRoute();
 const router = useRouter();
+// v1.7.2: the client's business tools, saved on the engagement.
+const clientTools = ref<string[]>([]);
+watch(() => app.engagement?.clientTools, (t) => (clientTools.value = [...(t ?? [])]), { immediate: true });
+const toolsDirty = computed(() => [...clientTools.value].sort().join() !== [...(app.engagement?.clientTools ?? [])].sort().join());
+const toggleTool = (id: string) => (clientTools.value = clientTools.value.includes(id) ? clientTools.value.filter((x) => x !== id) : [...clientTools.value, id]);
+async function saveTools() {
+  try {
+    const e = await api(`/engagements/${app.engagementId}`, { method: 'PATCH', body: { clientTools: clientTools.value } });
+    const i = app.engagements.findIndex((x) => x.id === e.id);
+    if (i >= 0) app.engagements.splice(i, 1, e);
+    app.toast('Saved the client\'s tools');
+  } catch (err: any) { app.toast(err.message, 'error'); }
+}
 const TABS = computed(() => ({
-  general: 'General', workflow: 'Workflow', agents: 'AI Agents',
-  ...(app.mod('connectors') ? { integrations: 'Integrations' } : {}),
+  // v1.7.2: "Approval gates" (was Workflow, now that Client Workflows exist) and "Connected tools" (was Integrations), always shown.
+  general: 'General', workflow: 'Approval gates', agents: 'AI Agents', integrations: 'Connected tools',
   access: 'Access',
 }));
 const tab = computed(() => (['general', 'workflow', 'integrations', 'agents', 'access'].includes(String(route.params.tab)) ? String(route.params.tab) : 'general'));
@@ -392,8 +406,18 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
 
     <EngagementAccess v-if="tab === 'access'" />
     <template v-if="tab === 'integrations'">
-      <p class="small muted">Evidence connectors pull reports and exports from the client's systems into the evidence vault on a schedule. Preparers can also run them from Testing &gt; Connectors.</p>
-      <ConnectorsTab :controls="controls" />
+      <section class="card">
+        <div class="spread"><h2>Tools this client uses</h2><span class="small faint">Shown first in workflows and connectors</span></div>
+        <p class="small muted">Tick the business tools the client works in. Workflow steps and connectors list these first. Nothing connects until you add a connector below.</p>
+        <div class="tool-grid" role="group" aria-label="Tools this client uses" style="max-height: none">
+          <button v-for="t in BUSINESS_TOOLS" :key="t.id" type="button" :class="{ on: clientTools.includes(t.id) }" :aria-pressed="clientTools.includes(t.id)" :disabled="!app.can('manage_engagement') || !!app.engagement?.archivedAt" @click="toggleTool(t.id)"><i class="tool-mono" :style="{ background: t.color }">{{ t.mono }}</i>{{ t.name }}</button>
+        </div>
+        <div class="row"><button class="btn primary sm" :disabled="!toolsDirty" @click="saveTools">Save</button><span v-if="toolsDirty" class="small faint">Unsaved changes</span></div>
+      </section>
+      <section class="card">
+        <div class="spread"><h2>Connectors</h2><RouterLink to="/workflows" class="small">Client workflows</RouterLink></div>
+        <ConnectorsTab :controls="controls" manage />
+      </section>
     </template>
 
     <section v-if="tab === 'general' && app.canRaw('manage_engagement')" class="card danger-zone">
@@ -423,7 +447,7 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
 
     <!-- Workflow & gates -->
     <section v-else-if="tab === 'workflow'" class="card">
-      <div class="spread"><h2>Workflow</h2><RouterLink to="/settings/agents" class="small">Edit the AI Agents</RouterLink></div>
+      <div class="spread"><h2>Approval gates</h2><RouterLink to="/settings/agents" class="small">Edit the AI Agents</RouterLink></div>
       <p class="small muted">A gate means a named person acts before the use case leaves the stage. The agent drafts; it never approves.</p>
       <div class="table-wrap workflow-table">
         <table>

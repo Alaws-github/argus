@@ -2,6 +2,22 @@
 
 What changed in each release of ARGUS, newest first. The version shown under Sign Out comes from package.json. Start a new release with `npm run release -- X.Y.Z`.
 
+## v1.7.0 (2026-11-09)
+
+The dashboard look, client workflows, and an assistant that works in the open. The last two-part version: releases from here are 1.7.1, 1.7.2 and so on.
+
+- **Dashboard look on every page.** Each working page opens with a row of KPI tiles (big numbers, an icon, a line of context, one accent tile), from one new read, `GET /engagements/:id/kpis`: the board, risks, controls, testing, issues, incidents, inventory, evaluations, knowledge base, runs, audit log and report. Tiles link to where the number comes from. Cards are rounder and softer, tabs and segmented choices are pill selectors, and Overview's first tile is the accent tile.
+- **Client workflows** (Settings menu > Client Workflows). Draw how a client takes an AI use case from idea to live: triggers, agent steps, person decisions, client steps, conditions, notifications and ends, around ARGUS's five governance gates. A builder with an icon rail (add a step, fit, undo, versions), a canvas (drag steps, drag from a step's dot to draw an arrow, zoom) and an inspector. The gates and the trigger can be moved, never removed; every path must pass every gate in order; after an agent step a person or a gate decides; conditions need labelled ways out. Problems show as you draw and on the step. Drafts save with problems; only a workflow with none can be published. Each publish keeps a numbered version with a note; any version can be viewed or made the draft again; a workflow can be retired. Every change is in the audit log. Leads and admins edit; everyone can view.
+- **The assistant works in the open.** While it works you see "Working · N steps" with each look-up and its own reasoning as it happens (sent only to you). When it finishes this folds into "Worked 2.4s · N steps" above the answer, which opens to show the steps. Answers sit in an Agent card with thumbs up, thumbs down (kept and audited, so poor answers can be found) and copy.
+- **Links in answers.** The assistant links to ARGUS pages (`[the risk register](/risks)`), and record keys in any answer (AI-3, R-4, C-2, T-1, E-5, I-2, INC-1) become links. A link to a register row (`/risks?focus=R-4`) scrolls to it and highlights it. Links outside ARGUS are shown as plain text. Links open without closing the assistant.
+- **Tag a record with @.** Type @ in the question box to pick a use case, risk, control or issue; the assistant gets that record whatever page you're on.
+- **Errors you can act on.** A refused key, unknown model, rate limit, empty quota, time-out or unreachable provider says what to do and where ("The provider refused the API key. Check or replace it on Models & Keys."), on the assistant and on failed runs.
+- **Agents show their steps on the use case.** While an agent runs, the use case's side panel lists its look-ups live, as the assistant does. The model's own words between look-ups are now recorded in the run log too.
+- The answer itself still arrives in one go (no word-by-word streaming), as agreed.
+- Fix: the Client Workflows list asked for the workflows before the engagement had loaded on a direct visit.
+- Fix: page headings and their buttons wrap on a phone instead of running off the screen (Report).
+- New checks: `npm run test:v17` (28).
+
 ## v1.6.0 (2026-11-09)
 
 Agents that reason. Plan: `docs/plans/v1.6-agentic-ai.md`.

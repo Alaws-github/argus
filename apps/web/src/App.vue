@@ -3,6 +3,7 @@
 // account menu with theme and notifications), archived banner and the page.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { focusRow } from './lib/links';
 import { useApp } from './stores/app';
 import { api } from './api';
 import SignIn from './components/SignIn.vue';
@@ -55,6 +56,7 @@ const AI_MENU = computed(() => [
   ...(app.mod('advanced_ai') ? [{ to: '/agent-testing/golden', label: 'Checking the AI', icon: 'checking', hint: 'Golden dataset and the Verifier', match: '/agent-testing' }] : []),
 ]);
 const SETTINGS = [
+  { to: '/workflows', label: 'Client Workflows', icon: 'workflow', hint: "The client's process, with the governance gates built in" },
   { to: '/settings/general', label: 'Engagement Settings', icon: 'engagement', match: '/settings/(general|workflow|integrations|access)' },
   { to: '/workspace/models', label: 'Workspace Settings', icon: 'workspace', match: '/workspace' },
   { to: '/audit', label: 'Audit Log', icon: 'audit' },
@@ -93,6 +95,8 @@ async function start() {
 }
 watch(() => app.user?.id, (id) => id && void app.init().catch((e) => app.toast(e.message, 'error')));
 watch(() => route.fullPath, () => { menu.value = ''; navOpen.value = false; });
+// v1.7: links like /risks?focus=R-4 (from the assistant) point at one row.
+watch(() => route.query.focus, (f) => { if (typeof f === 'string' && f) focusRow(f); }, { immediate: true });
 watch(menu, (m) => m === 'me' && (app.user?.role === 'admin' || app.user?.realUser) && void loadActAs());
 
 

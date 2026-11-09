@@ -136,6 +136,9 @@ const RULES: [string, RegExp, Permission][] = [
   ['*', /^\/connectors\//, 'manage_engagement'],
   ['POST', /^\/alerts\/[^/]+\/acknowledge$/, 'approve'],
   ['POST', /^\/library/, 'manage_engagement'],
+  ['GET', /^\/workflows/, 'read'],
+  ['*', /^\/workflows\//, 'manage_engagement'],
+  ['POST', /^\/engagements\/[^/]+\/workflows$/, 'manage_engagement'],
   ['PATCH', /^\/library/, 'manage_engagement'],
 ];
 

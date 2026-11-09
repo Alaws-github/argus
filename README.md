@@ -4,6 +4,8 @@
 
 An AI governance, risk and assurance workbench. AI use cases move across a board from Intake to Board report. Agents draft the work at each stage; a named person approves at each gate; every action lands in a hash-chained audit trail.
 
+v1.7 gives every working page the dashboard look (KPI tiles from `GET /engagements/:id/kpis`), adds **Client Workflows** (a builder for the client's own process around ARGUS's five governance gates, which can't be removed or skipped; versioned and audited), and makes the assistant work in the open: live steps, "Worked Ns · N steps", links to pages and records, @ to tag a record, thumbs up or down, and errors that say what to do. From here releases are 1.7.1, 1.7.2 and so on.
+
 v1.6 makes the agents reason: they look things up with read-only tools (the knowledge base, use cases, similar cases and past reviewer decisions, registers, evidence), can ask a person a question (the use case shows **Question for You** until someone answers or skips), and check their own draft before handing it in. Every step is in the run log. Each agent can be switched between Agentic and Single call. The assistant looks things up too and shows what each answer was based on. Uploaded documents are split at their headings, and Checking the AI has a Retrieval tab that scores how well the knowledge base finds the right passage. See `docs/plans/v1.6-agentic-ai.md` and CLAUDE.md rules 23 to 27.
 
 v1.3 can run online: a `Dockerfile` for the server and a Cloudflare Worker in `deploy/cloudflare/` (screens as static assets, the server as a Cloudflare Container, Postgres for data and R2 for evidence files). See `docs/runbooks/deploy-to-cloudflare.md`.
@@ -97,6 +99,7 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run versions` | List versions; `-- use v1.1` switches (backing up data); `-- latest` returns |
 | `npm run test:v11` | v1.1 tests (65 checks): the Use Case Planner on rules and a mock model, new agents and routing, act as, provider service names, Overview activity. Fresh database |
 | `npm run test:verifier` | Verifier and agent-testing tests (36 checks): golden runs and regressions, the quote check, calibration, live checks, spend cap. Fresh database |
+| `npm run test:v17` | v1.7 tests (28 checks): client workflows and their rules, versions and audit; the KPI read; the assistant's steps, @ tags, ratings and actionable errors. Fresh database |
 | `npm run test:v16` | v1.6 tests (34 checks): the agent loop, single-call mode, models without tool calls, the step limit, refused tools, members-only records, the self-check, questions (pause, answer, skip, audit), the assistant's look-ups, golden runs by mode. Fresh database |
 | `npm run test:rag` | Retrieval tests (8 checks): recall and MRR with keyword and meaning search, heading-aware passages with overlap, the per-document cap. Fresh database |
 | `npm run test:agents` | Drafting-agent tests (30 checks), including a mock model that tries to cheat the guardrails. Also needs a fresh database |
@@ -249,6 +252,8 @@ scripts/smoke.mjs          API smoke test
 | Runs, risks, audit | `GET /api/runs`, `GET /api/runs/:id`, `GET /api/engagements/:id/risks`, `PATCH /api/risks/:id`, `GET /api/engagements/:id/overview`, `GET /api/audit` (`q`, `actor`, `action`, `ip`, `from`, `to`, `page`, `pageSize`) |
 | Settings | `GET /api/settings`, `PUT /api/settings`, `PATCH /api/engagements/:id` |
 | Providers | `GET /api/providers`, `POST /api/providers`, `PATCH /api/providers/:id`, `DELETE /api/providers/:id`, `POST /api/providers/:id/test`, `POST /api/providers/test` |
+| Workflows | `GET/POST /api/engagements/:id/workflows` (`template`: standard or minimal), `GET/PATCH /api/workflows/:id` (a graph without the gates is refused), `POST /api/workflows/:id/publish` (`note`; 409 with problems), `GET /api/workflows/:id/versions/:v`, `POST /api/workflows/:id/restore` (`version`), `POST /api/workflows/:id/retire` |
+| KPIs | `GET /api/engagements/:id/kpis` (the numbers behind every page's tiles) |
 | Agents | `GET /api/engagements/:id/agents`, `PATCH /api/agents/:id` (incl. `mode` agentic or single, `maxSteps` 2 to 20, `selfCheck`, `tools`) |
 | Auth and people | `PATCH /api/auth/me`, `GET /api/auth/sessions`, `DELETE /api/auth/sessions/:id`, `POST /api/auth/sessions/end-all`, `GET /api/auth/state`, `POST /api/auth/setup`, `POST /api/auth/login`, `POST /api/auth/logout`, `POST /api/auth/password`, `GET/POST /api/users`, `PATCH /api/users/:id` |
 | Controls | `GET /api/library`, `POST /api/library`, `GET /api/obligations`, `GET /api/engagements/:id/soa`, `PUT /api/engagements/:id/soa/:libraryId`, `GET/POST /api/engagements/:id/controls`, `PATCH /api/controls/:id`, `GET /api/engagements/:id/traceability` |
@@ -261,15 +266,15 @@ scripts/smoke.mjs          API smoke test
 | Agent testing | `GET /api/agent-testing`, `GET/POST /api/agent-testing/runs` (`mode`: agentic or single), `GET /api/agent-testing/retrieval` (recall@5/10 and MRR, keyword and hybrid), `GET /api/agent-testing/runs/:id`, `POST /api/agent-testing/cases`, `DELETE /api/agent-testing/cases/:id`, `POST /api/agent-testing/labels`, `POST /api/agent-testing/labels/import`, `DELETE /api/agent-testing/labels/:id`, `POST /api/agent-testing/calibrate`, `POST /api/cards/:id/verify` |
 | Operations | `GET/POST /api/engagements/:id/incidents`, `PATCH /api/incidents/:id`, `PATCH /api/evals/:id/schedule`, `GET /api/engagements/:id/alerts`, `POST /api/alerts/:id/acknowledge`, `POST /api/alerts/:id/issue`, `GET/POST /api/engagements/:id/connectors`, `PATCH/DELETE /api/connectors/:id`, `POST /api/connectors/:id/pull` |
 | Access and SSO | `GET /api/engagements/:id/members`, `PUT /api/engagements/:id/access`, `POST /api/engagements/:id/members`, `DELETE /api/engagements/:id/members/:userId`, `GET /api/auth/sso`, `GET /api/auth/sso/start`, `GET /api/auth/sso/callback`, `GET/PUT /api/sso/config` |
-| Assistant | `GET /api/engagements/:id/assistant?kind=&contextId=` (your latest conversation about that record), `POST /api/engagements/:id/assistant` (`kind`: card, risks, controls, issues, engagement; `contextId`; `question`; `page: {path, snapshot}`; `conversationId` or `newConversation`), `GET /api/engagements/:id/assistant/conversations?q=` (yours, newest first; `q` searches every message), `GET/PATCH /api/engagements/:id/assistant/conversations/:cid` (open, rename), `POST /api/engagements/:id/assistant/:messageId/suggestions/:id/apply`, `.../discard` |
+| Assistant | `GET /api/engagements/:id/assistant?kind=&contextId=` (your latest conversation about that record), `POST /api/engagements/:id/assistant` (`kind`: card, risks, controls, issues, engagement; `contextId`; `question`; `page: {path, snapshot}`; `conversationId` or `newConversation`; `requestId` to get live `assistant:step` events; @KEY in the question adds that record), `POST /api/engagements/:id/assistant/:messageId/feedback` (`value`: up, down or null), `GET /api/engagements/:id/assistant/conversations?q=` (yours, newest first; `q` searches every message), `GET/PATCH /api/engagements/:id/assistant/conversations/:cid` (open, rename), `POST /api/engagements/:id/assistant/:messageId/suggestions/:id/apply`, `.../discard` |
 | Agents and audit | `POST /api/agents/:id/kill` (`{ test: true }` to test), `GET /api/audit/verify` |
 | Health | `GET /api/health` |
 
-Realtime events: `card`, `run`, `run:event`, `risk`, `audit`, `usage`, `engagement`, `issue`, `eval`, `golden`, `assistant`, `alert`, `incident`, `evidence`. Events about a members-only engagement go only to its members and admins. The socket needs a signed-in session.
+Realtime events: `card`, `run`, `run:event`, `assistant:step` (to the asker only), `risk`, `audit`, `usage`, `engagement`, `issue`, `eval`, `golden`, `assistant`, `alert`, `incident`, `evidence`. Events about a members-only engagement go only to its members and admins. The socket needs a signed-in session.
 
 ## Next to build
 
-1. **v1.7**: the dashboard look on every page, and a governance workflow builder.
+1. **Running client workflows**: a published workflow driving the board and the agents (1.7.x).
 1. **OCR** for scanned evidence.
 2. **SSO beyond the scaffold**: SAML, sign-out at the provider, accounts from group claims; MFA inside the app.
 3. **Connectors with OAuth** for document stores that need it (they read HTTPS report and export links today).

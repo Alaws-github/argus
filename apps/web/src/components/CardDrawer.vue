@@ -48,15 +48,34 @@ async function load() {
 function onCard(c: Card) {
   if (c.key === props.cardKey) void load();
 }
+// v1.7: while an agent runs, its steps show live on the use case.
+const liveEvents = ref<{ id: number; kind: string; text: string }[]>([]);
+let liveRun = '';
+async function watchRun() {
+  const c = card.value;
+  const runId = c?.status === 'running' ? c.latestRunId : null;
+  if (!runId) { liveRun = ''; liveEvents.value = []; return; }
+  if (runId === liveRun) return;
+  liveRun = runId;
+  try { liveEvents.value = ((await api(`/runs/${runId}`)) as any).events.filter((e: any) => e.kind !== 'error'); } catch { liveEvents.value = []; }
+}
+function onRunEvent(e: { runId: string; id: number; kind: string; text: string }) {
+  if (e.runId !== liveRun || e.kind === 'error' || liveEvents.value.some((x) => x.id === e.id)) return;
+  liveEvents.value.push(e);
+}
+watch(() => [card.value?.status, card.value?.latestRunId], () => void watchRun());
+const liveSteps = computed(() => liveEvents.value.filter((e) => e.kind === 'step').length);
 onMounted(() => {
   void load();
   socket.on('card', onCard);
+  socket.on('run:event', onRunEvent);
 });
 // Reload after the assistant applies a change to this card.
 const onApplied = () => void load();
 window.addEventListener('gh:assistant-applied', onApplied);
 onBeforeUnmount(() => {
   socket.off('card', onCard);
+  socket.off('run:event', onRunEvent);
   window.removeEventListener('gh:assistant-applied', onApplied);
 });
 watch(() => props.cardKey, () => void load());
@@ -415,6 +434,12 @@ const actionLabel = (a: string) =>
       <div v-else-if="mode === 'working'" class="notice">
         <h3>{{ card.status === 'running' ? `The ${agentName} is working on this` : `Queued for the ${agentName}` }}</h3>
         <p v-if="card.statusNote" class="small">{{ card.statusNote }}</p>
+        <template v-if="card.status === 'running'">
+          <div class="ap-worked live">Working · {{ liveSteps }} step{{ liveSteps === 1 ? '' : 's' }}</div>
+          <ol v-if="liveEvents.length" class="ap-steps">
+            <li v-for="e in liveEvents.slice(-12)" :key="e.id" :class="e.kind === 'output' ? 'thought' : 'look'">{{ e.text.length > 280 ? `${e.text.slice(0, 280)}…` : e.text }}</li>
+          </ol>
+        </template>
         <RouterLink v-if="card.latestRunId && card.status === 'running'" :to="`/runs/${card.latestRunId}`">Watch the run</RouterLink>
       </div>
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Every agent run in the engagement.
 import { onBeforeUnmount, onMounted, ref } from 'vue';
+import KpiStrip from '../components/KpiStrip.vue';
 import { STAGE_LABELS, type Run } from '@gh/shared';
 import { api, ago, duration, money, socket } from '../api';
 
@@ -21,6 +22,7 @@ onBeforeUnmount(() => socket.off('run', load));
         <p>Every agent session: what it did, what it cost and how it ended. {{ runs.length }} shown, {{ money(runs.reduce((a, r) => a + r.costUsd, 0)) }} in all.</p>
       </div>
     </div>
+    <KpiStrip page="runs" />
     <div v-if="!runs.length" class="card empty"><h2>No runs yet</h2><p>Runs appear when an agent picks up a use case.</p></div>
     <div v-else class="table-wrap">
       <table>

@@ -5,10 +5,11 @@
 // Conversations are kept per person: start a new one, or find an old one and
 // carry on. Each question sends the page you're on and the text on screen, so
 // "what's on this page?" has an answer.
-import { computed, nextTick, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import type { AssistantConversation, AssistantMessage, AssistantSuggestion } from '@gh/shared';
-import { api } from '../api';
+import { api, socket } from '../api';
+import { keyLink } from '../lib/links';
 import { useApp } from '../stores/app';
 import Icon from './Icon.vue';
 import ArgusLogo from './ArgusLogo.vue';
@@ -16,6 +17,7 @@ import { renderMarkdown } from '../markdown';
 
 const app = useApp();
 const route = useRoute();
+const router = useRouter();
 const messages = ref<AssistantMessage[]>([]);
 const conversation = ref<AssistantConversation | null>(null);
 const fresh = ref(false);
@@ -147,6 +149,97 @@ function snapshot(): string {
 }
 const scroll = () => nextTick(() => list.value?.scrollTo({ top: list.value.scrollHeight }));
 
+// v1.7: live steps while it works (sent only to the person asking), shown as
+// "Working · N steps" and then folded into "Worked Ns · N steps" above the answer.
+type LiveStep = { kind: 'phase' | 'step' | 'thought'; text: string };
+const live = ref<{ id: string; phase: string; steps: LiveStep[]; started: number } | null>(null);
+const nowTick = ref(Date.now());
+let ticker: ReturnType<typeof setInterval> | null = null;
+function onStep(p: { requestId: string } & LiveStep) {
+  if (!live.value || p.requestId !== live.value.id) return;
+  if (p.kind === 'phase') live.value.phase = p.text;
+  else { live.value.steps.push({ kind: p.kind, text: p.text }); live.value.phase = p.kind === 'thought' ? 'Thinking it through' : 'Looking things up'; }
+  scroll();
+}
+onMounted(() => socket.on('assistant:step', onStep));
+onBeforeUnmount(() => { socket.off('assistant:step', onStep); if (ticker) clearInterval(ticker); });
+const liveSteps = computed(() => live.value?.steps.filter((s) => s.kind === 'step').length ?? 0);
+const secs = (ms?: number | null) => (ms == null ? '' : ms < 10_000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms / 1000)}s`);
+const lookups = (m: AssistantMessage) => m.trail.filter((t) => !t.startsWith('Thinking: '));
+const openTrail = ref('');
+
+// Links in answers go to ARGUS pages without closing the assistant.
+const cardKeys = computed(() => new Set(app.cards.map((c) => c.key.toUpperCase())));
+const md = (t: string) => renderMarkdown(t, (k) => keyLink(k, cardKeys.value));
+function onLinkClick(ev: MouseEvent) {
+  const a = (ev.target as HTMLElement).closest<HTMLAnchorElement>('a[data-internal]');
+  if (!a || ev.ctrlKey || ev.metaKey || ev.shiftKey) return;
+  ev.preventDefault();
+  void router.push(a.getAttribute('href')!);
+  if (window.matchMedia('(max-width: 720px)').matches) app.assistant.open = false;
+}
+
+// Thumbs up or down, and copy.
+async function rate(m: AssistantMessage, v: 'up' | 'down') {
+  const value = m.feedback === v ? null : v;
+  try {
+    await api(`/engagements/${app.engagementId}/assistant/${m.id}/feedback`, { method: 'POST', body: { value } });
+    m.feedback = value;
+    if (value) app.toast(value === 'up' ? 'Thanks. Marked as helpful.' : 'Thanks. Marked as not helpful, so it can be checked.');
+  } catch (e: any) { app.toast(e.message, 'error'); }
+}
+async function copy(m: AssistantMessage) {
+  try { await navigator.clipboard.writeText(m.text); app.toast('Copied'); } catch { app.toast("Couldn't copy here", 'error'); }
+}
+
+// @ to tag a record: use cases on the board, plus risks, controls and issues.
+type Tag = { key: string; title: string; kind: string };
+const tags = ref<Tag[]>([]);
+const tagQuery = ref<string | null>(null);
+const tagIndex = ref(0);
+async function loadTags() {
+  if (tags.value.length) return;
+  const out: Tag[] = app.cards.map((c) => ({ key: c.key, title: c.title, kind: 'Use case' }));
+  const get = async (path: string, kind: string, key: (x: any) => string) => {
+    try { const rows = await api<any[]>(path); for (const x of (Array.isArray(rows) ? rows : (rows as any).rows ?? [])) out.push({ key: key(x), title: x.title, kind }); } catch { /* module off or no access: skip */ }
+  };
+  await Promise.all([
+    get(`/engagements/${app.engagementId}/risks`, 'Risk', (x) => x.key ?? `R-${x.number}`),
+    get(`/engagements/${app.engagementId}/controls`, 'Control', (x) => x.key ?? `C-${x.number}`),
+    get(`/engagements/${app.engagementId}/issues`, 'Issue', (x) => x.key ?? `I-${x.number}`),
+  ]);
+  tags.value = out;
+}
+const tagMatches = computed(() => {
+  if (tagQuery.value === null) return [];
+  const q = tagQuery.value.toLowerCase();
+  return tags.value.filter((t) => !q || t.key.toLowerCase().includes(q) || t.title.toLowerCase().includes(q)).slice(0, 8);
+});
+function onInput() {
+  const el = box.value;
+  if (!el) return;
+  const before = question.value.slice(0, el.selectionStart ?? question.value.length);
+  const m = before.match(/(?:^|\s)@([\w-]{0,20})$/);
+  if (m) { tagQuery.value = m[1]; tagIndex.value = 0; void loadTags(); } else tagQuery.value = null;
+}
+function pickTag(t: Tag) {
+  const el = box.value!;
+  const pos = el.selectionStart ?? question.value.length;
+  const before = question.value.slice(0, pos).replace(/@([\w-]{0,20})$/, `@${t.key} `);
+  question.value = before + question.value.slice(pos);
+  tagQuery.value = null;
+  void nextTick(() => { el.focus(); el.setSelectionRange(before.length, before.length); });
+}
+function onKey(ev: KeyboardEvent) {
+  if (tagQuery.value !== null && tagMatches.value.length) {
+    if (ev.key === 'ArrowDown') { ev.preventDefault(); tagIndex.value = (tagIndex.value + 1) % tagMatches.value.length; return; }
+    if (ev.key === 'ArrowUp') { ev.preventDefault(); tagIndex.value = (tagIndex.value + tagMatches.value.length - 1) % tagMatches.value.length; return; }
+    if (ev.key === 'Enter' || ev.key === 'Tab') { ev.preventDefault(); pickTag(tagMatches.value[tagIndex.value]); return; }
+    if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); tagQuery.value = null; return; }
+  }
+  if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); void send(); }
+}
+
 // v1.6: what an answer drew on, and its sources grouped by kind.
 const BASIS: Record<string, string> = { page: 'This page', records: 'ARGUS records', knowledge: 'Knowledge base' };
 const SOURCE_KIND: Record<string, string> = { framework: 'Frameworks', control: 'Control library', methodology: 'Method guidance', upload: 'Client documents', client: 'Client documents', use_case: 'Use cases', evidence: 'Evidence' };
@@ -161,11 +254,15 @@ async function send(text?: string) {
   if (q.length < 2 || busy.value) return;
   busy.value = true;
   question.value = '';
+  tagQuery.value = null;
   messages.value.push({ id: 'pending', role: 'user', text: q, citations: [], passages: [], suggestions: [], dropped: [], model: null, runtime: null, basis: [], trail: [], author: app.user?.name ?? '', at: new Date().toISOString() });
+  const requestId = Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+  live.value = { id: requestId, phase: 'Getting started', steps: [], started: Date.now() };
+  ticker = setInterval(() => (nowTick.value = Date.now()), 500);
   scroll();
   try {
     const page = { path: route.fullPath, snapshot: snapshot() };
-    const [, reply] = await api(base(), { method: 'POST', body: { kind: a.value.kind, contextId: a.value.contextId, question: q, page, ...(conversation.value ? { conversationId: conversation.value.id } : { newConversation: true }) } });
+    const [, reply] = await api(base(), { method: 'POST', body: { kind: a.value.kind, contextId: a.value.contextId, question: q, page, requestId, ...(conversation.value ? { conversationId: conversation.value.id } : { newConversation: true }) } });
     await openConversation(reply.conversationId);
   } catch (e: any) {
     messages.value = messages.value.filter((m) => m.id !== 'pending');
@@ -173,6 +270,8 @@ async function send(text?: string) {
     app.toast(e.message, 'error');
   } finally {
     busy.value = false;
+    live.value = null;
+    if (ticker) { clearInterval(ticker); ticker = null; }
   }
 }
 
@@ -247,9 +346,16 @@ const STATUS: Record<string, string> = { applied: 'Applied', discarded: 'Discard
 
         <template v-for="m in messages" :key="m.id">
           <div v-if="m.role === 'user'" class="ap-me">{{ m.text }}</div>
-          <div v-else class="ap-ai">
-            <div class="ap-who">Assistant</div>
-            <div class="ap-md" v-html="renderMarkdown(m.text)" />
+          <template v-else>
+          <button v-if="m.trail?.length" type="button" class="ap-worked" :aria-expanded="openTrail === m.id" @click="openTrail = openTrail === m.id ? '' : m.id">
+            Worked{{ m.workedMs ? ` ${secs(m.workedMs)}` : '' }} · {{ lookups(m).length }} step{{ lookups(m).length === 1 ? '' : 's' }}<Icon name="chevron" :size="13" :class="{ flip: openTrail === m.id }" />
+          </button>
+          <ol v-if="openTrail === m.id" class="ap-steps">
+            <li v-for="(t, i) in m.trail" :key="i" :class="t.startsWith('Thinking: ') ? 'thought' : 'look'">{{ t.startsWith('Thinking: ') ? t.slice(10) : t }}</li>
+          </ol>
+          <div class="ap-ai">
+            <div class="ap-who">Agent</div>
+            <div class="ap-md" @click="onLinkClick" v-html="md(m.text)" />
             <div v-if="m.basis?.length" class="ap-basis small"><span class="faint">Based on</span><span v-for="b in m.basis" :key="b" class="basis-chip">{{ BASIS[b] }}</span></div>
             <div v-for="[label, ps] in sourceGroups(m)" :key="label" class="ap-sources">
               <span class="small faint">{{ label }}</span>
@@ -267,17 +373,35 @@ const STATUS: Record<string, string> = { applied: 'Applied', discarded: 'Discard
                 <button class="btn sm ghost" @click="act(m, s, 'discard')">Discard</button>
               </div>
             </div>
-            <details v-if="m.trail?.length" class="small faint"><summary>How I got here ({{ m.trail.length }} look-up{{ m.trail.length === 1 ? '' : 's' }})</summary><ol class="plain ap-trail"><li v-for="(t, i) in m.trail" :key="i">{{ t }}</li></ol></details>
             <details v-if="m.dropped.length" class="small faint"><summary>{{ m.dropped.length }} thing{{ m.dropped.length === 1 ? '' : 's' }} the harness removed</summary><ul class="plain"><li v-for="d in m.dropped" :key="d">{{ d }}</li></ul></details>
-            <div class="ap-meta">{{ m.runtime === 'live' ? m.model : 'Offline assistant' }}</div>
+            <div class="ap-foot">
+              <button type="button" class="ap-icon sm" :class="{ on: m.feedback === 'up' }" title="Helpful" aria-label="Helpful" :aria-pressed="m.feedback === 'up'" @click="rate(m, 'up')"><Icon name="thumbup" :size="14" /></button>
+              <button type="button" class="ap-icon sm" :class="{ on: m.feedback === 'down' }" title="Not helpful" aria-label="Not helpful" :aria-pressed="m.feedback === 'down'" @click="rate(m, 'down')"><Icon name="thumbdown" :size="14" /></button>
+              <button type="button" class="ap-icon sm" title="Copy the answer" aria-label="Copy the answer" @click="copy(m)"><Icon name="copy" :size="14" /></button>
+              <span class="ap-meta">{{ m.runtime === 'live' ? m.model : 'Offline assistant' }}</span>
+            </div>
           </div>
+          </template>
         </template>
-        <div v-if="busy" class="ap-thinking" role="status"><ArgusLogo class="ap-thinking-logo" /><span>Thinking</span><span class="ap-dots"><i /><i /><i /></span></div>
+        <div v-if="busy && live" class="ap-live" role="status" aria-live="polite">
+          <div class="ap-worked live">Working · {{ liveSteps }} step{{ liveSteps === 1 ? '' : 's' }} · {{ secs(nowTick - live.started) }}</div>
+          <ol v-if="live.steps.length" class="ap-steps">
+            <li v-for="(t, i) in live.steps" :key="i" :class="t.kind === 'thought' ? 'thought' : 'look'">{{ t.text }}</li>
+          </ol>
+          <div class="ap-phase"><ArgusLogo class="ap-thinking-logo" /><span>{{ live.phase }}</span><span class="ap-dots"><i /><i /><i /></span></div>
+        </div>
       </div>
 
       <form class="ap-compose" @submit.prevent="send()">
         <div class="ap-box">
-          <textarea ref="box" v-model="question" rows="1" :placeholder="app.can('prepare') ? 'Ask about this page, a record or a standard' : 'Viewers can read but not ask'" :disabled="!app.can('prepare')" aria-label="Your question" @keydown.enter.exact.prevent="send()" />
+          <ul v-if="tagQuery !== null && tagMatches.length" class="ap-tags" role="listbox" aria-label="Tag a record">
+            <li class="ap-tags-head">Tag a record</li>
+            <li v-for="(t, i) in tagMatches" :key="t.key" role="option" :aria-selected="i === tagIndex" :class="{ on: i === tagIndex }" @mousedown.prevent="pickTag(t)">
+              <span class="mono">{{ t.key }}</span><span class="grow">{{ t.title }}</span><span class="faint small">{{ t.kind }}</span>
+            </li>
+            <li class="ap-tags-foot faint">↑ ↓ to move · Enter to choose · Esc to close</li>
+          </ul>
+          <textarea ref="box" v-model="question" rows="1" :placeholder="app.can('prepare') ? 'Ask about this page, or type @ to tag a use case, risk or control' : 'Viewers can read but not ask'" :disabled="!app.can('prepare')" aria-label="Your question" @keydown="onKey" @input="onInput" @click="onInput" />
           <div class="ap-box-foot">
             <span class="ap-context small" :title="`About: ${title}`"><Icon name="assistant" :size="13" />{{ title }} · {{ model ?? 'offline' }}</span>
             <button class="ap-send" :disabled="busy || !app.can('prepare') || question.trim().length < 2" :aria-label="busy ? 'Waiting for the answer' : 'Send'" :title="busy ? 'Waiting for the answer' : 'Send (Enter)'">

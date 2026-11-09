@@ -69,3 +69,21 @@ The top menu item for the page you're on is highlighted light blue (accent text 
 ### segmented-buttons-one-line `bug`
 A segmented choice with a mark or icon (Plan with AI / Fill it in myself) keeps the mark and the label on one line: use the small `.seg-ai` mark, not the 30px `.ai-mark`, which stacks above the text.
 **Enforced by:** none - visual check
+
+## The dashboard look (v1.7)
+
+### every-page-opens-with-kpis `design`
+Each working page opens with a KPI strip (`components/KpiStrip.vue`): three to five tiles with a big number, an icon, one line of context, the first as the accent tile, each linking to where the number comes from. Numbers come from one read, `GET /engagements/:id/kpis`; add a page's tiles there and in `KpiStrip`, not with a new endpoint per page. Tabs and segmented choices are pill selectors. **Why:** the owner asked for the dashboard look on all pages.
+**Enforced by:** none - visual check at 1440 and 390
+
+### pages-wait-for-the-engagement `bug`
+A page that loads data for the current engagement must wait for `app.engagementId` (watch it with `immediate: true` and return while it is empty), not load in `onMounted`. **Why:** on a direct visit (a link, a refresh) the page mounts before the engagement list loads, so it asked for `/engagements//workflows` and got a 404.
+**Enforced by:** none - browser check of a direct visit
+
+### ai-links-stay-inside-argus `design`
+Links in AI answers are kept only when they point to a path inside ARGUS (one leading "/", not `/api`); record keys become links through `lib/links.ts`; anything else is shown as text. Links open with the router and leave the assistant open. **Why:** the owner wanted links to pages like Cloudflare's assistant, and model text must never carry a link out of the app.
+**Enforced by:** none - markdown.ts; browser check
+
+### the-assistant-works-in-the-open `design`
+While the assistant works, its steps show live ("Working · N steps", each look-up, its own reasoning), then fold into "Worked Ns · N steps" above the answer. The answer arrives whole: no word-by-word streaming (the owner's choice). Thumbs up or down and copy sit under each answer.
+**Enforced by:** test scripts/v17-test.mjs (trail, worked time, ratings)

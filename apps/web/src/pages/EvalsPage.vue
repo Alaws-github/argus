@@ -2,6 +2,7 @@
 // Evaluations and red teaming: the suites that test AI systems themselves, with
 // their last result against a pass threshold.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import KpiStrip from '../components/KpiStrip.vue';
 import { useRouter } from 'vue-router';
 import type { EvalSuite, InventoryItem, MonitorAlert, MonitorSchedule, Provider } from '@gh/shared';
 import { api, ago, socket } from '../api';
@@ -112,6 +113,7 @@ async function run(s: EvalSuite) {
       </div>
       <button v-if="app.can('prepare')" class="btn primary" @click="startAdd">New suite</button>
     </div>
+    <KpiStrip page="evals" />
     <div v-if="openAlerts.length" class="card alert-card" style="margin-bottom: 16px; gap: 8px">
       <h2>Monitoring alerts <span class="count">{{ openAlerts.length }}</span></h2>
       <div v-for="a in openAlerts" :key="a.id" class="alert-row">

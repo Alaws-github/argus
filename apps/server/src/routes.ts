@@ -16,6 +16,8 @@ import { incidentRoutes } from './routes-incidents.js';
 import { connectorRoutes } from './routes-connectors.js';
 import { planRoutes } from './routes-plans.js';
 import { createCard } from './cards.js';
+import { engagementKpis } from './kpis.js';
+import { workflowRoutes } from './routes-workflows.js';
 import { accessRoutes } from './routes-access.js';
 import { ssoRoutes } from './sso.js';
 import { requireDifferentPerson, requirePerm } from './auth.js';
@@ -329,6 +331,11 @@ export function routes(db: Db) {
     res.json(risk);
   }));
 
+  // v1.7: the numbers for every page's KPI tiles, in one read.
+  r.get('/engagements/:id/kpis', wrap(async (req, res) => {
+    res.json(await engagementKpis(db, req.params.id));
+  }));
+
   r.get('/engagements/:id/overview', wrap(async (req, res) => {
     const id = req.params.id;
     const { rows: cards } = await db.query(`SELECT stage, status, tier FROM cards WHERE engagement_id = $1`, [id]);
@@ -468,6 +475,7 @@ export function routes(db: Db) {
   assistantRoutes(r, db, actorOf, wrap);
   incidentRoutes(r, db, actorOf, wrap);
   planRoutes(r, db, actorOf, wrap);
+  workflowRoutes(r, db, actorOf, wrap);
   connectorRoutes(r, db, actorOf, wrap);
   accessRoutes(r, db, actorOf, wrap);
   ssoRoutes(r, db, actorOf, wrap);

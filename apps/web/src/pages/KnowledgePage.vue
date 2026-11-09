@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Icon from '../components/Icon.vue';
+import KpiStrip from '../components/KpiStrip.vue';
 // The knowledge base: everything the AI agents ground their drafts in, a
 // search box that finds passages the way an agent does, and uploads for the
 // client's own documents (policies, procedures, minutes).
@@ -90,6 +91,7 @@ const KIND: Record<string, string> = { framework: 'Framework', control: 'Library
       </div>
       <button v-if="app.can('prepare')" class="btn primary" @click="adding = true"><Icon name="upload" />Add a Client Document</button>
     </div>
+    <KpiStrip page="knowledge" />
 
     <div class="notice kb-fill" :class="count('upload') ? '' : 'warn'">
       <strong>{{ count('upload') ? `${count('upload')} client document${count('upload') === 1 ? '' : 's'} added.` : 'Start here: the AI only knows what you give it.' }}</strong>

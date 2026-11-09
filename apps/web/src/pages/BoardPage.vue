@@ -4,6 +4,7 @@
 // stage forward: the drop runs the same approve or move-on action as the
 // buttons, so permissions, segregation of duties and exit criteria all apply.
 import { draftProgress, draftSummary } from '../lib/drafts';
+import KpiStrip from '../components/KpiStrip.vue';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
@@ -191,6 +192,7 @@ async function onDrop(p: Phase) {
         </div>
         <input v-model="search" class="input board-search" type="search" placeholder="Search use cases" aria-label="Search use cases" />
       </div>
+      <KpiStrip page="board" />
     </div>
 
     <div class="columns-scroll">

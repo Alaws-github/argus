@@ -16,6 +16,7 @@ import { DRAFTING_RULES_VERSIONS, runControlTester, runEvidenceCollector, runRep
 import type { AgentContext } from './agents/types.js';
 import { verifyCard } from './verifier.js';
 import { QuestionPause } from './agent-loop.js';
+import { friendlyError } from './llm.js';
 
 export const MAX_PARALLEL = 4;
 const TICK_MS = 1500;
@@ -316,7 +317,7 @@ async function runCard(db: Db, card: Card, agent: AgentConfig) {
       await emitRun(db, runId);
       return;
     }
-    const message = String(e?.name === 'TimeoutError' ? `The run passed its ${agent.timeoutMin}-minute limit` : (e?.message ?? e)).slice(0, 1000);
+    const message = String(e?.name === 'TimeoutError' ? `The run passed its ${agent.timeoutMin}-minute limit` : friendlyError(e, `Models & Keys or this agent's settings`)).slice(0, 1000);
     await log('error', message);
     await db.tx(async (q) => {
       await q.query(`UPDATE runs SET status='failed', error=$2, ended_at=now() WHERE id=$1`, [runId, message]);

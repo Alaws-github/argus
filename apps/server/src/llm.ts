@@ -433,3 +433,20 @@ export async function callText(c: TextCall): Promise<{ text: string; tokensIn: n
   const r = await post(`${base}/chat/completions`, c.apiKey ? { authorization: `Bearer ${c.apiKey}` } : {}, { model: c.model, max_tokens: c.maxTokens, messages }, c.timeoutMs);
   return { text: r.choices?.[0]?.message?.content ?? '', tokensIn: r.usage?.prompt_tokens ?? 0, tokensOut: r.usage?.completion_tokens ?? 0 };
 }
+
+// v1.7: a provider error in words a person can act on, with the provider's own
+// message kept short at the end. Used by the assistant and on failed runs.
+export function friendlyError(e: unknown, where = 'Models & Keys'): string {
+  const msg = String((e as any)?.message ?? e ?? 'Unknown error');
+  const status = (e as any)?.status ?? Number((msg.match(/^(\d{3}) from the provider/) || [])[1]);
+  const tail = (s: string) => `${s} (${msg.replace(/\s+/g, ' ').slice(0, 160)})`;
+  if (/no API key/i.test(msg)) return `This provider has no API key. Add one on ${where}.`;
+  if (status === 401 || status === 403 || /invalid api key|unauthori[sz]ed|permission denied|API key not valid/i.test(msg)) return tail(`The provider refused the API key. Check or replace it on ${where}.`);
+  if (status === 404 || /model .*not found|does not exist|unknown model/i.test(msg)) return tail(`The provider doesn't know this model name. Pick another model on ${where} or in the agent's settings.`);
+  if (status === 429) return tail('The provider is rate-limiting this key. Wait a minute, or add a fallback model.');
+  if (status === 402 || /quota|billing|insufficient.*(credit|fund)/i.test(msg)) return tail(`The provider says the account is out of credit or quota. Check billing with the provider, or switch model on ${where}.`);
+  if (/didn't answer within/i.test(msg)) return tail('The model took too long. Try again, pick a faster model, or raise the time limit.');
+  if (/Couldn't reach the provider|ENOTFOUND|ECONNREFUSED|fetch failed/i.test(msg)) return tail(`ARGUS couldn't reach the provider. Check its address on ${where} and that the service is running.`);
+  if (status && status >= 500) return tail('The provider had a problem on its side. Try again shortly.');
+  return msg;
+}

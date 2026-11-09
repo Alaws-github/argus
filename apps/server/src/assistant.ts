@@ -94,6 +94,39 @@ export async function buildContext(db: Db, engagementId: string, kind: ContextKi
   return { text: out.join('\n'), ids, card, query, label, page };
 }
 
+// v1.7: records the person tagged with @ in their question (@AI-3, @R-2, @C-4, @I-1).
+// Each is added to the context, if it belongs to this engagement, so the assistant
+// can read and refer to it whatever page the question was asked from.
+export async function addMentions(db: Db, engagementId: string, ctx: Context, question: string) {
+  const keys = [...new Set((question.match(/@([A-Z]{1,6}-\d{1,6})\b/gi) ?? []).map((m) => m.slice(1).toUpperCase()))].slice(0, 6);
+  if (!keys.length) return;
+  const out: string[] = ['<mentioned>'];
+  for (const k of keys) {
+    const [pre, numS] = k.split('-');
+    const num = Number(numS);
+    if (pre === 'R') {
+      const { rows } = await db.query(`SELECT k.*, c.key AS card_key FROM risks k JOIN cards c ON c.id = k.card_id WHERE k.engagement_id = $1 AND k.number = $2`, [engagementId, num]);
+      for (const r of rows) { ctx.ids.risks.add(r.id); out.push(`R-${r.number} id=${r.id} ${line({ useCase: r.card_key, title: r.title, category: r.category, score: r.likelihood * r.impact, owner: r.owner || 'none', treatment: r.treatment, status: r.status, rationale: r.rationale })}`); }
+    } else if (pre === 'C') {
+      const { rows } = await db.query(`SELECT * FROM controls WHERE engagement_id = $1 AND number = $2`, [engagementId, num]);
+      for (const c of rows) { ctx.ids.controls.add(c.id); out.push(`C-${c.number} id=${c.id} ${line({ title: c.title, objective: c.objective, owner: c.owner || 'none', status: c.status })}`); }
+    } else if (pre === 'I') {
+      const { rows } = await db.query(`SELECT * FROM issues WHERE engagement_id = $1 AND number = $2`, [engagementId, num]);
+      for (const i of rows) out.push(`I-${i.number} ${line({ title: i.title, description: i.description, severity: i.severity, status: i.status, owner: i.owner || 'none' })}`);
+    } else {
+      const { rows } = await db.query(`SELECT id FROM cards WHERE engagement_id = $1 AND upper(key) = $2`, [engagementId, k]);
+      const c = rows[0] ? await getCard(db, rows[0].id) : null;
+      if (c) {
+        ctx.ids.cards.add(c.id);
+        const u = c.useCase;
+        out.push(`${c.key} id=${c.id} ${line({ title: c.title, stage: c.stage, status: c.status, tier: c.tier, description: u.description, data: u.dataUsed, affected: u.affectedPeople, autonomy: u.autonomy, owner: u.businessOwner })}`);
+        if (c.classification) out.push(`  classification: tier ${c.classification.tier}; risks ${c.classification.risks.map((r) => r.title).join('; ')}`);
+      }
+    }
+  }
+  if (out.length > 1) ctx.text += `\n${out.join('\n')}\n</mentioned>`;
+}
+
 async function registers(db: Db, engagementId: string, out: string[], ids: Context['ids'], cardId: string | null, focus?: string) {
   const scope = cardId ? 'AND k.card_id = $2' : '';
   const args = cardId ? [engagementId, cardId] : [engagementId];
@@ -215,10 +248,16 @@ export async function assistantTarget(db: Db): Promise<Target | null> {
 
 export interface Reply { text: string; citations: string[]; passages: SourcePassage[]; suggestions: any[]; dropped: string[]; model: string; runtime: 'rules' | 'live'; costUsd: number; basis: ('page' | 'records' | 'knowledge')[]; trail: string[] }
 
-export async function answer(db: Db, engagementId: string, ctx: Context, question: string, history: { role: string; text: string }[]): Promise<Reply> {
+/** A live step while the assistant works: a phase ("Reading the page"), a look-up, or its own words. */
+export type StepFn = (s: { kind: 'phase' | 'step' | 'thought'; text: string }) => void;
+
+export async function answer(db: Db, engagementId: string, ctx: Context, question: string, history: { role: string; text: string }[], onStep: StepFn = () => {}): Promise<Reply> {
+  onStep({ kind: 'phase', text: ctx.page ? 'Reading the page and the records' : 'Reading the records' });
   // A question about the page is answered from the page, not the knowledge base.
   // The engagement summary ("About ...") is already in the context, so it is never a source.
   const pageQuestion = !!ctx.page && asksAboutPage(question);
+  if (!pageQuestion) onStep({ kind: 'phase', text: 'Searching the knowledge base' });
+  // (the model's own steps follow; the panel shows them live)
   const passages = pageQuestion ? [] : mergePassages(
     await search(db, engagementId, question, { limit: 6 }),
     await search(db, engagementId, `${question} ${ctx.query}`.slice(0, 600), { limit: 4 }),
@@ -247,7 +286,10 @@ export async function answer(db: Db, engagementId: string, ctx: Context, questio
     },
     check: (o: any) => (typeof o?.answer === 'string' && o.answer.trim() ? [] : ['answer: write the answer to the question']),
     q: db, engagementId, cardId: ctx.card?.id ?? null, role: 'assistant', ledger,
-    log: async (kind, text) => { if (kind === 'step') trail.push(text); },
+    log: async (kind, text) => {
+      if (kind === 'step') { trail.push(text); onStep({ kind: 'step', text }); }
+      else if (kind === 'output') { trail.push(`Thinking: ${text}`); onStep({ kind: 'thought', text }); }
+    },
     mode: 'agentic', maxSteps: 6, allow: null, questionsLeft: 0, selfCheck: null,
   });
   const out = res.input as any;
@@ -343,5 +385,5 @@ function rulesAnswer(ctx: Context, question: string, passages: SourcePassage[]):
 
 export const toMessage = (r: any): AssistantMessage => ({
   id: r.id, conversationId: r.conversation_id ?? null, role: r.role, text: r.text, citations: r.citations ?? [], passages: r.passages ?? [], suggestions: r.suggestions ?? [], dropped: r.dropped ?? [],
-  model: r.model, runtime: r.runtime, basis: r.basis ?? [], trail: r.trail ?? [], author: r.author, at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+  model: r.model, runtime: r.runtime, basis: r.basis ?? [], trail: r.trail ?? [], workedMs: r.worked_ms ?? null, feedback: r.feedback ?? null, author: r.author, at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
 });

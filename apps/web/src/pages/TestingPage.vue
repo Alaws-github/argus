@@ -2,6 +2,7 @@
 // Testing: control tests (procedure, sample, expected and actual result,
 // preparer and reviewer, agent drafts) and the evidence vault.
 import { useUnsaved } from '../lib/unsaved';
+import KpiStrip from '../components/KpiStrip.vue';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { TEST_STATUS_LABELS, type ControlTest, type EngagementControl, type Evidence } from '@gh/shared';
@@ -195,6 +196,7 @@ function exportTests() {
         <p>Test each control the way you'd test software: a procedure, a sample, an expected and an actual result. Whoever prepares a test can't review it.</p>
       </div>
     </div>
+    <KpiStrip page="testing" />
     <nav class="tabs">
       <RouterLink to="/testing/tests" :class="{ active: tab === 'tests' }">Tests</RouterLink>
       <RouterLink to="/testing/evidence" :class="{ active: tab === 'evidence' }">Evidence Vault</RouterLink>

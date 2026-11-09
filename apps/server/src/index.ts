@@ -66,8 +66,9 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   // A malformed id in the URL (Postgres invalid_text_representation) is a miss, not a crash.
   const status = err.status || (err.code === '22P02' ? 404 : 500);
   if (err.code === '22P02') err.message = 'Not found';
-  if (status >= 500) console.error(err);
-  res.status(status).json({ error: status >= 500 ? 'Something went wrong on the server' : err.message });
+  if (status >= 500 && !err.expose) console.error(err);
+  // A 5xx hides its message unless the route marked it safe to show (expose), like a provider error a person can act on.
+  res.status(status).json({ error: status >= 500 && !err.expose ? 'Something went wrong on the server' : err.message });
 });
 
 const http = createServer(app);

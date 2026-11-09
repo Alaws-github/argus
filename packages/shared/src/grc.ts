@@ -822,6 +822,9 @@ export interface AssistantMessage {
   basis: ('page' | 'records' | 'knowledge')[];
   /** v1.6: the look-ups it made before answering, in plain words. */
   trail: string[];
+  /** v1.7: how long it worked, and the asker's thumbs up or down. */
+  workedMs?: number | null;
+  feedback?: 'up' | 'down' | null;
   author: string;
   at: string;
 }

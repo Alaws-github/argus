@@ -5,8 +5,9 @@ import { z } from 'zod';
 import type { Db } from './db.js';
 import { logAudit } from './audit.js';
 import { clientIp } from './context.js';
-import { emit } from './realtime.js';
-import { answer, assistantTarget, ASSISTANT_RULES_VERSION, buildContext, CONTEXT_KINDS, INTERNAL_TOKEN, toMessage, toRequest } from './assistant.js';
+import { emit, emitToUser } from './realtime.js';
+import { friendlyError, ProviderError } from './llm.js';
+import { addMentions, answer, assistantTarget, type StepFn, ASSISTANT_RULES_VERSION, buildContext, CONTEXT_KINDS, INTERNAL_TOKEN, toMessage, toRequest } from './assistant.js';
 import { recordSpend } from './verifier.js';
 import { AssistantSuggestion } from '@gh/shared';
 
@@ -75,13 +76,27 @@ export function assistantRoutes(r: Router, db: Db, actorOf: (req: Request) => st
       conversationId: z.string().uuid().nullish(),
       newConversation: z.boolean().optional(),
       page: z.object({ path: z.string().max(200), snapshot: z.string().max(20000).default('') }).nullish(),
+      // v1.7: the browser's id for this question, so its live steps reach only the person asking.
+      requestId: z.string().regex(/^[A-Za-z0-9_-]{6,40}$/).optional(),
     }).parse(req.body);
     const ctx = await buildContext(db, req.params.id, b.kind, b.contextId || null, b.page ?? null);
+    await addMentions(db, req.params.id, ctx, b.question);
     let conv = b.conversationId ? await ownConversation(req, b.conversationId) : b.newConversation ? null : await latestFor(req, b.kind, b.contextId);
     const hist = conv
       ? (await db.query(`SELECT role, text FROM assistant_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 8`, [conv.id])).rows.reverse()
       : [];
-    const reply = await answer(db, req.params.id, ctx, b.question, hist);
+    const started = Date.now();
+    const step: StepFn = (s) => { if (b.requestId) emitToUser(req.user!.id, 'assistant:step', { requestId: b.requestId, ...s, text: s.text.slice(0, 600) }); };
+    let reply;
+    try {
+      reply = await answer(db, req.params.id, ctx, b.question, hist, step);
+    } catch (e: any) {
+      // ARGUS's own refusals (spend cap, not found) keep their status and words.
+      if (e?.status && !(e instanceof ProviderError)) throw e;
+      // A provider's error, in words a person can act on (v1.7).
+      throw Object.assign(httpError(502, friendlyError(e, 'Models & Keys (the assistant model)')), { expose: true });
+    }
+    const workedMs = Date.now() - started;
     const out = await db.tx(async (q) => {
       if (!conv) {
         conv = (await q.query(
@@ -93,10 +108,10 @@ export function assistantRoutes(r: Router, db: Db, actorOf: (req: Request) => st
       }
       const ins = (role: string, text: string, extra: any = {}) =>
         q.query(
-          `INSERT INTO assistant_messages (engagement_id, user_id, conversation_id, context_kind, context_id, page, role, text, citations, passages, suggestions, dropped, model, runtime, author, basis, trail)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+          `INSERT INTO assistant_messages (engagement_id, user_id, conversation_id, context_kind, context_id, page, role, text, citations, passages, suggestions, dropped, model, runtime, author, basis, trail, worked_ms)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
           [req.params.id, req.user!.id, conv.id, b.kind, b.contextId, ctx.page?.path ?? null, role, text, JSON.stringify(extra.citations ?? []), JSON.stringify(extra.passages ?? []),
-            JSON.stringify(extra.suggestions ?? []), JSON.stringify(extra.dropped ?? []), extra.model ?? null, extra.runtime ?? null, role === 'user' ? actorOf(req) : 'Assistant', JSON.stringify(extra.basis ?? []), JSON.stringify(extra.trail ?? [])],
+            JSON.stringify(extra.suggestions ?? []), JSON.stringify(extra.dropped ?? []), extra.model ?? null, extra.runtime ?? null, role === 'user' ? actorOf(req) : 'Assistant', JSON.stringify(extra.basis ?? []), JSON.stringify(extra.trail ?? []), role === 'user' ? null : workedMs],
         );
       const u = (await ins('user', b.question)).rows[0];
       const a = (await ins('assistant', reply.text, reply)).rows[0];
@@ -107,6 +122,20 @@ export function assistantRoutes(r: Router, db: Db, actorOf: (req: Request) => st
       return [u, a];
     });
     res.status(201).json(out.map(toMessage));
+  }));
+
+  // v1.7: thumbs up or down on an answer, by the person who asked. Kept on the
+  // message and in the audit log, so poor answers can be found and checked.
+  r.post('/engagements/:id/assistant/:mid/feedback', wrap(async (req, res) => {
+    const b = z.object({ value: z.enum(['up', 'down']).nullable(), note: z.string().trim().max(500).optional() }).parse(req.body);
+    const { rows } = await db.query(`SELECT * FROM assistant_messages WHERE id = $1 AND engagement_id = $2 AND role = 'assistant'`, [req.params.mid, req.params.id]);
+    const m = rows[0];
+    if (!m || m.user_id !== req.user!.id) throw httpError(404, 'Message not found');
+    await db.tx(async (q) => {
+      await q.query(`UPDATE assistant_messages SET feedback = $2, feedback_note = $3 WHERE id = $1`, [m.id, b.value, b.note ?? null]);
+      await logAudit(q, actorOf(req), 'assistant.feedback', `assistant:${m.context_kind}`, { message: m.id, value: b.value, note: b.note ?? null, model: m.model });
+    });
+    res.json({ ok: true });
   }));
 
   const loadSuggestion = async (req: Request) => {

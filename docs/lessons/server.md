@@ -87,3 +87,13 @@ A passage that isn't embedded yet (a document just uploaded, while embedding run
 ### send-back-provider-extras-on-tool-calls `bug`
 When a model step returns tool calls, keep every field on each call beyond `id`, `type` and `function` (`ToolCall.extra` in `llm.ts`) and send it back unchanged in the next request. Gemini 3 on its OpenAI-compatible endpoint puts a `thought_signature` in `extra_content` and refuses the next step with a 400 without it. A tool step refused after the first step finishes the run as a single call rather than failing it. **Why:** the assistant and agents failed on Gemini with "Function call is missing a thought_signature".
 **Enforced by:** test scripts/v16-test.mjs (mock-gemini)
+
+## v1.7
+
+### workflow-gates-are-locked `design`
+In client workflows the five governance gates and the trigger can be moved but never removed, skipped or reordered, and after an agent step a person or a gate decides. The rules live once, in `packages/shared/src/workflow.ts`, and run in the browser and again on the server; saving a graph without a gate is refused, and only a workflow with no problems publishes. **Why:** the builder exists so a client's process can be modelled without losing ARGUS's governance (CLAUDE.md rule 28).
+**Enforced by:** test scripts/v17-test.mjs
+
+### show-provider-errors-people-can-act-on `bug`
+A provider error reaching a person goes through `friendlyError` (`llm.ts`): what went wrong, what to do and where, with the provider's own words kept short at the end. A 5xx the route wants shown carries `expose: true`; any other 5xx is still hidden as "Something went wrong". ARGUS's own refusals (spend cap, not found) keep their status. **Why:** the general error handler hid a refused key behind "Something went wrong on the server".
+**Enforced by:** test scripts/v17-test.mjs (mock-401), scripts/assistant-test.mjs (spend cap keeps its status)

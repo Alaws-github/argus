@@ -38,6 +38,8 @@ const router = createRouter({
     { path: '/inventory', component: () => import('./pages/InventoryPage.vue') },
     { path: '/report', component: () => import('./pages/ReportPage.vue') },
     { path: '/users', redirect: '/workspace/people' },
+    { path: '/workflows', component: () => import('./pages/WorkflowsPage.vue') },
+    { path: '/workflows/:id', component: () => import('./pages/WorkflowBuilderPage.vue') },
     { path: '/knowledge', component: () => import('./pages/KnowledgePage.vue') },
     { path: '/agent-testing', redirect: '/agent-testing/golden' },
     { path: '/agent-testing/:tab(golden|verifier|retrieval|history)', component: () => import('./pages/AgentTestingPage.vue') },

@@ -2,6 +2,7 @@
 // Readiness assessment (seven areas scored 1-5 with reasons) and the printable
 // report, Markdown download and sign-off.
 import { computed, onMounted, ref } from 'vue';
+import KpiStrip from '../components/KpiStrip.vue';
 import { ISSUE_STATUS_LABELS, MATURITY, STAGE_LABELS, TIER_LABELS } from '@gh/shared';
 import { api, day, downloadText, when } from '../api';
 import { useApp } from '../stores/app';
@@ -100,6 +101,7 @@ function markdown() {
           <button v-if="app.can('sign_off_report')" class="btn primary" :disabled="scored < areas.length" :title="scored < areas.length ? 'Score every area first' : ''" @click="sign">Sign off</button>
         </div>
       </div>
+    <KpiStrip page="report" />
 
       <section class="section no-print" style="margin-bottom: 28px">
         <div class="spread"><span class="label-caps">Assessment · {{ scored }} of {{ areas.length }} scored</span><span v-if="overall" class="badge accent">Overall {{ overall }} / 5</span></div>

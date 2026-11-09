@@ -24,15 +24,22 @@ http.createServer((req, res) => {
   req.on('data', (c) => (body += c));
   req.on('end', () => {
     res.setHeader('content-type', 'application/json');
-    if (req.url === '/v1/models') return res.end(JSON.stringify({ data: [{ id: 'mock-good' }, { id: 'mock-bad' }, { id: 'mock-notemp' }, { id: 'mock-embed' }, { id: 'mock-judge' }, { id: 'mock-judge-liar' }, { id: 'mock-assist' }, { id: 'mock-notools' }, { id: 'mock-ratelimit' }, { id: 'mock-malformed' }, { id: 'mock-truncate' }, { id: 'mock-maxtok' }, { id: 'mock-badjson' }, { id: 'mock-echo' }, { id: 'mock-agent' }, { id: 'mock-asker' }, { id: 'mock-rogue' }, { id: 'mock-looper' }, { id: 'mock-critic' }, { id: 'mock-gemini' }] }));
+    if (req.url === '/v1/models') return res.end(JSON.stringify({ data: [{ id: 'mock-good' }, { id: 'mock-bad' }, { id: 'mock-notemp' }, { id: 'mock-embed' }, { id: 'mock-judge' }, { id: 'mock-judge-liar' }, { id: 'mock-assist' }, { id: 'mock-notools' }, { id: 'mock-ratelimit' }, { id: 'mock-malformed' }, { id: 'mock-truncate' }, { id: 'mock-maxtok' }, { id: 'mock-badjson' }, { id: 'mock-echo' }, { id: 'mock-agent' }, { id: 'mock-asker' }, { id: 'mock-rogue' }, { id: 'mock-looper' }, { id: 'mock-critic' }, { id: 'mock-gemini' }, { id: 'mock-401' }] }));
     if (req.url === '/__seen') return res.end(JSON.stringify(seen));
     if (req.url === '/__calls') return res.end(JSON.stringify(calls));
     const b = JSON.parse(body);
+    // 'mock-slow' is mock-agent taking 1.2 s per step, so the live steps can be seen.
+    if (b.model === 'mock-slow') { b.model = 'mock-agent'; return setTimeout(() => handle(b), 1200); }
+    handle(b);
+  });
+  function handle(b) {
     if (req.url === '/v1/embeddings') {
       const input = Array.isArray(b.input) ? b.input : [b.input];
       return res.end(JSON.stringify({ data: input.map((t, index) => ({ index, embedding: embed(t) })) }));
     }
     seen.push({ model: b.model, temperature: b.temperature });
+    // A key the provider refuses (v1.7: the error a person sees must say what to do).
+    if (b.model === 'mock-401') { res.statusCode = 401; return res.end(JSON.stringify({ error: { message: 'Incorrect API key provided' } })); }
     // A model that refuses a temperature setting, like some newer reasoning models.
     if (b.model === 'mock-notemp' && b.temperature !== undefined) { res.statusCode = 400; return res.end(JSON.stringify({ error: { message: "Unsupported parameter: 'temperature'" } })); }
     // A service that refuses tool calls (like Perplexity): it only answers JSON.
@@ -138,7 +145,7 @@ http.createServer((req, res) => {
       const cardId = (user.match(/<use_case id="([0-9a-f-]{36})"/) || [])[1];
       const item = ((user.match(/undecided items: ([^\n]+)/) || [])[1] || '').split(', ')[0];
       out = {
-        answer: 'Mock answer about the record.', citations: [...given.slice(0, 1), 'K-99999'],
+        answer: 'Mock answer about the record. See [the risk register](/risks) and R-1, or [an outside page](https://example.com).', citations: [...given.slice(0, 1), 'K-99999'],
         suggestions: [
           ...(cardId && item && item !== 'none' ? [{ kind: 'decide_item', title: `Reject ${item}`, why: 'Mock reason.', cardId, item, decision: item === 'tier' ? 'edit' : 'reject', reason: 'Not supported by the profile', ...(item === 'tier' ? { edit: { tier: 'high' } } : {}) }] : []),
           ...(cardId ? [{ kind: 'rerun_agent', title: 'Ask the agent again', why: 'Mock.', cardId, note: 'Reconsider the privacy risk.' }] : []),
@@ -165,5 +172,5 @@ http.createServer((req, res) => {
     } else out = {};
     if (!b.tools) return res.end(JSON.stringify({ choices: [{ message: { content: '```json\n' + JSON.stringify(out) + '\n```' } }], usage: { prompt_tokens: 900, completion_tokens: 300 } }));
     res.end(JSON.stringify({ choices: [{ message: { tool_calls: [{ function: { name: tool, arguments: JSON.stringify(out) } }] } }], usage: { prompt_tokens: 900, completion_tokens: 300 } }));
-  });
+  }
 }).listen(4401, () => console.log('mock2 on 4401'));

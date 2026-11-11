@@ -11,7 +11,7 @@ import { resolve } from 'node:path';
 import type { NextFunction, Request, Response, Router } from 'express';
 import { z } from 'zod';
 import {
-  MONITOR_SCHEDULES,
+  MONITOR_SCHEDULES, frameworksIn,
   ASSESSMENT_AREAS, ControlInput, ControlStatus, EvalCaseInput, EvalSuiteInput, InventoryInput, IssueInput, IssueStatus,
   Severity, TestInput, TestStatus, agentReadiness, riskRating,
   type EvalResult, type FrameworkRefs,
@@ -24,6 +24,7 @@ import { apiKeyOf, getProviderRow } from './providers.js';
 import { callStructured, callText } from './llm.js';
 import { costUsd, priceFor } from './agents/pricing.js';
 import { QUALITY_CASES, RED_TEAM_CASES } from './library.js';
+import { OPTIONAL_SOURCES } from './library-health.js';
 import { getEngagement } from './store.js';
 import { indexEvidence, scheduleEmbedding } from './kb.js';
 
@@ -86,7 +87,7 @@ const toIssue = (r: any) => {
   const due = day(r.due_date);
   const openish = ['open', 'in_remediation', 'ready_for_retest'].includes(r.status);
   return {
-    id: r.id, key: `I-${r.number}`, engagementId: r.engagement_id, title: r.title, description: r.description, severity: r.severity,
+    id: r.id, key: `I-${r.number}`, engagementId: r.engagement_id, externalRef: r.external_ref ?? null, title: r.title, description: r.description, severity: r.severity,
     status: r.status, owner: r.owner, dueDate: due, overdue: !!(openish && due && due < new Date().toISOString().slice(0, 10)),
     managementResponse: r.management_response, controlId: r.control_id, controlKey: r.control_number ? `C-${r.control_number}` : null,
     testId: r.test_id, testKey: r.test_number ? `T-${r.test_number}` : null, evalRunId: r.eval_run_id, cardId: r.card_id, cardKey: r.card_key,
@@ -715,7 +716,11 @@ export function grcRoutes(r: Router, db: Db, actorOf: (req: Request) => string, 
   // Obligation → library control → engagement control → test → evidence → issue.
   r.get('/engagements/:id/traceability', wrap(async (req, res) => {
     const id = req.params.id;
-    const { rows: obl } = await db.query(`SELECT * FROM obligations ORDER BY source, ref`);
+    const fw: string = (await db.query(`SELECT framework FROM engagements WHERE id = $1`, [id])).rows[0]?.framework ?? '';
+    // v1.7.3: healthcare obligations show only where the engagement chose that framework.
+    const inFw = frameworksIn(fw) as string[];
+    const chosen = (src: string) => { const k = OPTIONAL_SOURCES[src]; return !k || inFw.includes(k); };
+    const obl = (await db.query(`SELECT * FROM obligations ORDER BY source, ref`)).rows.filter((o: any) => chosen(o.source));
     const { rows: lib } = await db.query(`SELECT l.id, l.code, l.title, s.applicable, s.justification FROM control_library l LEFT JOIN soa s ON s.library_id = l.id AND s.engagement_id = $1`, [id]);
     const { rows: ctl } = await db.query(`${CONTROL_SELECT} WHERE c.engagement_id = $1`, [id]);
     const controls = ctl.map(toControl);

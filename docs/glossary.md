@@ -9,7 +9,7 @@
 | Built-in rules | A free, offline stand-in for an AI model, using fixed logic. Cautious by design |
 | Card | A use case on the board |
 | Control | Something in place to reduce a risk, such as "a person reviews every loan decline before it's sent" |
-| Control library | 31 reusable controls mapped to standards, used as a starting point |
+| Control library | 37 reusable controls mapped to standards, used as a starting point |
 | Draft | An agent's suggestion. It has no effect until a person acts on it. A person accepts, edits or rejects each item |
 | Embedding | A list of numbers representing what a passage means, used for meaning search |
 | Assistant | The AI you can ask about a use case or page. It explains and suggests; people apply or discard every suggestion |

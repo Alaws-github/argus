@@ -8,6 +8,7 @@ import { logAudit } from './audit.js';
 import { emit } from './realtime.js';
 import { getSettings, monthSpend } from './store.js';
 import { pullDue } from './connectors.js';
+import { dispatchOutbound } from './outbound.js';
 
 export const MONITOR_TICK_MS = Number(process.env.MONITOR_TICK_MS || 15_000);
 const PERIOD_MS = { daily: 864e5, weekly: 7 * 864e5 } as const;
@@ -54,6 +55,7 @@ export function startMonitoring(db: Db, start: (suiteId: string, actor: string) 
     busy = true;
     try {
       await pullDue(db).catch((e) => console.warn(`[connector] tick failed: ${e.message}`));
+      await dispatchOutbound(db).catch((e) => console.warn(`[write-back] tick failed: ${e.message}`));
       const { rows } = await db.query(
         `SELECT s.id, s.name, s.schedule, s.engagement_id, p.billed FROM eval_suites s JOIN engagements e ON e.id = s.engagement_id LEFT JOIN providers p ON p.id = s.provider_id
          WHERE s.schedule <> 'off' AND s.next_run_at <= now() AND e.archived_at IS NULL AND NOT e.paused`);

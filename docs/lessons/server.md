@@ -105,3 +105,15 @@ Client workflows name the business tools each step happens in, and ARGUS reads t
 ### credentials-stay-on-their-site `bug`
 When a connector follows a redirect to a different origin, it drops the Authorization header. **Why:** Microsoft Graph answers a file request with a redirect to a signed download link on another host; forwarding the bearer token there would hand the client's Microsoft 365 token to that host.
 **Enforced by:** test scripts/v17-test.mjs (the mock download site refuses a request with a credential)
+
+### sigv4-encode-each-path-segment `bug`
+An S3 key with brackets or spaces failed the signature check: the canonical path must encode each segment with RFC 3986 rules (so `(` becomes `%28`), while `URL.pathname` leaves some characters as they are. `sigV4` now decodes and re-encodes each segment once, and was compared against the `aws4` reference library for plain, query-string and bracketed keys.
+**Enforced by:** test scripts/v173-test.mjs (S3 read against the mock); manual comparison with aws4 recorded in this lesson
+
+### framework-text-has-several-spellings `bug`
+Engagements store their frameworks as text, and older ones say "NIST AI RMF" where newer ones say "NIST AI RMF 1.0", so matching on the full label dropped NIST from Across Frameworks for the main demo engagement. Use `frameworksIn()` in shared, which accepts the label, the label without its version and the short name.
+**Enforced by:** test scripts/v173-test.mjs (coverage per framework in scope); browser check of Controls > Across Frameworks
+
+### write-back-reads-the-audit-log `design`
+Write-back sends are driven by audit entries read after commit, not by calls inside each route: one place decides what an event is (`eventOf`), a send can never roll back or change an ARGUS record, no agent path can reach it, and switching it on doesn't replay history (the cursor starts at the latest entry). Off per engagement by default; create-only (new message, ticket or record).
+**Enforced by:** test scripts/v173-test.mjs (nothing sent while off, issue to webhook and Jira, audit with sha256, no write tool for agents)

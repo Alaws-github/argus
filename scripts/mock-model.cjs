@@ -19,6 +19,7 @@ function embed(text) {
   const n = Math.sqrt(v.reduce((s, x) => s + x * x, 0)) || 1;
   return v.map((x) => x / n);
 }
+const hooks = [];
 http.createServer((req, res) => {
   let body = '';
   req.on('data', (c) => (body += c));
@@ -56,6 +57,28 @@ http.createServer((req, res) => {
       if (req.headers.authorization !== 'Basic ' + Buffer.from('qa@client.example:jira-token').toString('base64')) { res.statusCode = 401; return res.end('{}'); }
       return res.end(JSON.stringify({ issues: [{ key: 'GRC-12', fields: { summary: 'Test human review of declines', status: { name: 'Done' } } }] }));
     }
+    // v1.7.3: client step proof, S3 and Azure Blob reads, and write-back targets.
+    if (req.url.startsWith('/proof/jira')) return res.end(JSON.stringify({ issues: [
+      { key: 'GRC-20', self: 'http://127.0.0.1:4401/rest/api/3/issue/20', fields: { summary: 'Model risk approval', labels: ['AI-1'], status: { name: 'Approved' } } },
+      { key: 'GRC-21', fields: { summary: 'Testing for AI-1', status: { name: 'In Progress' } } },
+      { key: 'GRC-22', fields: { summary: 'Something for AI-10', status: { name: 'Done' } } },
+    ] }));
+    if (req.url.startsWith('/s3/')) {
+      const a = req.headers.authorization || '';
+      if (!a.startsWith('AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/') || !req.headers['x-amz-date'] || req.headers['x-amz-content-sha256'] !== 'UNSIGNED-PAYLOAD') { res.statusCode = 403; return res.end('{}'); }
+      res.setHeader('content-type', 'text/plain'); return res.end('Fairness report for AI-1: approval gap 2.1 percent.');
+    }
+    if (req.url.startsWith('/blob/')) {
+      if (!/[?&]sig=blobsig(&|$)/.test(req.url) || req.headers.authorization) { res.statusCode = 403; return res.end('{}'); }
+      res.setHeader('content-type', 'text/plain'); return res.end('Model card for AI-1, version 3.');
+    }
+    if (req.method === 'POST' && (req.url === '/hook' || req.url.startsWith('/rest/api/3/issue') || req.url.startsWith('/api/now/table/'))) {
+      hooks.push({ url: req.url, auth: req.headers.authorization || null, body: JSON.parse(body || '{}') });
+      if (req.url.startsWith('/rest/api/3/issue')) return res.end(JSON.stringify({ key: `GRC-${100 + hooks.length}` }));
+      if (req.url.startsWith('/api/now/table/')) return res.end(JSON.stringify({ result: { number: 'INC0010001' } }));
+      return res.end('{"ok":true}');
+    }
+    if (req.url === '/__hooks') return res.end(JSON.stringify(hooks));
     const b = JSON.parse(body);
     // 'mock-slow' is mock-agent taking 1.2 s per step, so the live steps can be seen.
     if (b.model === 'mock-slow') { b.model = 'mock-agent'; return setTimeout(() => handle(b), 1200); }

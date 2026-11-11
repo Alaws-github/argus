@@ -720,6 +720,8 @@ export interface Engagement {
   modules: Modules;
   /** v1.7.2: the business tools this client uses (BUSINESS_TOOLS ids). Shapes tool lists in workflows and connectors. */
   clientTools: string[];
+  /** v1.7.3: ARGUS may send messages and create tickets in the client's tools (off by default). */
+  writeBack: boolean;
 }
 
 // Risk appetite: the highest residual score the engagement accepts without
@@ -742,7 +744,9 @@ export const EngagementPatch = z.object({
   appetite: RiskAppetite.optional(),
   modules: z.object(Object.fromEntries(MODULES.map((m) => [m, z.boolean().optional()])) as Record<Module, z.ZodOptional<z.ZodBoolean>>).optional(),
   clientTools: z.array(z.string().max(40)).max(40).optional(),
+  writeBack: z.boolean().optional(),
 });
 export * from './grc.js';
 export * from './workflow.js';
 export * from './tools-catalog.js';
+export * from './integrations.js';

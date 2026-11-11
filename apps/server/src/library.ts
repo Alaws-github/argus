@@ -4,6 +4,7 @@
 // Internal Control (2013) principles, the EU AI Act, the Jamaica Data
 // Protection Act 2020 and the OWASP LLM (2025) and Agentic (2026) Top 10s.
 import type { EvalCaseInput, FrameworkRefs } from '@gh/shared';
+import { HEALTH_CONTROLS, HEALTH_OBLIGATIONS, HEALTH_REFS } from './library-health.js';
 
 export interface SeedControl {
   code: string;
@@ -94,6 +95,11 @@ export const OBLIGATIONS: { source: string; ref: string; title: string; summary:
   { source: 'OWASP LLM Top 10', ref: 'LLM01', title: 'Prompt injection', summary: 'Inputs that alter the model\'s behaviour in unintended ways.', codes: ['SEC-01'] },
   { source: 'OWASP LLM Top 10', ref: 'LLM06', title: 'Excessive agency', summary: 'An LLM-based system given more functions, permissions or autonomy than it needs.', codes: ['SEC-02', 'OVS-03'] },
 ];
+
+// v1.7.3: healthcare frameworks (library-health.ts) added to the library and obligations.
+for (const c of LIBRARY) for (const [k, v] of Object.entries(HEALTH_REFS[c.code] ?? {})) (c.refs as any)[k] = [...new Set([...((c.refs as any)[k] ?? []), ...(v as string[])])];
+LIBRARY.push(...HEALTH_CONTROLS);
+OBLIGATIONS.push(...HEALTH_OBLIGATIONS);
 
 // Starter evaluation cases for a customer-service assistant.
 export const RED_TEAM_CASES: EvalCaseInput[] = [

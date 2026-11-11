@@ -2,6 +2,7 @@
 // The side panel for one use case: whatever decision it is waiting for (triage,
 // classification, control design, an agent draft, a manual sign-off), its exit
 // criteria, risks, controls, profile, runs and activity.
+import ClientSteps from './ClientSteps.vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
   AGENT_ROLES, DRAFT_STAGES, OVERSIGHT_LABELS, STAGE_LABELS, TIER_LABELS, riskRating, riskScore,
@@ -518,6 +519,8 @@ const actionLabel = (a: string) =>
           <span class="row"><span class="faint">{{ c.tests }} test{{ c.tests === 1 ? '' : 's' }} · {{ c.evidence }} evidence</span><span class="pill" :class="{ operating: 'green', failed: 'coral', designed: 'blue' }[c.status]">{{ c.status }}</span></span>
         </div>
       </section>
+
+      <ClientSteps :card-key="card.key" />
 
       <section class="section">
         <span class="label-caps">Use case profile</span>

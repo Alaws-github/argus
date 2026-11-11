@@ -48,6 +48,9 @@ export const WfNode = z.object({
     tool: z.string().max(40).optional(),
     toolDetail: z.string().max(120).optional(),
     connectorId: z.string().uuid().nullable().optional(),
+    // v1.7.3: what proves the step was done for a use case, read through the connector (see PROOF_KINDS).
+    proof: z.enum(['', 'mentions', 'status', 'all_done', 'manual']).optional(),
+    proofStatus: z.string().max(60).optional(),
   }).default({}),
 });
 export type WfNode = z.infer<typeof WfNode>;
@@ -176,6 +179,8 @@ export function validateWorkflow(g: WfGraph): { problems: string[]; nodeProblems
     if (n.type === 'agent' && !n.config.agent) flag(n.id, `"${n.label}": pick which agent drafts`);
     if (n.config.tool && !toolById(n.config.tool)) flag(n.id, `"${n.label}": the tool it names isn't in the list`);
     if (n.config.connectorId && !n.config.tool) flag(n.id, `"${n.label}": pick the tool its connector reads`);
+    if (n.config.proof && n.config.proof !== 'manual' && !n.config.connectorId) flag(n.id, `"${n.label}": its proof is checked through a connector; pick one or choose "a person confirms"`);
+    if (n.config.proof === 'status' && !n.config.proofStatus?.trim()) flag(n.id, `"${n.label}": say which status counts as done`);
     if (n.type === 'condition') {
       const ways = g.edges.filter((e) => e.from === n.id);
       if (ways.length < 2) flag(n.id, `"${n.label}" needs at least two ways out`);

@@ -91,3 +91,7 @@ While the assistant works, its steps show live ("Working · N steps", each look-
 ### connectors-live-in-settings-and-start-in-place `design`
 Connectors are engagement configuration, so they are managed in Settings > Connected tools beside the tools the client uses; Tests and Evidence keeps a read-only view of what they pull. Where the need arises (a workflow step in a tool ARGUS can read) the connector form opens in place and links the new connector to the step: no new tab, no losing your place. A client workflow can be drafted when the engagement is added (no credentials then). The engagement setting that decides where people approve is called "Approval gates", so "workflow" means only the client's process.
 **Enforced by:** test scripts/v17-test.mjs (clientTools saved and filtered, workflow drafted with the engagement, no connector made); browser check of Settings, the builder modal and the wizard at 1440 and 390
+
+### client-steps-make-the-workflow-useful `design`
+A client workflow drawn once and never opened again is a diagram. Each client step can now say what proves it, and every use case shows its Client steps, checked in the client's tools by the use case key. The owner asked what the workflow was for; this is the answer: the client's own paper trail, checked, beside the gates people decide.
+**Enforced by:** test scripts/v173-test.mjs (status, all done, wrong key, manual confirm, no new evidence on a re-check); browser check of the use case panel at 1440 and 390

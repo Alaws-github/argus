@@ -2,6 +2,19 @@
 
 What changed in each release of ARGUS, newest first. The version shown under Sign Out comes from package.json. Start a new release with `npm run release -- X.Y.Z`.
 
+## v1.7.3 (2026-11-11)
+
+Client workflows that do something, write-back, evidence from pipelines, healthcare frameworks and one control for many frameworks.
+
+- **Client steps on each use case.** A step in a client workflow can say what proves it was done: a record that mentions the use case key, a record with a given status ("Approved"), every record done, or a person confirming with a link. Each use case follows the latest published workflow (or one picked for it) and shows its **Client steps** in the side panel. **Check now** reads the step's connector, finds the tickets, requests or rows that mention the key (AI-3, never AI-30), and marks the step done, waiting or not done. A passed check files what proved it as fingerprinted evidence, once. Checks never move the use case: the people at the governance gates still decide.
+- **Write-back** (Settings > Connected tools, off by default per engagement). ARGUS can post to a Teams or Slack channel, create a Jira ticket or ServiceNow record, or post to a webhook, when a use case is waiting for a person, an agent asks a question, a test fails, an issue or incident is raised, a client step check fails or a use case is signed off. It only sends new messages and creates new tickets; it never edits, closes or deletes anything. Events come from the audit log after the change is saved, so no agent can send. Every send is audited with a fingerprint of what was sent. An issue sent to Jira or ServiceNow remembers its ticket. Channel webhook addresses are kept secret like credentials.
+- **Pipelines push evidence** (Settings > Connected tools > Pipelines). A lead creates an ingest token (shown once, stored as a hash); a CI/CD job (GitHub Actions, GitLab CI, Bitbucket Pipelines, Azure DevOps, anything with curl) posts evaluation results, fairness metrics, drift reports, test reports, model cards or an SBOM to `POST /api/ingest/evidence`. Each push is fingerprinted evidence for a control and a use case, recorded as the pipeline. A token can only add evidence to its own engagement. Examples for each CI system are on the page.
+- **More places to read from:** AWS S3 (reads signed with AWS Signature Version 4), Azure Blob Storage (a read-only SAS token, kept encrypted and never shown in the address), GitHub, GitLab and Bitbucket, alongside SharePoint, OneDrive, Google Drive, Jira, ServiceNow and Confluence.
+- **Healthcare frameworks:** FDA Good Machine Learning Practice (the 10 principles and change control plans) and HIPAA with the HHS rule on patient care decision support. Six new library controls (HLT-01 to HLT-06), existing controls gain GMLP and HIPAA references, 14 obligations, plain-English summaries on Standards, and a HIPAA breach notice clock (60 days). The healthcare obligations show only on engagements that choose those frameworks; picking the Healthcare sector suggests HIPAA.
+- **Across Frameworks** (Controls). Map a control once and it counts for every framework: each framework's coverage, which references each control meets, and a suggested library match for the client's own uploaded controls. Accepting a match gives the control every framework reference of the library control at once, audited.
+- New checks in `npm run test:v173` (58).
+
+
 ## v1.7.2 (2026-11-09)
 
 Connectors and client workflows where people expect them.

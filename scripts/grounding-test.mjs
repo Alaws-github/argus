@@ -29,7 +29,7 @@ const idOf = async (key) => (await card(key)).card.id;
 // ---- Knowledge base
 const kb = await admin('GET', `/engagements/${E}/knowledge`);
 const kinds = kb.sources.reduce((m, s) => ((m[s.kind] = (m[s.kind] ?? 0) + 1), m), {});
-ok(kinds.framework === 23 && kinds.control === 31 && kinds.methodology >= 7, `shared knowledge seeded (${JSON.stringify(kinds)})`);
+ok(kinds.framework === 37 && kinds.control === 37 && kinds.methodology >= 7, `shared knowledge seeded (${JSON.stringify(kinds)})`);
 ok(kinds.use_case === 4 && kinds.client === 1, 'the engagement\'s own material is indexed');
 ok(kb.search.keyword && !kb.search.meaning, 'keyword search on, meaning search off until a provider is set');
 let hits = await admin('GET', `/engagements/${E}/knowledge/search?q=${encodeURIComponent('EU AI Act Article 14 human oversight')}`);

@@ -74,6 +74,9 @@ async function ensureLibrary(q: Queryable) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true) ON CONFLICT (code) DO NOTHING`,
       [c.code, c.title, c.objective, c.domain, c.type, c.frequency, c.evidence, c.test, JSON.stringify(c.categories), JSON.stringify(c.refs)],
     );
+    // v1.7.3: a framework added to a built-in control later (FDA GMLP, HIPAA) reaches existing databases.
+    // Keys already there win, so a firm's own edits to a framework's references are kept.
+    await q.query(`UPDATE control_library SET refs = $2::jsonb || refs WHERE code = $1 AND built_in AND NOT (refs ?& $3::text[])`, [c.code, JSON.stringify(c.refs), Object.keys(c.refs)]);
   }
   for (const o of OBLIGATIONS) {
     await q.query(

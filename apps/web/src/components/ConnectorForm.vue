@@ -23,6 +23,7 @@ const c0 = props.editing;
 const form = ref(c0 ? { name: c0.name, url: c0.url, auth: c0.auth as string, headerName: c0.headerName, secret: '', controlId: c0.controlId ?? '', schedule: c0.schedule as string, tool: c0.tool ?? '' } : blank());
 // Microsoft 365 sign-in is three values, sent as one encrypted secret.
 const ms = ref({ tenantId: '', clientId: '', clientSecret: '' });
+const aws = ref({ accessKeyId: '', secretAccessKey: '', region: '' }); // v1.7.3: S3 reads signed with AWS Signature Version 4
 const u = useUnsaved(form);
 const tool = computed(() => toolById(form.value.tool));
 function pick(id: string) {
@@ -45,6 +46,7 @@ async function save() {
   try {
     const body: any = { ...form.value, controlId: form.value.controlId || null };
     if (body.auth === 'azure_ad' && (ms.value.tenantId || ms.value.clientId || ms.value.clientSecret)) body.secret = JSON.stringify(ms.value);
+    if (body.auth === 'aws_sigv4' && (aws.value.accessKeyId || aws.value.secretAccessKey || aws.value.region)) body.secret = JSON.stringify(aws.value);
     if (!body.secret) delete body.secret;
     const c = editing.value
       ? await api<Connector>(`/connectors/${editing.value.id}`, { method: 'PATCH', body })
@@ -74,7 +76,7 @@ async function save() {
     <label class="field"><span>Name</span><input v-model="form.name" class="input" required minlength="3" placeholder="e.g. Loan decisions export" /></label>
     <label class="field"><span>Address</span><input v-model="form.url" class="input mono" required placeholder="https://reports.client.example/loan-decisions.csv" /><span class="hint">{{ tool?.read ? 'Replace the {…} parts with the real ids. ARGUS only ever reads it.' : 'A report, export or file link. ARGUS only ever reads it.' }}</span></label>
     <div class="split">
-      <label class="field"><span>Sign-in</span><select v-model="form.auth" class="select"><option value="none">None</option><option value="bearer">Bearer token</option><option value="header">API key in a header</option><option value="basic">User and password</option><option value="azure_ad">Microsoft Entra app (Microsoft 365)</option><option value="google_sa">Google service account</option></select></label>
+      <label class="field"><span>Sign-in</span><select v-model="form.auth" class="select"><option value="none">None</option><option value="bearer">Bearer token</option><option value="header">API key in a header</option><option value="basic">User and password</option><option value="azure_ad">Microsoft Entra app (Microsoft 365)</option><option value="google_sa">Google service account</option><option value="aws_sigv4">AWS access key (S3)</option><option value="azure_sas">Azure SAS token (Blob Storage)</option></select></label>
       <label v-if="form.auth === 'header'" class="field"><span>Header name</span><input v-model="form.headerName" class="input mono" placeholder="x-api-key" /></label>
     </div>
     <div v-if="form.auth === 'azure_ad'" class="split">
@@ -82,12 +84,18 @@ async function save() {
       <label class="field"><span>Client ID</span><input v-model="ms.clientId" class="input mono" autocomplete="off" :placeholder="editing?.secretSet ? 'Saved' : ''" /></label>
       <label class="field"><span>Client secret</span><input v-model="ms.clientSecret" type="password" class="input mono" autocomplete="off" :placeholder="editing?.secretSet ? 'Saved. Leave empty to keep it.' : ''" /></label>
     </div>
+    <div v-else-if="form.auth === 'aws_sigv4'" class="split">
+      <label class="field"><span>Access key ID</span><input v-model="aws.accessKeyId" class="input mono" autocomplete="off" :placeholder="editing?.secretSet ? 'Saved' : 'AKIA…'" /></label>
+      <label class="field"><span>Region</span><input v-model="aws.region" class="input mono" autocomplete="off" :placeholder="editing?.secretSet ? 'Saved' : 'us-east-1'" /></label>
+      <label class="field"><span>Secret access key</span><input v-model="aws.secretAccessKey" type="password" class="input mono" autocomplete="off" :placeholder="editing?.secretSet ? 'Saved. Leave empty to keep it.' : ''" /></label>
+    </div>
+    <label v-else-if="form.auth === 'azure_sas'" class="field"><span>SAS token (read only)</span><input v-model="form.secret" type="password" class="input mono" autocomplete="off" :placeholder="editing?.secretSet ? 'Saved. Leave empty to keep it.' : 'sv=…&sp=r&se=…&sig=…'" /></label>
     <label v-else-if="form.auth === 'google_sa'" class="field"><span>Service account JSON key</span><textarea v-model="form.secret" class="textarea mono" autocomplete="off" :placeholder="editing?.secretSet ? 'Saved. Leave empty to keep it.' : 'Paste the whole key file'" /></label>
     <label v-else-if="form.auth !== 'none'" class="field"><span>{{ form.auth === 'basic' ? 'user:password' : 'Token or key' }}</span><input v-model="form.secret" type="password" class="input mono" autocomplete="off" :placeholder="editing?.secretSet ? 'Saved. Leave empty to keep it.' : ''" /></label>
     <div class="split">
       <label class="field"><span>File against control</span><select v-model="form.controlId" class="select"><option value="">None</option><option v-for="c in controls" :key="c.id" :value="c.id">{{ c.key }} {{ c.title }}</option></select></label>
       <label class="field"><span>Pull</span><select v-model="form.schedule" class="select"><option value="manual">On request</option><option value="daily">Daily</option><option value="weekly">Weekly</option></select></label>
     </div>
-    <div class="row"><button class="btn primary" :disabled="busy || (!u.dirty.value && !ms.tenantId && !ms.clientSecret)">Save</button><button type="button" class="btn" @click="emit('close')">Cancel</button></div>
+    <div class="row"><button class="btn primary" :disabled="busy || (!u.dirty.value && !ms.tenantId && !ms.clientSecret && !aws.accessKeyId && !aws.secretAccessKey)">Save</button><button type="button" class="btn" @click="emit('close')">Cancel</button></div>
   </form>
 </template>

@@ -6,7 +6,7 @@
 // Guarding the server: by default a connector may not reach this machine or
 // a private network (so a connector can't be used to probe internal systems).
 // An admin can allow that for a client system on the local network.
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { isIP } from 'node:net';
@@ -65,8 +65,9 @@ export function parseToolSecret(auth: string, secret: string): string | null {
     const j = JSON.parse(secret);
     if (auth === 'azure_ad') return j.tenantId && j.clientId && j.clientSecret ? null : 'Enter the tenant ID, client ID and client secret';
     if (auth === 'google_sa') return j.client_email && j.private_key ? null : 'Paste the whole service account JSON key (it has client_email and private_key)';
+    if (auth === 'aws_sigv4') return j.accessKeyId && j.secretAccessKey && /^[a-z]{2}(-[a-z]+)+-\d$/.test(String(j.region ?? '')) ? null : 'Enter the access key ID, secret access key and region (for example us-east-1)';
   } catch {
-    return auth === 'google_sa' ? 'Paste the whole service account JSON key' : 'Enter the tenant ID, client ID and client secret';
+    return auth === 'google_sa' ? 'Paste the whole service account JSON key' : auth === 'aws_sigv4' ? 'Enter the access key ID, secret access key and region' : 'Enter the tenant ID, client ID and client secret';
   }
   return null;
 }
@@ -97,9 +98,40 @@ async function tokenFor(r: any, secret: string): Promise<string> {
   return body.access_token;
 }
 
-async function authHeaders(r: any): Promise<Record<string, string>> {
-  if (r.auth === 'none' || !r.secret_enc) return {};
+// v1.7.3: AWS Signature Version 4 for a read (GET) from S3. The body is
+// never signed (UNSIGNED-PAYLOAD, which S3 accepts), so only the address,
+// the date and the key are in the signature.
+const hmac = (key: Buffer | string, data: string) => createHmac('sha256', key).update(data).digest();
+const sha = (data: string) => createHash('sha256').update(data).digest('hex');
+const rfc3986 = (v: string) => encodeURIComponent(v).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+export function sigV4(url: URL, k: { accessKeyId: string; secretAccessKey: string; region: string; sessionToken?: string }, now = new Date(), service = 's3') {
+  const amzDate = now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const day = amzDate.slice(0, 8);
+  const headers: Record<string, string> = { host: url.host, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', 'x-amz-date': amzDate };
+  if (k.sessionToken) headers['x-amz-security-token'] = k.sessionToken;
+  const names = Object.keys(headers).sort();
+  const query = [...url.searchParams.entries()].map(([a, b]) => [rfc3986(a), rfc3986(b)]).sort((x, y) => (x[0] === y[0] ? (x[1] < y[1] ? -1 : 1) : x[0] < y[0] ? -1 : 1)).map(([a, b]) => `${a}=${b}`).join('&');
+  const path = (url.pathname || '/').split('/').map((seg) => rfc3986(decodeURIComponent(seg))).join('/'); // S3: each segment encoded once
+  const canonical = ['GET', path, query, names.map((n) => `${n}:${headers[n].trim()}\n`).join(''), names.join(';'), 'UNSIGNED-PAYLOAD'].join('\n');
+  const scope = `${day}/${k.region}/${service}/aws4_request`;
+  const toSign = ['AWS4-HMAC-SHA256', amzDate, scope, sha(canonical)].join('\n');
+  const key = hmac(hmac(hmac(hmac('AWS4' + k.secretAccessKey, day), k.region), service), 'aws4_request');
+  const signature = createHmac('sha256', key).update(toSign).digest('hex');
+  const { host: _host, ...send } = headers; // fetch sets Host itself, from the same URL
+  return { ...send, authorization: `AWS4-HMAC-SHA256 Credential=${k.accessKeyId}/${scope}, SignedHeaders=${names.join(';')}, Signature=${signature}` };
+}
+
+// v1.7.3: an Azure SAS token is kept encrypted and only added to the address when reading.
+export function withSas(url: string, r: any): string {
+  if (r.auth !== 'azure_sas' || !r.secret_enc) return url;
+  const sas = decrypt(r.secret_enc).replace(/^\?/, '');
+  return url + (url.includes('?') ? '&' : '?') + sas;
+}
+
+async function authHeaders(r: any, url?: URL): Promise<Record<string, string>> {
+  if (r.auth === 'none' || r.auth === 'azure_sas' || !r.secret_enc) return {};
   const secret = decrypt(r.secret_enc);
+  if (r.auth === 'aws_sigv4') return sigV4(url ?? new URL(r.url), JSON.parse(secret));
   if (r.auth === 'azure_ad' || r.auth === 'google_sa') return { authorization: `Bearer ${await tokenFor(r, secret)}` };
   if (r.auth === 'bearer') return { authorization: `Bearer ${secret}` };
   if (r.auth === 'basic') return { authorization: `Basic ${Buffer.from(secret).toString('base64')}` };
@@ -132,6 +164,12 @@ async function fetchChecked(start: string, headers: Record<string, string>, allo
   throw new Error('Too many redirects');
 }
 
+// Read what a connector points at (used by pulls and by client step checks).
+export async function readConnector(r: any, allowPrivate: boolean) {
+  const target = withSas(r.url, r);
+  return fetchChecked(target, await authHeaders(r, new URL(target)), allowPrivate);
+}
+
 export async function pull(db: Db, connectorId: string, actor: string): Promise<Connector> {
   const { rows } = await db.query(`SELECT * FROM connectors WHERE id = $1`, [connectorId]);
   const r = rows[0];
@@ -140,7 +178,7 @@ export async function pull(db: Db, connectorId: string, actor: string): Promise<
   const allowPrivate = (await getSettings(db)).connectorsAllowPrivate;
   const key = `CN-${r.number}`;
   try {
-    const got = await fetchChecked(r.url, await authHeaders(r), allowPrivate);
+    const got = await readConnector(r, allowPrivate);
     const hash = createHash('sha256').update(got.buf).digest('hex');
     if (hash === r.last_sha256) {
       await db.tx(async (q) => {

@@ -15,6 +15,8 @@ import {
 import { useApp } from '../stores/app';
 import EngagementAccess from '../components/EngagementAccess.vue';
 import ConnectorsTab from '../components/ConnectorsTab.vue';
+import PipelinesCard from '../components/PipelinesCard.vue';
+import WriteBackCard from '../components/WriteBackCard.vue';
 import { BUSINESS_TOOLS } from '@gh/shared';
 import { api } from '../api';
 
@@ -418,6 +420,8 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
         <div class="spread"><h2>Connectors</h2><RouterLink to="/workflows" class="small">Client workflows</RouterLink></div>
         <ConnectorsTab :controls="controls" manage />
       </section>
+      <PipelinesCard :controls="controls" />
+      <WriteBackCard />
     </template>
 
     <section v-if="tab === 'general' && app.canRaw('manage_engagement')" class="card danger-zone">

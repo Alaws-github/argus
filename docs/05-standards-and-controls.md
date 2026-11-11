@@ -2,7 +2,7 @@
 
 ## The control library
 
-The harness comes with 31 reusable controls in nine areas: governance and accountability, risk and impact assessment, data governance and privacy, model testing and validation, security, human oversight, transparency, third parties, and monitoring and incidents.
+The harness comes with 37 reusable controls in nine areas: governance and accountability, risk and impact assessment, data governance and privacy, model testing and validation, security, human oversight, transparency, third parties, and monitoring and incidents.
 
 Each library control has:
 

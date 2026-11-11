@@ -1,6 +1,6 @@
 # ARGUS: User Manual
 
-Version 1.2.5 · November 2026 · for ARGUS 1.7.2
+Version 1.2.6 · November 2026 · for ARGUS 1.7.3
 
 This manual explains ARGUS, the Assurance, Risk & Governance Unified System: what it is for, how to use the live site, and how a piece of work flows through it from the first request to the board report. It is written for assurance, risk and governance professionals, not for developers. Screenshots use the fictional demo engagement (Northshore Financial Group) on the live site, so you can follow along as you read (section 4).
 
@@ -10,7 +10,15 @@ This manual explains ARGUS, the Assurance, Risk & Governance Unified System: wha
 
 ## What's new in this edition
 
-This edition (1.2.5) follows edition 1.2.4 and covers ARGUS 1.4.1 to 1.7.2. Every screenshot was retaken for 1.2.4. New in 1.2.5 (ARGUS 1.7.2):
+This edition (1.2.6) follows edition 1.2.5 and covers ARGUS 1.4.1 to 1.7.3. Every screenshot was retaken for 1.2.4. New in 1.2.6 (ARGUS 1.7.3):
+
+- **Client steps on each use case.** Each client step can say what proves it was done, and ARGUS checks it in the client's tools for every use case (section 34.2).
+- **Write-back.** When switched on, ARGUS posts to Teams or Slack, creates Jira tickets or ServiceNow records, or calls a webhook on set events (section 34.3).
+- **Pipelines push evidence.** Build pipelines send evaluation results, fairness metrics or an SBOM straight in (section 23.3). Connectors can also read AWS S3, Azure Blob Storage, GitHub, GitLab and Bitbucket.
+- **Healthcare frameworks.** FDA Good Machine Learning Practice and HIPAA (section 21.1).
+- **Across Frameworks.** Map a control once and it counts for every framework (section 21.2).
+
+New in 1.2.5 (ARGUS 1.7.2):
 
 - **Connected tools.** Connectors are set up in **Settings > Connected tools**, beside the tools the client uses, or in place from a workflow step; **Tests and Evidence > From Client Tools** shows them read-only (sections 23.2 and 34.1).
 - **How does the client work?** An optional step when adding an engagement drafts a client workflow and records the client's tools (section 7).
@@ -269,7 +277,7 @@ There are two levels of settings:
 - **Engagement settings** (Settings > Engagement Settings): one engagement. The engagements are listed on the left, with **+ Add engagement**; pick one to see its five tabs:
   - **General**: name, client, prefix, frameworks, a description every agent reads with each use case (the client's sector, regulators and anything that changes how risk is judged), **Modules** (below), **Pause this engagement** and **Archive or delete**.
   - **Approval gates**: which stages stop for a person, and which agents work each stage. Drafting stages (Collect evidence, Test controls, Validate, Board report) always stop. (Called Workflow before ARGUS 1.7.2; the client's own process is under Client workflows, section 34.)
-  - **Connected tools**: the business tools the client uses, and the read-only connectors that pull evidence from them (section 23.2).
+  - **Connected tools**: the business tools the client uses, the read-only connectors that pull evidence from them (section 23.2), pipeline ingest tokens (section 23.3) and write-back (section 34.3).
   - **AI Agents**: every agent, grouped by stage (section 7.3).
   - **Access**: who can see the engagement (section 7.2).
 
@@ -530,15 +538,16 @@ Every kept risk, with inherent likelihood and impact, the controls treating it, 
 
 ## 21. Standards and controls
 
-The **Controls** page has five tabs.
+The **Controls** page has six tabs.
 
 ![Standards](images/manual/m30-standards.jpg)
 
 - **Standards**: one card per framework, explained in plain English, with a coverage bar. Each requirement is **Proven** (a control in place, tested, passing and evidenced), **In progress** (a control still needs a test, evidence or a fix), a **Gap** (no control) or **Not applicable** (excluded with a reason). Open a card for each requirement and its next step.
 - **Our Controls**: the control register: owner, status, risks treated, tests, evidence and open issues. Download as CSV.
-- **Control Library**: the 31 reusable controls, each mapped to the standards it helps meet, with a test procedure and the evidence usually expected.
+- **Control Library**: the 37 reusable controls, each mapped to the standards it helps meet, with a test procedure and the evidence usually expected.
 - **What Applies**: the Statement of Applicability. For each library control, whether it applies to this engagement and why. Exclusions need a reason an auditor would accept.
 - **Traceability**: from each obligation to the library controls that meet it, the controls in place, their tests and evidence, with gaps marked.
+- **Across Frameworks**: how much of each framework the engagement's controls cover, and a library match for the client's own controls (section 21.2).
 
 ![Our controls](images/manual/m31-controls.jpg)
 
@@ -546,6 +555,24 @@ The **Controls** page has five tabs.
 
 ![Uploading controls](images/manual/m32-upload-controls.png)
 
+
+### 21.1 Healthcare: FDA GMLP and HIPAA
+
+For a hospital, insurer, health technology firm or their vendors, choose **FDA Good Machine Learning Practice** and **HIPAA and HHS health AI rules** among the frameworks (picking the Healthcare sector suggests HIPAA). They add:
+
+- **FDA GMLP**: the ten Good Machine Learning Practice principles for AI in medical devices and the FDA's guidance on planning model changes in advance (a change control plan). Representative patient data, test data kept apart from training data, testing the clinician and AI together, clear information for users and monitoring after release.
+- **HIPAA**: only the health information the AI needs, business associate agreements with AI vendors, risk analysis, audit records, breach notice to people within 60 days, and the HHS rule that clinical decision support tools are checked for unfair impact.
+- Six library controls for healthcare (HLT-01 to HLT-06), GMLP and HIPAA references on the existing controls they also meet, and a **HIPAA breach** notification clock on incidents.
+
+These obligations show only on engagements that chose these frameworks. ARGUS summarises them in its own words; the FDA and HHS publish the originals.
+
+### 21.2 Across frameworks
+
+![Across Frameworks](images/manual/m59-across-frameworks.jpg)
+
+**Controls > Across Frameworks** shows how one control can meet several frameworks at once. Each framework in scope has a tile with how many of its references in the library the engagement's controls cover (click it to see what isn't covered yet). The table lists each control and the references it meets in each framework.
+
+To bring in the client's own controls: upload them on **Our Controls** (section 21), then, for each one marked **Not mapped**, accept the suggested library control under **Looks like**. The control keeps its own wording and gains every framework reference of that library control. Each mapping is in the audit log.
 ## 22. Testing
 
 Covered in sections 14 and 15. The **Tests** tab lists every test with its status, preparer, reviewer and evidence; filters show what's to do, what needs review and what failed. **Add test** adds one by hand, for example a retest.
@@ -566,10 +593,22 @@ A connector fetches a report, export or file from a client system over HTTPS and
 
 1. **Add connector**. (From a workflow step, **Add a read-only connector** opens the same form in place; section 34.1.)
 2. Pick the tool or **A report link**, give it a name and the address, and how it signs in: none, a bearer token, an API key in a header, a user and password, a Microsoft Entra app or a Google service account. The credential is encrypted and never shown again, including in the audit log.
-3. Choose the control it files evidence against, and whether to pull on request, daily or weekly.
+3. Choose the control it files evidence against, and whether to pull on request, daily or weekly. For **AWS S3**, enter an access key limited to reading the bucket, its secret and the region; for **Azure Blob Storage**, a read-only SAS token (it's kept encrypted and never shown in the address); for **GitHub**, **GitLab** or **Bitbucket**, a read-only token.
 4. **Pull now** to test it.
 
 **Tests and Evidence > From Client Tools** shows the same connectors read-only, with **Pull now**, for anyone working on tests. Each pull that brings new content adds a fingerprinted, readable evidence item; identical content adds nothing. Connectors only ever read. By default they refuse addresses on this machine or a private network; an admin can allow that for client systems on your own network, with the switch on the same page.
+
+### 23.3 Pipelines push evidence
+
+![Pipelines](images/manual/m56-pipelines.jpg)
+
+A client's build pipeline can send evidence straight to ARGUS when it runs: evaluation results, fairness metrics, drift reports, test reports, model cards or a software bill of materials (SBOM).
+
+1. **Settings > Connected tools > Pipelines > Create an ingest token** (leads and admins). Name it after the pipeline and, if you like, choose the control its evidence belongs to.
+2. Copy the token. It's shown once; ARGUS keeps only a fingerprint of it. Store it as a secret in the pipeline (for example `ARGUS_INGEST_TOKEN`).
+3. Add a step to the pipeline that posts to `/api/ingest/evidence`. **How a pipeline sends evidence** has ready-made steps for GitHub Actions, GitLab CI, Bitbucket Pipelines, Azure DevOps and curl.
+
+Each push becomes a fingerprinted evidence item for the control and use case it names, collected by "Pipeline: <token name>" and in the audit log. A token can only add evidence to its own engagement; it can't read or change anything. **Revoke** stops it at once.
 
 ## 24. Issues
 
@@ -868,7 +907,44 @@ Setting up a connector (from the builder, or **Settings > Connected tools > Add 
 
 Credentials are encrypted and never shown again or written to the audit log.
 
-Every save, publish, restore and retirement is in the audit log. A published workflow records how the client works and that it keeps ARGUS's governance; it doesn't yet move use cases on the board by itself.
+Every save, publish, restore and retirement is in the audit log.
+
+### 34.2 Proof of each client step
+
+![What proves a step](images/manual/m55-step-proof.jpg)
+
+For a client step, **Proof it was done** says how ARGUS knows it happened for a use case:
+
+| Proof | Done when |
+| --- | --- |
+| A record mentions the use case key | The step's connector returns a ticket, request, row or message that mentions the key, for example AI-3 |
+| A record for the use case has a given status | One of those records has the status you name, for example Approved |
+| Every record for the use case is done | All of them are Done, Closed, Resolved or Approved (or the status you add) |
+| A person confirms it, with a link | Someone confirms it on the use case and gives a link to the record or a note |
+
+Ask the client to put the use case key in the ticket, request or file (a label, a field or the title). AI-3 never matches AI-30.
+
+Each use case follows the latest published workflow, or one picked for it, and shows its **Client steps** in the side panel:
+
+![Client steps on a use case](images/manual/m54-client-steps.jpg)
+
+**Check now** (preparers and above) reads each step's connector and marks the step done (✓), waiting (…) or not done (✕), with the records it found and a link to them. A step that passes files what proved it as evidence, once; checking again with the same records adds nothing. **Confirm by hand** records a step that ARGUS can't read, with a link or a note. Checks and confirmations are in the audit log.
+
+Client steps never move a use case. They give the people who decide at ARGUS's gates the client's own paper trail, already checked.
+
+### 34.3 Write-back
+
+![Write-back](images/manual/m57-write-back.jpg)
+
+ARGUS can tell the client's tools what happened. It's off for every engagement until a lead or admin switches it on under **Settings > Connected tools > Write-back**.
+
+1. **Add a write-back target** and pick what it sends: a **Teams** or **Slack** channel message (paste the channel's Workflows or incoming webhook address), a **Jira ticket** (site address, project key and email:API token), a **ServiceNow record** (instance address, table and user:password) or a **Webhook** (any address that accepts a JSON post, such as a Power Automate flow).
+2. Tick when it sends: a use case waiting for a person, an agent's question, a failed test, a new issue or incident, a failed client step, or a sign-off.
+3. **Send a test** to check it.
+
+![Adding a write-back target](images/manual/m58-write-back-form.jpg)
+
+ARGUS only sends new messages and creates new tickets or records; it never edits, closes or deletes anything in the client's tools. Agents can't send: sends come from the audit log, after a person's or the engine's change is saved. Each send, and each failure, is in the audit log with a fingerprint of what was sent. An issue sent to Jira or ServiceNow shows the ticket it became. Switch write-back off and nothing more is sent.
 
 # Appendices
 
@@ -894,7 +970,7 @@ Every save, publish, restore and retirement is in the audit log. A published wor
 
 ## B. What isn't built yet
 
-Running client workflows on the board; reading scanned documents (OCR); a reranker for knowledge-base search; SAML, signing out at the identity provider and multi-factor sign-in inside the app; connectors to document stores that need their own sign-in (OAuth); and a limit on repeated failed sign-ins. Evidence connectors read report and export links over HTTPS.
+Client workflows moving use cases on the board (client steps are checked and shown, but people still decide at the gates); editing or closing records in the client's tools (write-back only creates); reading scanned documents (OCR); a reranker for knowledge-base search; SAML, signing out at the identity provider and multi-factor sign-in inside the app; connectors to document stores that need their own sign-in (OAuth); and a limit on repeated failed sign-ins. Evidence connectors read report and export links over HTTPS.
 
 ## C. Glossary
 

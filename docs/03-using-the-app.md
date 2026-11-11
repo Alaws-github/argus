@@ -53,7 +53,7 @@ The chain from a requirement to proof has five links: a **standard** asks for so
 
 - **Standards**: start here. One card per framework (EU AI Act, ISO/IEC 42001, NIST AI RMF, Jamaica DPA, OWASP LLM Top 10) saying in plain English what it is and why it matters, with a coverage bar: how many of its requirements are **Proven** (a control in place, tested, passing and evidenced), **In progress**, a **Gap** (no control yet) or **Not applicable**. Open a card to see each requirement and the next step to close it.
 - **Our controls**: the controls in place for each use case, their owner, status, tests, evidence and open issues.
-- **Control library**: 31 reusable controls, each mapped to the standards it helps meet.
+- **Control library**: 37 reusable controls, each mapped to the standards it helps meet.
 - **What applies**: the Statement of Applicability. For each library control, whether it applies to this engagement and why.
 - **Traceability**: the detailed matrix from each obligation to the evidence that it's met.
 

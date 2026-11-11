@@ -21,6 +21,7 @@ import { setInternalToken, withRequestContext } from './context.js';
 import { INTERNAL_TOKEN } from './assistant.js';
 import { archiveGuard } from './archive.js';
 import { authMiddleware, readCookie, userFromToken } from './auth.js';
+import { ingestRouter } from './ingest.js';
 
 const PORT = Number(process.env.PORT || 4300);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -47,6 +48,8 @@ app.use((_req, res, next) => {
 app.use('/api/evidence', express.json({ limit: '15mb' }));
 app.use(/^\/api\/engagements\/[^/]+\/controls\/import$/, express.json({ limit: '15mb' }));
 app.use(/^\/api\/engagements\/[^/]+\/knowledge$/, express.json({ limit: '15mb' }));
+// v1.7.3: pipelines push evidence with an ingest token; this route signs in by token, not session.
+app.use('/api/ingest', ingestRouter(db));
 app.use(express.json({ limit: '256kb' }));
 app.use('/api', authMiddleware(db));
 app.use('/api', accessGuard(db));

@@ -21,6 +21,8 @@ export const OWNERS: [RegExp, string][] = [
   [/^\/tests\/([^/]+)/, `SELECT engagement_id AS id FROM tests WHERE id = $1`],
   [/^\/issues\/([^/]+)/, `SELECT engagement_id AS id FROM issues WHERE id = $1`],
   [/^\/connectors\/([^/]+)/, `SELECT engagement_id AS id FROM connectors WHERE id = $1`],
+  [/^\/ingest-tokens\/([^/]+)/, `SELECT engagement_id AS id FROM ingest_tokens WHERE id = $1`],
+  [/^\/outbound\/([^/]+)/, `SELECT engagement_id AS id FROM outbound_targets WHERE id = $1`],
   [/^\/alerts\/([^/]+)/, `SELECT engagement_id AS id FROM monitor_alerts WHERE id = $1`],
   [/^\/incidents\/([^/]+)/, `SELECT engagement_id AS id FROM incidents WHERE id = $1`],
   [/^\/inventory\/([^/]+)/, `SELECT engagement_id AS id FROM inventory WHERE id = $1`],
@@ -94,6 +96,9 @@ const TABLES: [string, string][] = [
   ['workflows', `SELECT * FROM workflows WHERE engagement_id = $1 ORDER BY number`],
   ['workflowVersions', `SELECT v.* FROM workflow_versions v JOIN workflows w ON w.id = v.workflow_id WHERE w.engagement_id = $1 ORDER BY v.published_at`],
   ['incidents', `SELECT * FROM incidents WHERE engagement_id = $1 ORDER BY number`],
+  ['cardStepChecks', `SELECT s.* FROM card_step_checks s JOIN cards c ON c.id = s.card_id WHERE c.engagement_id = $1`],
+  ['ingestTokens', `SELECT id, number, name, hint, control_id, created_by, created_at, last_used_at, uses, revoked_at FROM ingest_tokens WHERE engagement_id = $1 ORDER BY number`],
+  ['outboundTargets', `SELECT id, number, name, kind, project, events, enabled, sends, last_at, last_status, last_message, created_by, created_at FROM outbound_targets WHERE engagement_id = $1 ORDER BY number`],
   ['assistantConversations', `SELECT * FROM assistant_conversations WHERE engagement_id = $1 ORDER BY created_at`],
   ['assistantMessages', `SELECT * FROM assistant_messages WHERE engagement_id = $1 ORDER BY created_at`],
 ];

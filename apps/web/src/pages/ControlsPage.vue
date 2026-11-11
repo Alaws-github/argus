@@ -14,10 +14,11 @@ import {
 import { api, csv, day, downloadText } from '../api';
 import { useApp } from '../stores/app';
 import StandardsTab from '../components/StandardsTab.vue';
+import HarmonizeTab from '../components/HarmonizeTab.vue';
 
 const app = useApp();
 const route = useRoute();
-const tab = computed(() => route.params.tab as 'standards' | 'register' | 'library' | 'soa' | 'traceability');
+const tab = computed(() => route.params.tab as 'standards' | 'register' | 'library' | 'soa' | 'traceability' | 'harmonize');
 
 const controls = ref<EngagementControl[]>([]);
 const library = ref<LibraryControl[]>([]);
@@ -36,7 +37,7 @@ async function load() {
     else if (tab.value === 'soa') {
       soa.value = await api(`/engagements/${E}/soa`);
       drafts.value = Object.fromEntries(soa.value.map((s) => [s.id, { applicable: s.applicable, justification: s.justification }]));
-    } else trace.value = await api(`/engagements/${E}/traceability`);
+    } else if (tab.value !== 'harmonize') trace.value = await api(`/engagements/${E}/traceability`);
   } catch (e: any) {
     app.toast(e.message, 'error');
   } finally {
@@ -165,12 +166,14 @@ function exportTrace() {
       <RouterLink to="/controls/library" :class="{ active: tab === 'library' }">Control Library</RouterLink>
       <RouterLink v-if="app.mod('soa') || tab === 'soa'" to="/controls/soa" :class="{ active: tab === 'soa' }">What Applies</RouterLink>
       <RouterLink v-if="app.mod('soa') || tab === 'traceability'" to="/controls/traceability" :class="{ active: tab === 'traceability' }">Traceability</RouterLink>
+      <RouterLink to="/controls/harmonize" :class="{ active: tab === 'harmonize' }">Across Frameworks</RouterLink>
     </nav>
 
     <div v-if="loading" class="muted">Loading…</div>
 
     <!-- Register -->
     <StandardsTab v-else-if="tab === 'standards'" :rows="trace" />
+    <HarmonizeTab v-else-if="tab === 'harmonize'" />
 
     <template v-else-if="tab === 'register'">
       <div class="toolbar">

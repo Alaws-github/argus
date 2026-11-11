@@ -21,7 +21,7 @@ export function connectorRoutes(r: Router, db: Db, actorOf: (req: Request) => st
     const b = ConnectorInput.parse(req.body);
     if (b.auth !== 'none' && !b.secret) throw httpError(400, 'Add the token, key or user:password for this connector');
     if (b.auth === 'header' && !b.headerName) throw httpError(400, 'Name the header the key goes in, for example x-api-key');
-    if ((b.auth === 'azure_ad' || b.auth === 'google_sa') && b.secret) { const bad = parseToolSecret(b.auth, b.secret); if (bad) throw httpError(400, bad); }
+    if ((b.auth === 'azure_ad' || b.auth === 'google_sa' || b.auth === 'aws_sigv4') && b.secret) { const bad = parseToolSecret(b.auth, b.secret); if (bad) throw httpError(400, bad); }
     const row = await db.tx(async (q) => {
       const { rows } = await q.query(
         `INSERT INTO connectors (engagement_id, name, url, auth, header_name, secret_enc, control_id, schedule, enabled, next_pull_at, created_by, tool)
@@ -38,7 +38,7 @@ export function connectorRoutes(r: Router, db: Db, actorOf: (req: Request) => st
 
   r.patch('/connectors/:id', wrap(async (req, res) => {
     const b = ConnectorInput.partial().parse(req.body);
-    if ((b.auth === 'azure_ad' || b.auth === 'google_sa') && b.secret) { const bad = parseToolSecret(b.auth, b.secret); if (bad) throw httpError(400, bad); }
+    if ((b.auth === 'azure_ad' || b.auth === 'google_sa' || b.auth === 'aws_sigv4') && b.secret) { const bad = parseToolSecret(b.auth, b.secret); if (bad) throw httpError(400, bad); }
     await db.tx(async (q) => {
       const { rows } = await q.query(`SELECT * FROM connectors WHERE id = $1`, [req.params.id]);
       const c = rows[0];

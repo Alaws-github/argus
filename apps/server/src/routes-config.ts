@@ -378,6 +378,7 @@ export function configRoutes(r: Router, db: Db, actorOf: (req: Request) => strin
     if (patch.appetite) set('appetite', JSON.stringify(patch.appetite));
     if (patch.modules) set('modules', JSON.stringify({ ...before.modules, ...patch.modules }));
     if (patch.clientTools) set('client_tools', JSON.stringify(patch.clientTools.filter((t) => toolById(t))));
+    if (patch.writeBack !== undefined) set('write_back', patch.writeBack);
     if (!sets.length) throw httpError(400, 'Nothing to change');
     await db.tx(async (q) => {
       await q.query(`UPDATE engagements SET ${sets.join(', ')} WHERE id = $1`, [before.id, ...vals]);

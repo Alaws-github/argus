@@ -803,3 +803,63 @@ ALTER TABLE connectors ADD COLUMN IF NOT EXISTS tool text NOT NULL DEFAULT '';
 -- v1.7.2: the business tools a client uses (set when the engagement is added,
 -- changed in Settings > Connected tools).
 ALTER TABLE engagements ADD COLUMN IF NOT EXISTS client_tools jsonb NOT NULL DEFAULT '[]';
+
+-- ---------------------------------------------------------------------------
+-- v1.7.3: client step proof, pipelines pushing evidence, write-back, healthcare
+-- ---------------------------------------------------------------------------
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS workflow_id uuid REFERENCES workflows(id) ON DELETE SET NULL;
+-- One row per use case and client step: the latest check, by ARGUS through a connector or by a person.
+CREATE TABLE IF NOT EXISTS card_step_checks (
+  card_id      uuid NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  node_id      text NOT NULL,
+  status       text NOT NULL,
+  detail       text NOT NULL DEFAULT '',
+  record       text,
+  record_url   text,
+  evidence_id  uuid REFERENCES evidence(id) ON DELETE SET NULL,
+  checked_by   text NOT NULL,
+  checked_at   timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (card_id, node_id)
+);
+ALTER TABLE evidence ADD COLUMN IF NOT EXISTS card_id uuid REFERENCES cards(id) ON DELETE SET NULL;
+ALTER TABLE evidence ADD COLUMN IF NOT EXISTS meta jsonb;
+CREATE SEQUENCE IF NOT EXISTS ingest_token_seq;
+-- Tokens a CI/CD pipeline uses to push evidence. Only the SHA-256 of the token is kept.
+CREATE TABLE IF NOT EXISTS ingest_tokens (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  number        integer NOT NULL DEFAULT nextval('ingest_token_seq'),
+  engagement_id uuid NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  name          text NOT NULL,
+  token_hash    text NOT NULL UNIQUE,
+  hint          text NOT NULL,
+  control_id    uuid REFERENCES controls(id) ON DELETE SET NULL,
+  created_by    text NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  last_used_at  timestamptz,
+  uses          integer NOT NULL DEFAULT 0,
+  revoked_at    timestamptz
+);
+ALTER TABLE engagements ADD COLUMN IF NOT EXISTS write_back boolean NOT NULL DEFAULT false;
+CREATE SEQUENCE IF NOT EXISTS outbound_seq;
+-- Where ARGUS may write when write-back is on: a channel webhook, a Jira project, a ServiceNow table, a webhook.
+CREATE TABLE IF NOT EXISTS outbound_targets (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  number        integer NOT NULL DEFAULT nextval('outbound_seq'),
+  engagement_id uuid NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  name          text NOT NULL,
+  kind          text NOT NULL,
+  url           text NOT NULL,
+  project       text NOT NULL DEFAULT '',
+  secret_enc    text,
+  events        jsonb NOT NULL DEFAULT '[]',
+  enabled       boolean NOT NULL DEFAULT true,
+  sends         integer NOT NULL DEFAULT 0,
+  last_at       timestamptz,
+  last_status   text,
+  last_message  text,
+  created_by    text NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+-- How far the write-back dispatcher has read the audit log.
+CREATE TABLE IF NOT EXISTS outbound_cursor (id integer PRIMARY KEY DEFAULT 1, last_audit_id bigint NOT NULL DEFAULT 0);
+ALTER TABLE issues ADD COLUMN IF NOT EXISTS external_ref text;

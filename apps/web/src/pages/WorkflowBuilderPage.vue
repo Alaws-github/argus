@@ -7,7 +7,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import {
-  AGENT_ROLES, BUSINESS_TOOLS, TOOL_GROUPS, WF_LOCKED, WF_NODE_INFO, toolById, validateWorkflow, type Connector,
+  AGENT_ROLES, BUSINESS_TOOLS, PROOF_KINDS, TOOL_GROUPS, WF_LOCKED, WF_NODE_INFO, toolById, validateWorkflow, type Connector,
   type WfEdge, type WfGraph, type WfNode, type WfNodeType, type Workflow, type WorkflowVersion,
 } from '@gh/shared';
 import { api, ago } from '../api';
@@ -428,6 +428,14 @@ const STATUS: Record<string, [string, string]> = { draft: ['Draft', 'amber'], pu
             </label>
             <p v-else class="hint">ARGUS maps this step but doesn't read {{ toolById(selNode.config.tool)!.name }}.</p>
           </template>
+          <!-- v1.7.3: what proves the step was done for a use case, checked on the use case's Client steps. -->
+          <label class="field"><span>Proof it was done</span>
+            <select v-model="selNode.config.proof" class="select" :disabled="!canEdit">
+              <option v-for="(l, k) in PROOF_KINDS" :key="k" :value="k || undefined" :disabled="!!k && k !== 'manual' && !selNode.config.connectorId">{{ l }}{{ k && k !== 'manual' && !selNode.config.connectorId ? ' (needs a connector)' : '' }}</option>
+            </select>
+            <span class="hint">{{ selNode.config.proof && selNode.config.proof !== 'manual' ? 'ARGUS reads the connector and looks for records that mention the use case key (for example AI-3). Ask the client to put the key in the ticket, request or file.' : selNode.config.proof === 'manual' ? 'A person confirms it on the use case, with a link to the record.' : 'The step is shown on each use case but not checked.' }}</span>
+          </label>
+          <label v-if="selNode.config.proof === 'status' || selNode.config.proof === 'all_done'" class="field"><span>{{ selNode.config.proof === 'status' ? 'Status that counts as done' : 'Also counts as done' }} <span v-if="selNode.config.proof === 'all_done'" class="faint">optional</span></span><input v-model="selNode.config.proofStatus" class="input" maxlength="60" :disabled="!canEdit" :placeholder="selNode.config.proof === 'status' ? 'Approved' : 'Done, Closed and Resolved always count'" /></label>
         </div>
         <label class="field"><span>Notes</span><textarea v-model="selNode.config.note" class="textarea" :disabled="!canEdit" placeholder="What happens here, in the client's words" /></label>
         <ul v-if="check.nodeProblems[selNode.id]" class="wf-problems"><li v-for="p in check.nodeProblems[selNode.id]" :key="p">{{ p }}</li></ul>

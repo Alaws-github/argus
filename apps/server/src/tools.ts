@@ -152,7 +152,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'search_library', roles: ['control_designer', 'evidence_collector', 'control_tester', 'independent_reviewer', 'assistant'],
-    description: 'The control library: 31 reusable controls with objectives, test procedures and the evidence usually expected. Search by words or give a code (for example OVS-01).',
+    description: 'The control library: 37 reusable controls with objectives, test procedures and the evidence usually expected. Search by words or give a code (for example OVS-01).',
     schema: S({ text: str('Words to look for, or a library code') }, ['text']),
     async run(a, s) {
       const t = String(a.text ?? '').trim();

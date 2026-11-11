@@ -27,6 +27,14 @@ const ABOUT: Record<string, { what: string; why: string }> = {
     what: "Jamaica's Data Protection Act. Whenever AI uses personal data about people in Jamaica, it must have a lawful basis, keep the data secure, protect it when it leaves Jamaica, and respect people's rights, including objecting to automated decisions.",
     why: 'It is law, enforced by the Information Commissioner.',
   },
+  'FDA GMLP': {
+    what: "The US Food and Drug Administration's ten Good Machine Learning Practice principles for AI in medical devices (shared with Health Canada and the UK regulator), plus its guidance on planning model changes in advance. Representative patient data, separate test data, testing the clinician and AI together, clear information for users and monitoring after release.",
+    why: 'The FDA expects them for AI medical devices, and hospitals use them to judge clinical AI they buy or build.',
+  },
+  'HIPAA': {
+    what: "The US health privacy law's Privacy, Security and Breach rules, plus the HHS rule on patient care decision support tools. Use only the health information the AI needs, sign agreements with AI vendors that see it, keep records, report breaches within 60 days, and check clinical tools for unfair impact.",
+    why: 'It is US law for hospitals, insurers and their vendors, enforced by HHS with fines.',
+  },
   'OWASP LLM Top 10': {
     what: 'The ten most common security weaknesses in systems built on large language models, such as prompt injection and giving an AI more power than it needs.',
     why: 'A technical checklist for testing chatbots and agents before and after release.',

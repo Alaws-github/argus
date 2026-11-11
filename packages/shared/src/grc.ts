@@ -85,6 +85,8 @@ export interface FrameworkRefs {
   euAiAct?: string[];
   jdpa?: string[];
   owasp?: string[];
+  fdaGmlp?: string[];   // v1.7.3: FDA Good Machine Learning Practice principles and AI device guidance
+  hipaa?: string[];     // v1.7.3: HIPAA Privacy, Security and Breach rules, and HHS health AI rules (45 CFR)
 }
 
 export const FRAMEWORK_LABELS: Record<keyof FrameworkRefs, string> = {
@@ -95,6 +97,8 @@ export const FRAMEWORK_LABELS: Record<keyof FrameworkRefs, string> = {
   euAiAct: 'EU AI Act',
   jdpa: 'Jamaica DPA',
   owasp: 'OWASP',
+  fdaGmlp: 'FDA GMLP',
+  hipaa: 'HIPAA',
 };
 
 export interface LibraryControl {
@@ -331,6 +335,8 @@ export interface Issue {
   key: string;
   engagementId: string;
   title: string;
+  /** v1.7.3: the ticket it became in the client's tool, when write-back created one (GRC-12). */
+  externalRef?: string | null;
   description: string;
   severity: Severity;
   status: IssueStatus;
@@ -484,8 +490,13 @@ export const FRAMEWORK_CHOICES = [
   { id: 'nistCsf', label: 'NIST CSF 2.0', hint: 'Security controls around the AI' },
   { id: 'coso', label: 'COSO Internal Control', hint: 'Financial reporting and internal audit' },
   { id: 'owasp', label: 'OWASP LLM and Agentic Top 10', hint: 'Red-team coverage for LLM apps and agents' },
+  { id: 'fdaGmlp', label: 'FDA Good Machine Learning Practice', hint: 'AI in medical devices: the 10 GMLP principles, change control plans and device AI guidance' },
+  { id: 'hipaa', label: 'HIPAA and HHS health AI rules', hint: 'Protected health information in AI, vendor agreements, and fair clinical decision support' },
 ] as const;
 export type FrameworkChoice = (typeof FRAMEWORK_CHOICES)[number]['id'];
+/** v1.7.3: which frameworks an engagement's framework text names ("NIST AI RMF 1.0 · ISO/IEC 42001", or older "NIST AI RMF, ISO/IEC 42001"). */
+export const frameworksIn = (text: string): FrameworkChoice[] =>
+  FRAMEWORK_CHOICES.filter((f) => [f.label, f.label.replace(/\s+[\d.]+$/, ''), FRAMEWORK_LABELS[f.id as keyof FrameworkRefs]].some((l) => l && text.includes(l))).map((f) => f.id);
 
 export const SECTORS = ['Banking and Credit', 'Insurance', 'Public Sector', 'Healthcare', 'Retail and Consumer', 'Telecoms', 'Professional Services', 'Other'] as const;
 
@@ -860,6 +871,7 @@ export const NOTIFY_CLOCKS = {
   ai_act_death: { label: 'EU AI Act incident involving a death', hours: 10 * 24, to: 'Market surveillance authority' },
   jdpa_breach: { label: 'Jamaica DPA personal data breach: Information Commissioner', hours: 72, to: 'Information Commissioner' },
   data_subjects: { label: 'People affected by a personal data breach', hours: 72, to: 'Affected people' },
+  hipaa_breach: { label: 'HIPAA breach of unsecured health information: affected people', hours: 60 * 24, to: 'Affected people (and HHS)' },
   internal: { label: 'Internal escalation (your own policy)', hours: 24, to: 'Board Risk Committee' },
 } as const;
 export type NotifyClock = keyof typeof NOTIFY_CLOCKS;
@@ -912,7 +924,7 @@ export interface Incident {
 // or file over HTTPS and files it as fingerprinted evidence. It never writes
 // back. Credentials are encrypted and never shown again.
 // azure_ad: Microsoft Entra app (tenant, client, secret); google_sa: a Google service account JSON key (v1.7.1).
-export const CONNECTOR_AUTH = ['none', 'bearer', 'header', 'basic', 'azure_ad', 'google_sa'] as const;
+export const CONNECTOR_AUTH = ['none', 'bearer', 'header', 'basic', 'azure_ad', 'google_sa', 'aws_sigv4', 'azure_sas'] as const;
 export const CONNECTOR_SCHEDULES = ['manual', 'daily', 'weekly'] as const;
 export const ConnectorInput = z.object({
   name: z.string().trim().min(3).max(120),

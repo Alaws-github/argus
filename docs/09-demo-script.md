@@ -78,7 +78,7 @@ The demo builds four more clients (engagement switcher, top left). Pick the one 
 
 **Which AI does it use?** Any of them: Anthropic, OpenAI, Azure OpenAI, Google Gemini, Mistral, Groq, Together, OpenRouter, DeepSeek, xAI, Perplexity, or a model on your own server. Each agent can use a different one, with a fallback and a monthly spending cap.
 
-**Which standards does it cover?** The EU AI Act, ISO/IEC 42001, the NIST AI RMF, the Jamaica Data Protection Act 2020 and the OWASP LLM Top 10, through a library of 31 controls. The library can be extended.
+**Which standards does it cover?** The EU AI Act, ISO/IEC 42001, the NIST AI RMF, the Jamaica Data Protection Act 2020, the OWASP LLM Top 10 and, for healthcare clients, the FDA Good Machine Learning Practice principles and HIPAA, through a library of 37 controls. The library can be extended.
 
 **How do you prove the record hasn't been changed?** Every audit entry carries a fingerprint of the one before it; changing one breaks the chain, and anyone can verify it. Evidence files are fingerprinted when collected.
 

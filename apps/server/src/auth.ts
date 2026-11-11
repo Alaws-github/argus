@@ -134,6 +134,11 @@ const RULES: [string, RegExp, Permission][] = [
   ['DELETE', /^\/engagements\/[^/]+\/members\//, 'manage_engagement'],
   ['POST', /^\/engagements\/[^/]+\/connectors$/, 'manage_engagement'],
   ['*', /^\/connectors\//, 'manage_engagement'],
+  // v1.7.3: pipeline ingest tokens and write-back targets are engagement configuration.
+  ['*', /^\/engagements\/[^/]+\/ingest-tokens/, 'manage_engagement'],
+  ['*', /^\/ingest-tokens\//, 'manage_engagement'],
+  ['POST', /^\/engagements\/[^/]+\/outbound$/, 'manage_engagement'],
+  ['*', /^\/outbound\//, 'manage_engagement'],
   ['POST', /^\/alerts\/[^/]+\/acknowledge$/, 'approve'],
   ['POST', /^\/library/, 'manage_engagement'],
   ['GET', /^\/workflows/, 'read'],

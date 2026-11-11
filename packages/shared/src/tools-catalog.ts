@@ -1,7 +1,9 @@
 // Business tools (v1.7.1): the tools a client's governance, risk and assurance
 // work already happens in. A workflow step names the tool it happens in, and,
 // where ARGUS can read from that tool, links to a read-only connector that
-// pulls evidence or status from it. ARGUS never writes to these tools.
+// pulls evidence or status from it. Connectors only read. Since v1.7.3 an
+// engagement can also switch on write-back (integrations.ts): messages and
+// tickets sent to targets a lead sets up, never through a connector.
 //
 // `read` says how a connector reads the tool: the sign-in it needs, an example
 // address (an API that answers GET) and what to set up on the client's side.
@@ -9,7 +11,7 @@
 // either have no read API that fits, or reading needs a sign-in flow that
 // writes, such as a POST sign-in).
 export type ToolUse = 'documents' | 'approvals' | 'tickets' | 'notify' | 'spreadsheet' | 'dashboard' | 'sign' | 'tasks';
-export type ToolAuth = 'azure_ad' | 'google_sa' | 'basic' | 'bearer' | 'header';
+export type ToolAuth = 'azure_ad' | 'google_sa' | 'basic' | 'bearer' | 'header' | 'aws_sigv4' | 'azure_sas';
 export interface ToolRead { auth: ToolAuth; scope?: string; url: string; help: string; headerName?: string }
 export interface BusinessTool { id: string; name: string; group: string; mono: string; color: string; uses: ToolUse[]; read: ToolRead | null }
 
@@ -55,6 +57,17 @@ export const BUSINESS_TOOLS: BusinessTool[] = [
   { id: 'tableau', name: 'Tableau', group: 'GRC, data and signing', mono: 'TB', color: '#e8762d', uses: ['dashboard'], read: null },
   { id: 'docusign', name: 'DocuSign', group: 'GRC, data and signing', mono: 'DS', color: '#4c00ff', uses: ['sign', 'approvals'],
     read: { auth: 'bearer', url: 'https://{account}.docusign.net/restapi/v2.1/accounts/{account-id}/envelopes/{envelope-id}', help: 'An access token from a DocuSign integration key with the signature scope. Tokens expire; replace it when pulls start failing.' } },
+  // v1.7.3: code, pipelines and cloud storage. Pipelines can also push evidence (Settings > Connected tools > Pipelines).
+  { id: 'github', name: 'GitHub', group: 'Code, pipelines and storage', mono: 'GH', color: '#24292f', uses: ['documents', 'tickets'],
+    read: { auth: 'bearer', url: 'https://api.github.com/repos/{owner}/{repo}/contents/{path}', help: 'Create a fine-grained personal access token or GitHub App token with read-only Contents (and Issues, Actions if needed) on the repository, and enter it.' } },
+  { id: 'gitlab', name: 'GitLab', group: 'Code, pipelines and storage', mono: 'GL', color: '#e2432a', uses: ['documents', 'tickets'],
+    read: { auth: 'header', headerName: 'PRIVATE-TOKEN', url: 'https://gitlab.com/api/v4/projects/{project-id}/repository/files/{file-path}/raw?ref=main', help: 'Create a project access token with the read_api scope and enter it. ARGUS sends it in the PRIVATE-TOKEN header.' } },
+  { id: 'bitbucket', name: 'Bitbucket', group: 'Code, pipelines and storage', mono: 'BB', color: '#0c66e4', uses: ['documents', 'tickets'],
+    read: { auth: 'basic', url: 'https://api.bitbucket.org/2.0/repositories/{workspace}/{repo}/src/main/{path}', help: 'Create an app password (or API token) with read access to repositories, and enter username:password.' } },
+  { id: 'aws_s3', name: 'AWS S3', group: 'Code, pipelines and storage', mono: 'S3', color: '#e2791a', uses: ['documents'],
+    read: { auth: 'aws_sigv4', url: 'https://{bucket}.s3.{region}.amazonaws.com/{key}', help: 'Create an IAM user or role key limited to s3:GetObject on the bucket or prefix, and enter the access key ID, secret access key and region. ARGUS signs each read with AWS Signature Version 4.' } },
+  { id: 'azure_blob', name: 'Azure Blob Storage', group: 'Code, pipelines and storage', mono: 'AB', color: '#0078d4', uses: ['documents'],
+    read: { auth: 'azure_sas', url: 'https://{account}.blob.core.windows.net/{container}/{blob}', help: 'Create a SAS token with Read permission only, on the container or the blob, with an end date, and paste the token (the part after the ?). It is kept encrypted and added to the address only when ARGUS reads.' } },
   { id: 'other', name: 'Other tool', group: 'Other', mono: '…', color: '#6b7280', uses: ['documents', 'approvals', 'tickets', 'notify'],
     read: { auth: 'bearer', url: 'https://reports.client.example/export.csv', help: 'Any report or export link that answers a plain read request, with a read-only token.' } },
 ];

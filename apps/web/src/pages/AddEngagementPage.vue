@@ -55,11 +55,13 @@ watch(() => [f.client, f.name], () => {
   const p = (words.length > 1 ? words.map((w) => w[0]).join('') : (words[0] ?? '').slice(0, 3)).toUpperCase().replace(/^[^A-Z]+/, '').slice(0, 4);
   f.prefix = p;
 });
+// v1.7.3: a healthcare client usually needs HIPAA; suggest it once when the sector is picked.
+watch(() => f.sector, (s) => { if (s === 'Healthcare' && !f.frameworks.includes('hipaa')) f.frameworks = [...f.frameworks, 'hipaa']; });
 const prefixTaken = computed(() => app.engagements.some((e) => e.prefix === f.prefix));
 
 // ----------------------------------------------------------------- scope
 const SOURCE: Record<string, string[]> = {
-  nistAiRmf: ['NIST AI RMF'], iso42001: ['ISO/IEC 42001'], euAiAct: ['EU AI Act'], jdpa: ['Jamaica DPA 2020'], owasp: ['OWASP LLM Top 10'], nistCsf: [], coso: [],
+  nistAiRmf: ['NIST AI RMF'], iso42001: ['ISO/IEC 42001'], euAiAct: ['EU AI Act'], jdpa: ['Jamaica DPA 2020'], owasp: ['OWASP LLM Top 10'], fdaGmlp: ['FDA GMLP'], hipaa: ['HIPAA'], nistCsf: [], coso: [],
 };
 const mapped = computed(() => library.value.filter((l) => f.frameworks.some((k) => ((l.refs as any)?.[k] ?? []).length)));
 const obligationCount = computed(() => obligations.value.filter((o) => f.frameworks.some((k) => SOURCE[k]?.includes(o.source))).length);

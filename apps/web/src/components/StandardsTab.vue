@@ -77,7 +77,7 @@ function next(r: Row): string {
 <template>
   <div class="stack" style="gap: 16px">
     <!-- v1.7.4: be clear these are the key requirements only; "fully met" is on Every Requirement. -->
-    <p class="small notice">These cards cover each framework's <strong>key requirements</strong> in plain English. To see whether a framework is <strong>fully met</strong>, with every clause, article or subcategory accounted for, open <RouterLink to="/controls/requirements">Every Requirement</RouterLink>.</p>
+    <p class="small notice" style="display: block">These cards cover each framework's <strong>key requirements</strong> in plain English. To see whether a framework is <strong>fully met</strong>, with every clause, article or subcategory accounted for, open <RouterLink to="/controls/requirements">Every Requirement</RouterLink>.</p>
     <div class="flow-strip" aria-label="How requirements become proof">
       <div><strong>1. Standard</strong><span>What a law or framework asks for</span></div>
       <div><strong>2. Library control</strong><span>A reusable way to meet it</span></div>

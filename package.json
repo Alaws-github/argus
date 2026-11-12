@@ -23,6 +23,7 @@
     "test:v12": "node scripts/v12-test.mjs",
     "versions": "node scripts/version.mjs",
     "demo": "node scripts/demo-data.mjs",
+    "demo:topup": "node scripts/demo/topup-v174.mjs",
     "demo:build": "node scripts/demo/library.mjs build",
     "demo:list": "node scripts/demo/library.mjs list",
     "demo:load": "node scripts/demo/library.mjs load",

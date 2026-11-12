@@ -113,6 +113,25 @@ for (const r of owq.frameworks[0].rows) owq = await lee('PUT', `/engagements/${o
 ok(owq.frameworks[0].fullyMet === true, 'a framework is fully met only when every requirement is proven or not applicable');
 ok((await admin('GET', '/audit?q=requirement.not_applicable')).rows.length >= 21, 'each scoping decision is audited');
 
+console.log('\n# Editing and deleting assistant conversations');
+const ask = (who, body) => who('POST', `/engagements/${E}/assistant`, { kind: 'engagement', contextId: '', ...body });
+const [q1] = await ask(pat, { question: 'Which use cases are high risk?', newConversation: true });
+await ask(pat, { question: 'And which controls are untested?', conversationId: q1.conversationId });
+let conv = await pat('GET', `/engagements/${E}/assistant/conversations/${q1.conversationId}`);
+ok(conv.messages.length === 4, 'a conversation with two questions and two answers');
+const [q2] = await ask(pat, { question: 'Which use cases use personal data?', conversationId: q1.conversationId, replaceFrom: conv.messages[2].id });
+conv = await pat('GET', `/engagements/${E}/assistant/conversations/${q1.conversationId}`);
+ok(conv.messages.length === 4 && conv.messages[2].text === 'Which use cases use personal data?' && !conv.messages.some((m) => /untested/.test(m.text)), 'editing a question replaces it and the answer after it');
+ok(await status(ask(pat, { question: 'Edit an answer?', conversationId: q1.conversationId, replaceFrom: conv.messages[3].id })) === 404, 'only your own questions can be edited, not answers');
+ok(await status(ask(lee, { question: 'Edit someone else\'s?', conversationId: q1.conversationId, replaceFrom: conv.messages[2].id })) === 404, "nobody can edit someone else's conversation");
+const renamed = await pat('PATCH', `/engagements/${E}/assistant/conversations/${q1.conversationId}`, { title: 'Personal data questions' });
+ok(renamed.title === 'Personal data questions', 'a conversation can be renamed');
+ok(await status(lee('DELETE', `/engagements/${E}/assistant/conversations/${q1.conversationId}`)) === 404, "nobody can delete someone else's conversation");
+await pat('DELETE', `/engagements/${E}/assistant/conversations/${q1.conversationId}`);
+ok(await status(pat('GET', `/engagements/${E}/assistant/conversations/${q1.conversationId}`)) === 404 && !(await pat('GET', `/engagements/${E}/assistant/conversations`)).some((c) => c.id === q1.conversationId), 'deleting removes the conversation and its messages');
+const au2 = (await admin('GET', '/audit?q=assistant.')).rows.map((x) => x.action);
+ok(au2.includes('assistant.question_edited') && au2.includes('assistant.conversation_deleted') && au2.filter((x) => x === 'assistant.answered').length >= 3, 'edits and deletes are audited, and the record of each question asked stays');
+
 const v = await admin('GET', '/audit/verify'); ok(v.ok, v.message);
 console.log(fails ? `${fails} FAILED` : 'ALL PASSED');
 process.exit(fails ? 1 : 0);

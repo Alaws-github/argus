@@ -14,6 +14,7 @@ Frameworks fully accounted for, clearer sources, and client steps that fit how e
 - **Require client steps before sign-off** (per workflow, versioned with each publish): an exit criterion on sign-off. A person still signs off.
 - **Client tools and workflows is a module** (it replaces Evidence connectors). Off for new engagements unless a workflow or tools are picked when adding one. Hides Client workflows, Connected tools, From Client Tools and Client steps; nothing is deleted.
 - **Demo data:** Northshore has a published workflow with proof (two steps confirmed on AI-1), a pipeline push, a write-back target (off), two of its own controls (one mapped) and three EU AI Act articles scoped out; Palmcrest has HIPAA and FDA GMLP.
+- **Edit and delete your assistant chats.** In the conversation list, rename or delete a conversation (deleting removes its messages; the audit log keeps its own record of each question asked). Edit one of your questions: sending replaces it and every answer after it, audited.
 - **`npm run demo:topup`** adds these demo pieces to a site whose demo was built before v1.7.3 (the live site), without changing or removing anything; safe to run again.
 - New checks in `npm run test:v174` (35) and in `npm run test:agents` (sign-off blocked by a client step).
 

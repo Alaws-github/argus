@@ -249,12 +249,47 @@ function sourceGroups(m: AssistantMessage) {
   return Object.entries(groups);
 }
 
+// v1.7.4: rename and delete your conversations; edit one of your questions.
+const renaming = ref<{ id: string; title: string } | null>(null);
+async function rename() {
+  const r = renaming.value!;
+  if (!r.title.trim()) return;
+  try {
+    const c = await api<AssistantConversation>(`${base()}/conversations/${r.id}`, { method: 'PATCH', body: { title: r.title.trim() } });
+    if (conversation.value?.id === c.id) conversation.value = c;
+    renaming.value = null;
+    await loadList();
+  } catch (e: any) { app.toast(e.message, 'error'); }
+}
+async function removeConversation(c: AssistantConversation) {
+  if (!confirm(`Delete "${c.title}" and its messages? This can't be undone. The audit log keeps its own record of the questions asked.`)) return;
+  try {
+    await api(`${base()}/conversations/${c.id}`, { method: 'DELETE' });
+    if (conversation.value?.id === c.id) newConversation();
+    await loadList();
+    listOpen.value = true;
+    app.toast('Conversation deleted');
+  } catch (e: any) { app.toast(e.message, 'error'); }
+}
+const editing = ref<string | null>(null); // the id of the question being edited
+function editQuestion(m: AssistantMessage) {
+  editing.value = m.id;
+  question.value = m.text;
+  nextTick(() => box.value?.focus());
+}
+function cancelEdit() { editing.value = null; question.value = ''; }
+
 async function send(text?: string) {
   const q = (text ?? question.value).trim();
   if (q.length < 2 || busy.value) return;
   busy.value = true;
   question.value = '';
   tagQuery.value = null;
+  const replaceFrom = editing.value && conversation.value ? editing.value : undefined;
+  editing.value = null;
+  const kept = replaceFrom ? messages.value.slice(0, messages.value.findIndex((m) => m.id === replaceFrom)) : null;
+  const before = [...messages.value];
+  if (kept) messages.value = kept;
   messages.value.push({ id: 'pending', role: 'user', text: q, citations: [], passages: [], suggestions: [], dropped: [], model: null, runtime: null, basis: [], trail: [], author: app.user?.name ?? '', at: new Date().toISOString() });
   const requestId = Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
   live.value = { id: requestId, phase: 'Getting started', steps: [], started: Date.now() };
@@ -262,11 +297,12 @@ async function send(text?: string) {
   scroll();
   try {
     const page = { path: route.fullPath, snapshot: snapshot() };
-    const [, reply] = await api(base(), { method: 'POST', body: { kind: a.value.kind, contextId: a.value.contextId, question: q, page, requestId, ...(conversation.value ? { conversationId: conversation.value.id } : { newConversation: true }) } });
+    const [, reply] = await api(base(), { method: 'POST', body: { kind: a.value.kind, contextId: a.value.contextId, question: q, page, requestId, ...(replaceFrom ? { replaceFrom } : {}), ...(conversation.value ? { conversationId: conversation.value.id } : { newConversation: true }) } });
     await openConversation(reply.conversationId);
   } catch (e: any) {
-    messages.value = messages.value.filter((m) => m.id !== 'pending');
+    messages.value = replaceFrom ? before : messages.value.filter((m) => m.id !== 'pending');
     question.value = q;
+    if (replaceFrom) editing.value = replaceFrom;
     app.toast(e.message, 'error');
   } finally {
     busy.value = false;
@@ -319,10 +355,20 @@ const STATUS: Record<string, string> = { applied: 'Applied', discarded: 'Discard
           <div class="conv-scroll">
             <template v-for="g in groups" :key="g.label">
               <div class="label-caps menu-label">{{ g.label }}</div>
-              <button v-for="c in g.items" :key="c.id" role="menuitem" class="conv-item" :class="{ on: c.id === conversation?.id }" @click="openConversation(c.id)">
-                <span class="conv-row"><span class="conv-name">{{ c.title }}</span><span class="small faint">{{ ago(c.updatedAt) }}</span></span>
-                <span v-if="c.match" class="small faint conv-match">{{ c.match }}</span>
-              </button>
+              <form v-for="c in g.items.filter((x) => renaming?.id === x.id)" :key="'r' + c.id" class="conv-rename" @submit.prevent="rename">
+                <input v-model="renaming!.title" class="input" maxlength="120" aria-label="Conversation name" @keydown.esc.stop="renaming = null" />
+                <button class="btn primary sm">Save</button><button type="button" class="btn ghost sm" @click="renaming = null">Cancel</button>
+              </form>
+              <div v-for="c in g.items.filter((x) => renaming?.id !== x.id)" :key="c.id" class="conv-line">
+                <button role="menuitem" class="conv-item" :class="{ on: c.id === conversation?.id }" @click="openConversation(c.id)">
+                  <span class="conv-row"><span class="conv-name">{{ c.title }}</span><span class="small faint">{{ ago(c.updatedAt) }}</span></span>
+                  <span v-if="c.match" class="small faint conv-match">{{ c.match }}</span>
+                </button>
+                <span class="conv-actions">
+                  <button type="button" class="ap-icon" title="Rename" :aria-label="`Rename ${c.title}`" @click.stop="renaming = { id: c.id, title: c.title }"><Icon name="edit" :size="14" /></button>
+                  <button type="button" class="ap-icon" title="Delete" :aria-label="`Delete ${c.title}`" @click.stop="removeConversation(c)"><Icon name="trash" :size="14" /></button>
+                </span>
+              </div>
             </template>
             <p v-if="!convs.length" class="small faint" style="padding: 6px 8px">{{ search ? 'No conversation matches.' : 'No conversations yet.' }}</p>
           </div>
@@ -345,7 +391,10 @@ const STATUS: Record<string, string> = { applied: 'Applied', discarded: 'Discard
         </div>
 
         <template v-for="m in messages" :key="m.id">
-          <div v-if="m.role === 'user'" class="ap-me">{{ m.text }}</div>
+          <div v-if="m.role === 'user'" class="ap-me-wrap" :class="{ editing: editing === m.id }">
+            <div class="ap-me">{{ m.text }}</div>
+            <button v-if="m.id !== 'pending' && !busy && app.can('prepare')" type="button" class="ap-edit" title="Edit this question" aria-label="Edit this question" @click="editQuestion(m)"><Icon name="edit" :size="13" /></button>
+          </div>
           <template v-else>
           <button v-if="m.trail?.length" type="button" class="ap-worked" :aria-expanded="openTrail === m.id" @click="openTrail = openTrail === m.id ? '' : m.id">
             Worked{{ m.workedMs ? ` ${secs(m.workedMs)}` : '' }} · {{ lookups(m).length }} step{{ lookups(m).length === 1 ? '' : 's' }}<Icon name="chevron" :size="13" :class="{ flip: openTrail === m.id }" />
@@ -392,6 +441,7 @@ const STATUS: Record<string, string> = { applied: 'Applied', discarded: 'Discard
         </div>
       </div>
 
+      <div v-if="editing" class="ap-editing small"><span>Editing your question. Sending replaces it and every answer after it.</span><button type="button" class="linklike" @click="cancelEdit">Cancel</button></div>
       <form class="ap-compose" @submit.prevent="send()">
         <div class="ap-box">
           <ul v-if="tagQuery !== null && tagMatches.length" class="ap-tags" role="listbox" aria-label="Tag a record">
@@ -414,3 +464,18 @@ const STATUS: Record<string, string> = { applied: 'Applied', discarded: 'Discard
     </aside>
   </template>
 </template>
+<style scoped>
+.conv-line { display: flex; align-items: stretch; gap: 2px; }
+.conv-line .conv-item { flex: 1; min-width: 0; }
+.conv-actions { display: flex; align-items: center; opacity: 0.55; }
+.conv-line:hover .conv-actions, .conv-line:focus-within .conv-actions { opacity: 1; }
+.conv-rename { display: flex; gap: 6px; padding: 4px 6px; }
+.conv-rename .input { flex: 1; min-width: 0; }
+.ap-editing { display: flex; justify-content: space-between; gap: 8px; padding: 6px 14px; color: var(--accent-text); border-top: 1px solid var(--line); }
+.ap-me-wrap { align-self: flex-end; max-width: 85%; display: flex; align-items: flex-start; gap: 4px; flex-direction: row-reverse; }
+.ap-me-wrap .ap-me { max-width: 100%; }
+.ap-me-wrap.editing .ap-me { outline: 2px solid var(--accent-line); }
+.ap-edit { opacity: 0; background: none; border: 0; color: var(--faint); cursor: pointer; padding: 6px; border-radius: 8px; }
+.ap-me-wrap:hover .ap-edit, .ap-edit:focus-visible { opacity: 1; }
+@media (hover: none) { .ap-edit { opacity: 0.7; } .conv-actions { opacity: 1; } }
+</style>

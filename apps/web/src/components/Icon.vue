@@ -6,6 +6,7 @@ const PATHS: Record<string, string> = {
   thumbup: 'M7 10v11H3V10zM7 10l4-8a2.5 2.5 0 0 1 3 2.6L13.5 9H19a2 2 0 0 1 2 2.3l-1.4 8A2 2 0 0 1 17.6 21H7',
   thumbdown: 'M17 14V3h4v11zM17 14l-4 8a2.5 2.5 0 0 1-3-2.6l.5-4.4H5a2 2 0 0 1-2-2.3l1.4-8A2 2 0 0 1 6.4 3H17',
   copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
+  edit: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
   alert: 'M12 3l10 18H2zM12 10v4M12 17.5h.01',
   clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
   evidence: 'M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8zM14 3v5h5M9 13h6M9 17h6',

@@ -121,3 +121,7 @@ Write-back sends are driven by audit entries read after commit, not by calls ins
 ### coverage-needs-the-whole-list `design`
 Coverage measured against ARGUS's own references (2 NIST obligations, 26 library references) showed high percentages that meant "of what ARGUS tracks". The owner wants frameworks fully met, so coverage now counts against the complete requirement list (`FRAMEWORK_CATALOG`), and fully met needs every requirement proven or not applicable with a reason. Never show a percentage of a partial list as if it were the framework.
 **Enforced by:** test scripts/v174-test.mjs (72 NIST subcategories, 65 ISO items, fully met only when all accounted for)
+
+### deleting-a-chat-keeps-the-audit-record `design`
+The owner asked to edit and delete assistant chats. A person can delete their own conversation and its messages, or edit one of their questions (which replaces it and every answer after it), but the audit log is never changed: each `assistant.answered` entry stays, and the delete or edit is itself audited. Suggestions already applied stay applied. Only the person who started a conversation can rename, edit or delete it (404 for anyone else).
+**Enforced by:** test scripts/v174-test.mjs (edit replaces, answers can't be edited, others get 404, delete removes, audit kept)

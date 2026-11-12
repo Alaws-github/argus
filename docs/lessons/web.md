@@ -103,3 +103,7 @@ A reviewer saw "K-55 · Risk tiers" and "Its sources share 45% of its key terms 
 ### notice-is-a-flex-column `bug`
 The `.notice` box lays its children out as a flex column, so a sentence with bold words and a link inside one `<p class="notice">` broke onto six lines (each inline element became its own row). Use `.notice` for a box of blocks; for a single sentence, set `display: block` on it or put the sentence inside a child element.
 **Enforced by:** none - a browser check of Controls > Standards at 1440 and 390 (layout is not covered by the API tests)
+
+### segmented-choices-in-table-cells `bug`
+`.segmented` wraps by design (so long choice rows fit on phones), but in a narrow table cell that stacked Yes and No on top of each other on What Applies, and the control codes broke as "DAT-" / "01". Inside a `td`, segmented choices and codes now stay on one line (`styles.css`); the table scrolls sideways on a phone instead.
+**Enforced by:** none - a browser check of Controls > What Applies at 1440 and 390 (layout is not covered by the API tests)

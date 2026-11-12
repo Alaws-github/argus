@@ -42,6 +42,7 @@ const f = reactive({
   agents: {} as Record<string, { providerId: string; model: string; effort: Effort }>,
   useCases: '',
   clientTools: [] as string[],
+  clientWorkflows: true, // v1.7.4: switches on the Client tools and workflows module
   workflow: { template: 'standard' } as { template: (typeof WF_TEMPLATES)[number] } | null,
 });
 const toggleTool = (id: string) => { f.clientTools = f.clientTools.includes(id) ? f.clientTools.filter((t) => t !== id) : [...f.clientTools, id]; };
@@ -123,7 +124,7 @@ async function create() {
   try {
     const e = await api<Engagement>('/engagements', {
       method: 'POST',
-      body: { ...f, name: f.name.trim(), client: f.client.trim(), useCases: useCaseList.value },
+      body: { ...f, name: f.name.trim(), client: f.client.trim(), useCases: useCaseList.value, ...(f.clientWorkflows ? {} : { workflow: null, clientTools: [] }) },
     });
     await app.addedEngagement(e);
     app.toast(`${e.name} added. You're on its board now.`);
@@ -212,6 +213,10 @@ async function create() {
       <template v-else-if="step === 3">
         <h2>How does the client work?</h2>
         <p class="muted small">Optional. Pick the business tools the client uses, and ARGUS drafts a client workflow for you to change later. Nothing connects yet: no passwords or keys are asked for here. Connect tools later in Settings, Connected tools.</p>
+        <button type="button" class="switch" :class="{ on: f.clientWorkflows }" role="switch" :aria-checked="f.clientWorkflows" @click="f.clientWorkflows = !f.clientWorkflows">
+          <span class="track" /><span style="text-align: left"><strong style="color: var(--text)">Use client workflows</strong> <span class="small muted">Client Workflows in the Settings menu, each use case's client steps, and Settings &gt; Connected tools. Off: the team works in ARGUS only. You can change this later under Settings &gt; General &gt; Modules.</span></span>
+        </button>
+        <template v-if="f.clientWorkflows">
         <div class="field">
           <span>Start a client workflow from</span>
           <label v-for="t in WF_TEMPLATES" :key="t" class="check-row"><input type="radio" name="wf" :checked="f.workflow?.template === t" @change="f.workflow = { template: t }" /><span><strong>{{ WF_TEMPLATE_INFO[t].label }}</strong><span class="muted small hint-inline">{{ WF_TEMPLATE_INFO[t].hint }}</span></span></label>
@@ -226,6 +231,7 @@ async function create() {
             </div>
           </template>
         </div>
+        </template>
       </template>
 
       <!-- 5 Models -->
@@ -268,8 +274,11 @@ async function create() {
           <dt>Risk appetite</dt><dd>Residual up to {{ f.appetite.maxResidual }}; above that, a lead accepts for the {{ f.appetite.escalateTo }}</dd>
           <dt>Gates</dt><dd>{{ STAGES.filter((s) => f.gates[s]).map((s) => STAGE_LABELS[s]).join(', ') }}</dd>
           <dt>Agents</dt><dd><div v-for="[role, meta] in BUILT" :key="role">{{ meta.name }}: <span class="mono">{{ f.agents[role]?.model }}</span> on {{ providerName(f.agents[role]?.providerId) }}, {{ f.agents[role]?.effort }} effort</div></dd>
+          <dt>Client workflows</dt><dd>{{ f.clientWorkflows ? 'On' : 'Off (the team works in ARGUS only)' }}</dd>
+          <template v-if="f.clientWorkflows">
           <dt>Client tools</dt><dd>{{ f.clientTools.length ? f.clientTools.map(toolName).join(', ') : 'None picked' }}<div class="small faint">Connect them later in Settings, Connected tools</div></dd>
           <dt>Client workflow</dt><dd>{{ f.workflow ? `A draft from ${WF_TEMPLATE_INFO[f.workflow.template].label}` : 'Decide later' }}</dd>
+          </template>
           <dt>Use cases</dt><dd>{{ useCaseList.length ? useCaseList.join('; ') : 'None yet' }}</dd>
         </dl>
       </template>

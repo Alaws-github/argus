@@ -35,6 +35,8 @@ const plain = await lee('POST', '/engagements', { name: 'In-app only', client: '
 ok(plain.modules.connectors === false, 'an engagement added without a workflow or tools starts with the module off');
 const withWf = await lee('POST', '/engagements', { name: 'With a workflow', client: 'Tools Client', prefix: 'TC', frameworks: ['nistAiRmf'], workflow: { template: 'standard' }, ...AG });
 ok(withWf.modules.connectors === true, 'choosing a client workflow when adding the engagement switches the module on');
+const withToggle = await lee('POST', '/engagements', { name: 'Toggle only', client: 'Toggle Client', prefix: 'TG', frameworks: ['nistAiRmf'], clientWorkflows: true, ...AG });
+ok(withToggle.modules.connectors === true, 'the Use client workflows switch alone turns the module on');
 
 console.log('\n# Following a client workflow, or not');
 const jira = await lee('POST', `/engagements/${E}/connectors`, { name: 'GRC tickets', url: `${M}/proof/jira/search`, auth: 'none', tool: 'jira', schedule: 'daily' });

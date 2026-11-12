@@ -523,6 +523,8 @@ export const NewEngagement = z.object({
   // v1.7.2: the tools the client uses, and a starting client workflow (a draft) if wanted.
   clientTools: z.array(z.string().max(40)).max(40).default([]),
   workflow: z.object({ template: z.enum(['standard', 'm365', 'servicenow', 'google', 'minimal']), name: z.string().trim().min(2).max(80).optional() }).nullable().default(null),
+  /** v1.7.4: switch on the Client tools and workflows module (client workflows, connected tools, client steps). */
+  clientWorkflows: z.boolean().default(false),
 });
 export type NewEngagement = z.infer<typeof NewEngagement>;
 

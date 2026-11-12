@@ -55,12 +55,13 @@ const AI_MENU = computed(() => [
   ...(app.mod('evals') ? [{ to: '/evals', label: 'AI Testing and Monitoring', icon: 'evals', hint: 'Evals, red teaming, drift alerts' }] : []),
   ...(app.mod('advanced_ai') ? [{ to: '/agent-testing/golden', label: 'Checking the AI', icon: 'checking', hint: 'Golden dataset and the Verifier', match: '/agent-testing' }] : []),
 ]);
-const SETTINGS = [
+// Computed, so Client Workflows appears or goes as soon as its module is switched (v1.7.4 fix).
+const SETTINGS = computed(() => [
   ...(app.mod('connectors') ? [{ to: '/workflows', label: 'Client Workflows', icon: 'workflow', hint: "The client's process, with the governance gates built in" }] : []),
   { to: '/settings/general', label: 'Engagement Settings', icon: 'engagement', match: '/settings/(general|workflow|integrations|access)' },
   { to: '/workspace/models', label: 'Workspace Settings', icon: 'workspace', match: '/workspace' },
   { to: '/audit', label: 'Audit Log', icon: 'audit' },
-];
+]);
 const isOn = (items: { to: string; match?: string | string[] }[]) =>
   items.some((m) => [m.match ?? m.to].flat().some((x) => new RegExp(`^${x}`).test(route.path)));
 // Monitor, sun and moon, drawn inline so they take the text colour.

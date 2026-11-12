@@ -107,3 +107,7 @@ The `.notice` box lays its children out as a flex column, so a sentence with bol
 ### segmented-choices-in-table-cells `bug`
 `.segmented` wraps by design (so long choice rows fit on phones), but in a narrow table cell that stacked Yes and No on top of each other on What Applies, and the control codes broke as "DAT-" / "01". Inside a `td`, segmented choices and codes now stay on one line (`styles.css`); the table scrolls sideways on a phone instead.
 **Enforced by:** none - a browser check of Controls > What Applies at 1440 and 390 (layout is not covered by the API tests)
+
+### menus-that-depend-on-modules-must-be-computed `bug`
+The Settings menu was a plain list built once when the app loaded, before the engagement and its modules were known, so Client Workflows stayed hidden until a reload even after the module was switched on. Any menu or list that depends on `app.mod()` (or anything else that changes) must be a `computed`, like REGISTERS and AI_MENU.
+**Enforced by:** none - a browser check that switches the module and opens the Settings menu without reloading (UI only)

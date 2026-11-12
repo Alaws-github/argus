@@ -267,7 +267,7 @@ Admins and leads open the engagement switcher and choose **+ Add engagement**.
 
 The wizard asks for the client, the engagement name and a short prefix for use case keys (for example "AI" gives AI-1, AI-2), the sector, the frameworks in scope, the risk appetite, which AI models the agents use, and whether to start the Statement of Applicability from the chosen frameworks. Whoever creates the engagement becomes its first member.
 
-The six steps are Client, Scope, Gates, Tools, Models and Review. **Tools** ("How does the client work?") is optional:
+The six steps are Client, Scope, Gates, Tools, Models and Review. **Tools** ("How does the client work?") starts with **Use client workflows**. Leave it on and **Client Workflows** appears in the Settings menu, with Connected tools and each use case's client steps. Switch it off for a team that works in ARGUS only; you can switch it on later under Settings > General > Modules, and the Settings menu changes at once. With it on:
 
 ![How does the client work?](images/manual/m08b-wizard-tools.jpg)
 

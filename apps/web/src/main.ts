@@ -30,7 +30,7 @@ const router = createRouter({
     { path: '/workspace', redirect: '/workspace/models' },
     { path: '/workspace/:tab(models|people|security)', component: () => import('./pages/WorkspacePage.vue') },
     { path: '/controls', redirect: '/controls/standards' },
-    { path: '/controls/:tab(standards|register|library|soa|traceability|harmonize)', component: () => import('./pages/ControlsPage.vue') },
+    { path: '/controls/:tab(standards|requirements|register|library|soa|traceability|harmonize)', component: () => import('./pages/ControlsPage.vue') },
     { path: '/testing', redirect: '/testing/tests' },
     { path: '/testing/:tab(tests|evidence|connectors)', component: () => import('./pages/TestingPage.vue') },
     { path: '/issues', component: () => import('./pages/IssuesPage.vue') },

@@ -332,6 +332,8 @@ export function configRoutes(r: Router, db: Db, actorOf: (req: Request) => strin
         ]);
       }
       await q.query(`UPDATE engagements SET card_seq = $2, client_tools = $3 WHERE id = $1`, [eid, n, JSON.stringify(b.clientTools.filter((t) => toolById(t)))]);
+      // v1.7.4: a client workflow or client tools chosen at creation switches on the module that shows them.
+      if (b.workflow || b.clientTools.length) await q.query(`UPDATE engagements SET modules = modules || '{"connectors": true}'::jsonb WHERE id = $1`, [eid]);
       // A starting client workflow, as a draft: the real process is usually agreed with the client later.
       let workflow: string | null = null;
       if (b.workflow) {
@@ -379,6 +381,7 @@ export function configRoutes(r: Router, db: Db, actorOf: (req: Request) => strin
     if (patch.modules) set('modules', JSON.stringify({ ...before.modules, ...patch.modules }));
     if (patch.clientTools) set('client_tools', JSON.stringify(patch.clientTools.filter((t) => toolById(t))));
     if (patch.writeBack !== undefined) set('write_back', patch.writeBack);
+    if (patch.clientStepsDefault !== undefined) set('client_steps_default', patch.clientStepsDefault);
     if (!sets.length) throw httpError(400, 'Nothing to change');
     await db.tx(async (q) => {
       await q.query(`UPDATE engagements SET ${sets.join(', ')} WHERE id = $1`, [before.id, ...vals]);

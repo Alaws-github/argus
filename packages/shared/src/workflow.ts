@@ -79,6 +79,7 @@ export interface Workflow {
   updatedAt: string;
   publishedBy: string | null;
   publishedAt: string | null;
+  requireSteps: boolean;
 }
 export interface WorkflowVersion { version: number; name: string; publishedBy: string; publishedAt: string; note: string; nodes: number }
 
@@ -91,7 +92,9 @@ export const WF_TEMPLATE_INFO: Record<(typeof WF_TEMPLATES)[number], { label: st
   minimal: { label: 'Gates only', hint: 'Just the five governance gates in a line, to build around' },
 };
 export const NewWorkflow = z.object({ name: z.string().trim().min(2).max(80), description: z.string().trim().max(400).default(''), template: z.enum(WF_TEMPLATES).default('standard') });
-export const SaveWorkflow = z.object({ name: z.string().trim().min(2).max(80).optional(), description: z.string().trim().max(400).optional(), graph: WfGraph.optional() });
+export const SaveWorkflow = z.object({ name: z.string().trim().min(2).max(80).optional(), description: z.string().trim().max(400).optional(), graph: WfGraph.optional(),
+  /** v1.7.4: every tracked client step must be done before a use case following this workflow is signed off. */
+  requireSteps: z.boolean().optional() });
 
 /** A starting workflow: the governance spine, with the usual agent and person steps around it. */
 export function workflowTemplate(kind: (typeof WF_TEMPLATES)[number] = 'standard'): WfGraph {

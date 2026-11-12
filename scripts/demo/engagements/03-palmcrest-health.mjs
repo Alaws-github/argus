@@ -6,7 +6,7 @@ export const engagement = {
   prefix: 'PHN',
   color: '#5bbf7a',
   sector: 'Healthcare',
-  frameworks: ['nistAiRmf', 'iso42001', 'jdpa', 'euAiAct'],
+  frameworks: ['nistAiRmf', 'iso42001', 'jdpa', 'euAiAct', 'hipaa', 'fdaGmlp'],
   about: 'Private hospital group: three hospitals (412 beds) and eight outpatient clinics. Sensitive personal data under the Jamaica Data Protection Act 2020. Some international patients are EU residents, so the EU AI Act is in scope for systems that affect them. The Medical Director chairs a new Clinical AI Committee and wants every AI tool in clinical use reviewed in 2026.',
   appetite: { maxResidual: 6, statement: 'Very low tolerance for AI risk that can affect a diagnosis or treatment. Above a residual of 6 the Clinical AI Committee decides.', escalateTo: 'Clinical AI Committee' },
 };

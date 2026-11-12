@@ -85,6 +85,17 @@ d = await waitFor('AI-2', (x) => x.stage === 'report' && x.status === 'needs_app
 ok(!!d.card.drafts.report?.headline && !d.card.drafts.report.approvedBy, `Report Writer drafted: "${d.card.drafts.report?.headline}"`);
 ok(/not ready/.test(d.card.drafts.report.headline) && /failed/.test(d.card.drafts.report.headline), 'the summary says a control failed, not "complete"');
 await riley('POST', `/cards/${id2}/decisions`, { item: 'summary', decision: 'edit', edit: { headline: 'Customer service chatbot: one control failed; fix before wider rollout' }, reason: 'Plainer for the board' });
+// v1.7.4: a client workflow can require its tracked client steps before sign-off. A person still signs off.
+const wfx = await admin('POST', `/engagements/${E}/workflows`, { name: 'Sign-off needs the committee', template: 'standard' });
+const gx = JSON.parse(JSON.stringify(wfx.graph));
+const sx = gx.nodes.find((n) => n.type === 'person');
+sx.config = { ...sx.config, proof: 'manual' };
+await admin('PATCH', `/workflows/${wfx.id}`, { graph: gx, requireSteps: true });
+await admin('POST', `/workflows/${wfx.id}/publish`, { note: 'Requires client steps' });
+d = await cardOf('AI-2');
+ok(d.exitCriteria.unmet.some((u) => /client step/.test(u)), `sign-off lists the client step not done (${d.exitCriteria.unmet.join('; ')})`);
+await expectErr(riley('POST', `/cards/${id2}/actions`, { action: 'approve' }), 409, 'a use case cannot be signed off while a required client step is not done');
+await pat('POST', `/cards/AI-2/client-steps/${sx.id}/confirm`, { link: 'https://client.example/committee/minutes-12' });
 await riley('POST', `/cards/${id2}/actions`, { action: 'approve' });
 d = await waitFor('AI-2', (x) => x.stage === 'closed', 'closed');
 ok(d.card.drafts.report.approvedBy === 'Riley Reviewer', 'approved summary records the person who approved it');

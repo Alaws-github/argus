@@ -7,7 +7,7 @@
 // for controls that aren't mapped yet. A person accepts each mapping.
 import type { NextFunction, Request, Response, Router } from 'express';
 import { z } from 'zod';
-import { FRAMEWORK_LABELS, frameworksIn, type FrameworkRefs } from '@gh/shared';
+import { FRAMEWORK_CATALOG, FRAMEWORK_LABELS, frameworksIn, refMeets, type FrameworkRefs } from '@gh/shared';
 import type { Db } from './db.js';
 import { logAudit } from './audit.js';
 import { emit } from './realtime.js';
@@ -52,10 +52,12 @@ export function harmonizeRoutes(r: Router, db: Db, actorOf: (req: Request) => st
         .map((s) => ({ ...s, score: Math.round(s.score * 100) }));
       return { id: c.id, key: `C-${c.number}`, title: c.title, cardKey: c.card_key, libraryCode: c.library_code, mapped, refs, frameworks: keys.filter((k) => (refs[k] ?? []).length).length, suggestions };
     });
+    // v1.7.4: coverage counts against the framework's complete requirement list, not just the library's references.
     const frameworks = keys.map((k) => {
-      const all = new Set(lib.flatMap((l: any) => l.refs?.[k] ?? []));
-      const covered = new Set(controls.flatMap((c) => c.refs[k] ?? []).filter((x) => all.has(x)));
-      return { id: k, label: FRAMEWORK_LABELS[k], total: all.size, covered: covered.size, pct: all.size ? Math.round((covered.size / all.size) * 100) : 0, missing: [...all].filter((x) => !covered.has(x)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) };
+      const all = (FRAMEWORK_CATALOG[k] ?? []).map((r) => r.id);
+      const refs = controls.flatMap((c) => c.refs[k] ?? []);
+      const covered = all.filter((id) => refs.some((x) => refMeets(x, id)));
+      return { id: k, label: FRAMEWORK_LABELS[k], total: all.length, covered: covered.length, pct: all.length ? Math.round((covered.length / all.length) * 100) : 0, missing: all.filter((id) => !covered.includes(id)) };
     });
     const multi = controls.filter((c) => c.frameworks >= 2).length;
     res.json({ frameworks, controls, summary: { controls: controls.length, unmapped: controls.filter((c) => !c.mapped).length, multi } });

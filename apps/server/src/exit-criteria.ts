@@ -3,6 +3,7 @@
 // criteria.
 import type { Card, Stage } from '@gh/shared';
 import type { Queryable } from './db.js';
+import { stepsBlockingSignOff } from './client-steps.js';
 
 export const EXIT_CRITERIA: Partial<Record<Stage, string[]>> = {
   classify: ['A classification has been produced'],
@@ -10,6 +11,7 @@ export const EXIT_CRITERIA: Partial<Record<Stage, string[]>> = {
   evidence: ['Every control for this use case has at least one evidence item'],
   test: ['Every test for this use case has a result (passed or failed)', 'Every concluded test has been reviewed by someone other than its preparer', 'Every failed test has an issue raised for it'],
   remediate: ['No critical or high issue for this use case is still open'],
+  report: ['If its client workflow requires it, every tracked client step is done'],
 };
 
 export async function exitCriteria(q: Queryable, card: Card): Promise<string[]> {
@@ -71,6 +73,12 @@ export async function exitCriteria(q: Queryable, card: Card): Promise<string[]> 
         [card.id],
       );
       if (rows[0].n) unmet.push(`${rows[0].n} critical or high issue${rows[0].n === 1 ? ' is' : 's are'} still open`);
+      break;
+    }
+    case 'report': {
+      // v1.7.4: a client workflow can require its tracked steps before sign-off. A person still signs off.
+      const open = await stepsBlockingSignOff(q, card.id);
+      if (open.length) unmet.push(`${open.length} client step${open.length === 1 ? ' is' : 's are'} not done yet: ${open.slice(0, 4).join(', ')}`);
       break;
     }
   }

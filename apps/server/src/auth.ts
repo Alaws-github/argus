@@ -135,6 +135,7 @@ const RULES: [string, RegExp, Permission][] = [
   ['POST', /^\/engagements\/[^/]+\/connectors$/, 'manage_engagement'],
   ['*', /^\/connectors\//, 'manage_engagement'],
   // v1.7.3: pipeline ingest tokens and write-back targets are engagement configuration.
+  ['PUT', /^\/engagements\/[^/]+\/requirements\//, 'manage_engagement'],
   ['*', /^\/engagements\/[^/]+\/ingest-tokens/, 'manage_engagement'],
   ['*', /^\/ingest-tokens\//, 'manage_engagement'],
   ['POST', /^\/engagements\/[^/]+\/outbound$/, 'manage_engagement'],

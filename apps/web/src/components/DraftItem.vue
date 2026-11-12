@@ -3,7 +3,7 @@
 // what the agent proposed, why, the sources it rests on, and the reviewer's
 // decision. Sources open in place so the reviewer reads exactly what the agent saw.
 import { computed, ref } from 'vue';
-import { VERDICT_LABELS, type ItemDecision, type ItemVerdict, type SourcePassage } from '@gh/shared';
+import { VERDICT_ADVICE, VERDICT_LABELS, describeSource, type ItemDecision, type ItemVerdict, type SourcePassage } from '@gh/shared';
 
 export interface EditField { key: string; label: string; type: 'text' | 'textarea' | 'number' | 'select'; options?: { value: string | number; label: string }[] }
 
@@ -27,7 +27,7 @@ const mode = ref<'' | 'edit' | 'reject'>('');
 const draft = ref<Record<string, unknown>>({});
 const reason = ref('');
 const passageOf = (id: string) => props.passages?.find((p) => p.id === id);
-const KIND: Record<string, string> = { framework: 'Framework', control: 'Library control', methodology: 'Method', client: 'Client', use_case: 'Use case', evidence: 'Evidence', upload: 'Client document' };
+const about = (id: string) => { const p = passageOf(id); return p ? describeSource(p) : null; };
 
 // Save change stays off until a field differs from the AI's draft.
 const editChanged = computed(() => Object.entries(draft.value).some(([k, v]) => v !== props.values?.[k]));
@@ -61,24 +61,33 @@ const LABEL: Record<string, string> = { open: 'To decide', accept: 'Accepted', e
 
     <p v-if="why" class="small draft-why"><span class="label-caps">Why</span> {{ why }}</p>
 
-    <div v-if="sources !== undefined" class="row source-row">
-      <span class="label-caps">Sources</span>
+    <!-- v1.7.4: each source says what it is (a framework requirement, a library control, ARGUS's method, a client document)
+         and which frameworks it draws on, so nobody has to know what K-55 means. Click to read the passage. -->
+    <div v-if="sources !== undefined" class="source-block">
+      <span class="label-caps">Based on</span>
       <template v-if="sources?.length">
-        <button v-for="s in sources" :key="s" type="button" class="source-chip" :class="{ on: openSource === s }" :aria-expanded="openSource === s" @click="openSource = openSource === s ? null : s">
-          {{ s }}<span v-if="passageOf(s)" class="faint"> · {{ passageOf(s)!.title.slice(0, 48) }}</span>
+        <button v-for="s in sources" :key="s" type="button" class="source-line" :class="{ on: openSource === s }" :aria-expanded="openSource === s" :title="openSource === s ? 'Hide the passage' : 'Read the passage the agent used'" @click="openSource = openSource === s ? null : s">
+          <template v-if="about(s)">
+            <span class="source-kind">{{ about(s)!.kind }}</span>
+            <span class="source-name">{{ about(s)!.name }}</span>
+            <span v-if="about(s)!.basedOn.length" class="small faint">drawing on {{ about(s)!.basedOn.join(', ') }}</span>
+          </template>
+          <span v-else class="source-name">Passage {{ s }}</span>
+          <span class="mono faint small source-id">{{ s }}</span>
         </button>
       </template>
       <span v-else class="badge warn" title="The agent cited no passage for this. Check it yourself before accepting.">No source cited</span>
     </div>
     <blockquote v-if="openSource && passageOf(openSource)" class="passage">
-      <div class="small faint">{{ KIND[passageOf(openSource)!.kind] ?? passageOf(openSource)!.kind }} · {{ openSource }} · {{ passageOf(openSource)!.title }}</div>
+      <div class="small faint">{{ about(openSource)!.kind }}: {{ passageOf(openSource)!.title }} <span class="mono">({{ openSource }})</span></div>
       <div class="small">{{ passageOf(openSource)!.text }}</div>
     </blockquote>
 
     <div v-if="verdict" class="verdict" :class="verdict.verdict">
-      <span class="verdict-chip">Verifier · {{ VERDICT_LABELS[verdict.verdict] }}</span>
-      <span class="small">{{ verdict.reason }}</span>
-      <q v-if="verdict.quote && verdict.quoteFound" class="small faint">{{ verdict.quote }}</q>
+      <span class="verdict-chip">Verifier: {{ VERDICT_LABELS[verdict.verdict] }}</span>
+      <span class="small">{{ VERDICT_ADVICE[verdict.verdict] }}</span>
+      <span v-if="verdict.quote && verdict.quoteFound" class="small faint">The passage says: <q>{{ verdict.quote }}</q></span>
+      <span class="small faint">{{ verdict.reason }}</span>
     </div>
 
     <p v-if="decision && decision.decision !== 'accept'" class="small decision-note">
@@ -109,3 +118,12 @@ const LABEL: Record<string, string> = { open: 'To decide', accept: 'Accepted', e
     </div>
   </div>
 </template>
+
+<style scoped>
+.source-block { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+.source-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; text-align: left; font: inherit; color: var(--text); background: none; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
+.source-line:hover, .source-line.on { border-color: var(--accent-line); background: var(--accent-bg); }
+.source-kind { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--accent-text); }
+.source-name { font-size: 13px; }
+.source-id { margin-left: auto; }
+</style>

@@ -95,3 +95,7 @@ Connectors are engagement configuration, so they are managed in Settings > Conne
 ### client-steps-make-the-workflow-useful `design`
 A client workflow drawn once and never opened again is a diagram. Each client step can now say what proves it, and every use case shows its Client steps, checked in the client's tools by the use case key. The owner asked what the workflow was for; this is the answer: the client's own paper trail, checked, beside the gates people decide.
 **Enforced by:** test scripts/v173-test.mjs (status, all done, wrong key, manual confirm, no new evidence on a re-check); browser check of the use case panel at 1440 and 390
+
+### say-what-a-source-is `design`
+A reviewer saw "K-55 · Risk tiers" and "Its sources share 45% of its key terms (limit, interact, duti)" and couldn't tell what either meant. Sources now say what they are (framework requirement, library control, ARGUS method, client document) and which frameworks they draw on (`describeSource`); the K-number stays, small, as the reference. Verifier verdicts say what to do (`VERDICT_ADVICE`), never show word stems, and the offline rules are called "the built-in rules (no AI model)".
+**Enforced by:** test scripts/v174-test.mjs (no stems in reasons); browser check of a classification draft

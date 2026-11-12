@@ -34,10 +34,10 @@ async function check() {
     <span class="verifier-mark" aria-hidden="true">✓?</span>
     <div class="grow">
       <template v-if="v">
-        <strong>Verifier: {{ counts.ok }} of {{ counts.total }} items supported by their sources.</strong>
-        {{ ' ' }}<span class="small">{{ v.summary }}</span>
+        <strong>{{ counts.ok === counts.total ? `Verifier: all ${counts.total} items are backed by what they cite.` : `Verifier: ${counts.ok} of ${counts.total} items are backed by what they cite; ${counts.total - counts.ok} need a closer look.` }}</strong>
+        <span v-if="counts.ok !== counts.total" class="small"> {{ v.summary }}</span>
         <div class="small faint">
-          {{ v.runtime === 'live' ? `Checked by ${v.model}` : 'Checked by word-matching rules (no model set)' }}, {{ v.trigger === 'auto' ? 'automatically' : 'on request' }}, {{ new Date(v.at).toLocaleString() }}. Advisory: you still decide each item.
+          It compares each item with the passages the agent cited{{ v.runtime === 'live' ? `, using ${v.model}` : ', by matching key words (no AI model is set for the Verifier)' }}. Checked {{ v.trigger === 'auto' ? 'automatically' : 'on request' }} on {{ new Date(v.at).toLocaleString() }}. It's advice only: you still decide each item.
         </div>
         <div v-if="v.sameModel" class="small" style="color: var(--warn)">The same model wrote and checked this draft, so treat its verdict with extra care.</div>
       </template>

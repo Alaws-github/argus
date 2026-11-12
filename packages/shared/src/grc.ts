@@ -619,6 +619,23 @@ export interface SourcePassage {
   text: string;
   score: number;
 }
+// v1.7.4: say what a cited passage is in words a reviewer understands, not just its K-id:
+// what kind of source it is, its name, and the frameworks it draws on.
+export const SOURCE_KINDS: Record<string, string> = {
+  framework: 'Framework requirement', control: 'Library control', methodology: 'ARGUS method', client: 'About the client',
+  use_case: 'Another use case', evidence: 'Evidence', upload: 'Client document',
+};
+const SOURCE_FRAMEWORKS: [RegExp, string][] = [
+  [/EU AI Act/i, 'EU AI Act'], [/ISO\/IEC 42001|ISO 42001/i, 'ISO/IEC 42001'], [/NIST AI RMF|\b(GOVERN|MAP|MEASURE|MANAGE) \d/, 'NIST AI RMF'],
+  [/NIST CSF/i, 'NIST CSF 2.0'], [/Jamaica (DPA|Data Protection Act)/i, 'Jamaica DPA 2020'], [/OWASP|\bLLM\d\d\b/i, 'OWASP LLM Top 10'],
+  [/HIPAA|45 CFR/i, 'HIPAA'], [/GMLP|Good Machine Learning/i, 'FDA GMLP'], [/COSO/i, 'COSO'],
+];
+export function describeSource(p: Pick<SourcePassage, 'kind' | 'title' | 'ref' | 'text'>): { kind: string; name: string; basedOn: string[] } {
+  const all = SOURCE_FRAMEWORKS.filter(([re]) => re.test(`${p.title} ${p.ref} ${p.text}`)).map(([, n]) => n);
+  // A framework passage *is* the framework; list what else it points to only for methods and controls.
+  const own = p.kind === 'framework' ? SOURCE_FRAMEWORKS.find(([re]) => re.test(p.title))?.[1] : undefined;
+  return { kind: SOURCE_KINDS[p.kind] ?? p.kind, name: p.title, basedOn: p.kind === 'framework' ? [] : all.filter((n) => n !== own).slice(0, 4) };
+}
 
 // A person's decision on one item of an agent's draft. Edits keep the agent's
 // original alongside, so the audit trail shows what the AI proposed and what
@@ -644,10 +661,17 @@ export type CardDecisions = Partial<Record<string, Record<string, ItemDecision>>
 export const VERDICTS = ['supported', 'partly', 'unsupported', 'contradicted'] as const;
 export type Verdict = (typeof VERDICTS)[number];
 export const VERDICT_LABELS: Record<Verdict, string> = {
-  supported: 'Supported by its sources',
-  partly: 'Partly supported',
-  unsupported: 'Not supported by its sources',
-  contradicted: 'Its sources say otherwise',
+  supported: 'Backed by what it cites',
+  partly: 'Only partly backed by what it cites',
+  unsupported: 'Not backed by what it cites',
+  contradicted: 'What it cites says otherwise',
+};
+/** v1.7.4: what a reviewer should do with each Verifier verdict, in plain words. */
+export const VERDICT_ADVICE: Record<Verdict, string> = {
+  supported: 'The passages it cites say the same thing.',
+  partly: 'Some of it is not in the passages it cites. Check that part yourself before accepting.',
+  unsupported: 'The passages it cites are about something else. Check it yourself before accepting.',
+  contradicted: 'The passages it cites say something different. Look closely before accepting.',
 };
 
 export interface ItemVerdict {

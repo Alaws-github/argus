@@ -863,3 +863,25 @@ CREATE TABLE IF NOT EXISTS outbound_targets (
 -- How far the write-back dispatcher has read the audit log.
 CREATE TABLE IF NOT EXISTS outbound_cursor (id integer PRIMARY KEY DEFAULT 1, last_audit_id bigint NOT NULL DEFAULT 0);
 ALTER TABLE issues ADD COLUMN IF NOT EXISTS external_ref text;
+
+-- ---------------------------------------------------------------------------
+-- v1.7.4: client steps can be switched off per use case or by default, checked
+-- on a schedule, and required before sign-off.
+-- ---------------------------------------------------------------------------
+-- 'auto' follows the engagement default; 'none' follows no workflow; 'pinned' follows cards.workflow_id.
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS workflow_mode text NOT NULL DEFAULT 'auto';
+UPDATE cards SET workflow_mode = 'pinned' WHERE workflow_id IS NOT NULL AND workflow_mode = 'auto';
+ALTER TABLE engagements ADD COLUMN IF NOT EXISTS client_steps_default boolean NOT NULL DEFAULT true;
+ALTER TABLE workflows ADD COLUMN IF NOT EXISTS require_steps boolean NOT NULL DEFAULT false;
+ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS require_steps boolean NOT NULL DEFAULT false;
+-- v1.7.4: every requirement of each framework. A person can mark one not applicable to an engagement, with a reason.
+CREATE TABLE IF NOT EXISTS framework_scoping (
+  engagement_id  uuid NOT NULL REFERENCES engagements(id) ON DELETE CASCADE,
+  framework      text NOT NULL,
+  ref            text NOT NULL,
+  applicable     boolean NOT NULL,
+  reason         text NOT NULL DEFAULT '',
+  decided_by     text NOT NULL,
+  decided_at     timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (engagement_id, framework, ref)
+);

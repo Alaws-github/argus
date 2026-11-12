@@ -47,8 +47,8 @@ const label = (k: string) => (FRAMEWORK_LABELS as Record<string, string>)[k] ?? 
     <div class="fw-cover">
       <button v-for="f in data.frameworks" :key="f.id" type="button" class="card fw-tile" :aria-expanded="openFw === f.id" @click="openFw = openFw === f.id ? null : f.id">
         <div class="spread"><strong>{{ f.label }}</strong><span class="mono small">{{ f.pct }}%</span></div>
-        <div class="coverage-bar" role="img" :aria-label="`${f.covered} of ${f.total} references covered`"><span class="ok" :style="{ width: f.pct + '%' }" /></div>
-        <span class="small faint">{{ f.covered }} of {{ f.total }} references in the library covered</span>
+        <div class="coverage-bar" role="img" :aria-label="`${f.covered} of ${f.total} requirements have a control`"><span class="ok" :style="{ width: f.pct + '%' }" /></div>
+        <span class="small faint">{{ f.covered }} of {{ f.total }} requirements have a control</span>
         <span v-if="openFw === f.id && f.missing.length" class="small muted">Not covered yet: <span class="mono">{{ f.missing.join(', ') }}</span></span>
       </button>
     </div>

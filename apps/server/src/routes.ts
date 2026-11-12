@@ -17,6 +17,7 @@ import { harmonizeRoutes } from './harmonize.js';
 import { ingestTokenRoutes } from './ingest.js';
 import { outboundRoutes } from './outbound.js';
 import { clientStepRoutes } from './client-steps.js';
+import { requirementRoutes } from './requirements.js';
 import { connectorRoutes } from './routes-connectors.js';
 import { planRoutes } from './routes-plans.js';
 import { createCard } from './cards.js';
@@ -485,6 +486,7 @@ export function routes(db: Db) {
   ingestTokenRoutes(r, db, actorOf, wrap);
   outboundRoutes(r, db, actorOf, wrap);
   clientStepRoutes(r, db, actorOf, wrap);
+  requirementRoutes(r, db, actorOf, wrap);
   accessRoutes(r, db, actorOf, wrap);
   ssoRoutes(r, db, actorOf, wrap);
   return r;

@@ -1001,3 +1001,8 @@ h1 { font-size: 25px; letter-spacing: -0.02em; }
 .tool-grid button { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; text-align: left; }
 .tool-grid button.on { border-color: var(--accent); background: var(--accent-bg); }
 .tool-grid button:hover { border-color: var(--line-hover); }
+
+/* v1.7.4 fix: inside a table cell a segmented choice (Yes / No) and a code (DAT-01) stay on one line;
+   the cell was narrow enough for .segmented's wrap to stack the buttons. */
+td .segmented { flex-wrap: nowrap; }
+td.code, td .code { white-space: nowrap; }

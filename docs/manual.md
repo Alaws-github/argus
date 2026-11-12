@@ -785,6 +785,8 @@ A suggestion changes nothing until you click **Apply**. Applying runs it under y
 
 **Conversations.** The title at the top of the assistant is the conversation you're in. Click it to see your conversations (Today and Earlier), search them by any word in them, and open one to carry on. The **+** button starts a new conversation. Your conversations are yours: nobody else can read them.
 
+**Editing and deleting.** In the conversation list, the pencil renames a conversation and the bin deletes it with its messages (you're asked first; it can't be undone). Point at one of your questions and click its pencil to edit it: the question goes back in the box, and sending replaces it and every answer after it. Only you can change your own conversations. The audit log keeps its own record of every question asked, and anything you applied from a suggestion stays applied.
+
 ![Your conversations, with search](images/manual/m40-assistant-history.png)
 
 **Watching it work.** While it works you see **Working · N steps** with each thing it looks up, and its own reasoning, as it happens. When it finishes, this folds into a line like **Worked 2.4s · 2 steps** above the answer; click it to see the steps again.

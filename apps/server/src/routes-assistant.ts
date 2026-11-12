@@ -68,6 +68,19 @@ export function assistantRoutes(r: Router, db: Db, actorOf: (req: Request) => st
     res.json(toConversation(rows[0]));
   }));
 
+  // v1.7.4: delete one of your own conversations and its messages. The audit log
+  // keeps what it recorded when each question was asked (it is never changed);
+  // anything applied from a suggestion stays applied.
+  r.delete('/engagements/:id/assistant/conversations/:cid', wrap(async (req, res) => {
+    const c = await ownConversation(req, req.params.cid);
+    await db.tx(async (q) => {
+      const { rows } = await q.query(`DELETE FROM assistant_messages WHERE conversation_id = $1 RETURNING id`, [c.id]);
+      await q.query(`DELETE FROM assistant_conversations WHERE id = $1`, [c.id]);
+      await logAudit(q, actorOf(req), 'assistant.conversation_deleted', `assistant:conversation`, { title: c.title, messages: rows.length });
+    });
+    res.json({ ok: true });
+  }));
+
   // Ask. Carries on the conversation named, or with newConversation starts one;
   // with neither it carries on the latest one about this record.
   r.post('/engagements/:id/assistant', wrap(async (req, res) => {
@@ -78,12 +91,21 @@ export function assistantRoutes(r: Router, db: Db, actorOf: (req: Request) => st
       page: z.object({ path: z.string().max(200), snapshot: z.string().max(20000).default('') }).nullish(),
       // v1.7: the browser's id for this question, so its live steps reach only the person asking.
       requestId: z.string().regex(/^[A-Za-z0-9_-]{6,40}$/).optional(),
+      // v1.7.4: edit one of your questions: it and everything after it in the conversation are replaced by this one.
+      replaceFrom: z.string().uuid().optional(),
     }).parse(req.body);
+    if (b.replaceFrom && !b.conversationId) throw httpError(400, 'Say which conversation the question is in');
     const ctx = await buildContext(db, req.params.id, b.kind, b.contextId || null, b.page ?? null);
     await addMentions(db, req.params.id, ctx, b.question);
     let conv = b.conversationId ? await ownConversation(req, b.conversationId) : b.newConversation ? null : await latestFor(req, b.kind, b.contextId);
+    let cutAt: string | null = null;
+    if (b.replaceFrom) {
+      const m = (await db.query(`SELECT created_at, role FROM assistant_messages WHERE id = $1 AND conversation_id = $2`, [b.replaceFrom, conv!.id])).rows[0];
+      if (!m || m.role !== 'user') throw httpError(404, 'That question is not in this conversation');
+      cutAt = m.created_at;
+    }
     const hist = conv
-      ? (await db.query(`SELECT role, text FROM assistant_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 8`, [conv.id])).rows.reverse()
+      ? (await db.query(`SELECT role, text FROM assistant_messages WHERE conversation_id = $1 AND ($2::timestamptz IS NULL OR created_at < $2) ORDER BY created_at DESC LIMIT 8`, [conv.id, cutAt])).rows.reverse()
       : [];
     const started = Date.now();
     const step: StepFn = (s) => { if (b.requestId) emitToUser(req.user!.id, 'assistant:step', { requestId: b.requestId, ...s, text: s.text.slice(0, 600) }); };
@@ -105,6 +127,10 @@ export function assistantRoutes(r: Router, db: Db, actorOf: (req: Request) => st
         )).rows[0];
       } else {
         await q.query(`UPDATE assistant_conversations SET updated_at = now() WHERE id = $1`, [conv.id]);
+      }
+      if (cutAt) {
+        const { rows: gone } = await q.query(`DELETE FROM assistant_messages WHERE conversation_id = $1 AND created_at >= $2 RETURNING role`, [conv.id, cutAt]);
+        await logAudit(q, actorOf(req), 'assistant.question_edited', `assistant:conversation`, { title: conv.title, replaced: gone.length });
       }
       const ins = (role: string, text: string, extra: any = {}) =>
         q.query(

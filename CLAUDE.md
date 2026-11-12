@@ -135,7 +135,7 @@ apps/server/src
   routes-testing.ts agent testing API and POST /cards/:id/verify
   assistant.ts    the assistant: context builder (page, ids it may refer to), suggestion whitelist and checks, rules and live answers
   assistant-pages.ts what each page is for (keep in step with the router)
-  routes-assistant.ts conversations per person (new, list, search, rename); apply (replayed through the API as the person) and discard
+  routes-assistant.ts conversations per person (new, list, search, rename, delete, edit a question with replaceFrom, v1.7.4); apply (replayed through the API as the person) and discard
   storage.ts      evidence files: data/evidence, plus Cloudflare R2 when R2_* is set (write-through, read-back on a wiped disk)
   extract.ts      text from PDF (unpdf), Excel (exceljs), Word (mammoth) and text files, for evidence and uploads
   routes-incidents.ts incidents, notification clocks (NOTIFY_CLOCKS in shared), timeline, closing rules

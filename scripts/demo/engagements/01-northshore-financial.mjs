@@ -4,7 +4,7 @@
 // teaming and monitoring, golden runs, the Verifier and an assistant
 // conversation. It uses the engagement the database is seeded with (the
 // five Northshore use cases AI-1 to AI-5), so it always runs first.
-import { sleep } from '../lib.mjs';
+import { B, sleep } from '../lib.mjs';
 
 export const engagement = {
   useSeeded: true,
@@ -243,4 +243,33 @@ export async function build(ctx, { step }) {
     auth: 'none', controlId: ctl?.id ?? null, schedule: 'manual', enabled: true,
   }).catch((e) => console.warn('  (connector skipped)', e.message));
   step('An evidence connector set up to the core banking report server');
+
+  // ---- v1.7.3 and v1.7.4: the client's tools, a workflow with proof, a pipeline, write-back (off), across frameworks
+  await jordan('PATCH', `/engagements/${E}`, { clientTools: ['sharepoint', 'teams', 'excel', 'power_automate', 'outlook', 'jira'] });
+  const wf = await jordan('POST', `/engagements/${E}/workflows`, { name: 'Credit model approval', description: 'How Northshore takes a credit or pricing model live, in its Microsoft 365 tools', template: 'm365' });
+  const g = JSON.parse(JSON.stringify(wf.graph));
+  const proofs = { 'p-classify': 'manual', 't-dpia': 'manual', 'p-signoff': 'manual' };
+  for (const n of g.nodes) if (proofs[n.id]) n.config = { ...n.config, proof: proofs[n.id] };
+  await jordan('PATCH', `/workflows/${wf.id}`, { graph: g });
+  await jordan('POST', `/workflows/${wf.id}/publish`, { note: 'Agreed with the Model Risk Committee' });
+  const cs = await sam('GET', '/cards/AI-1/client-steps');
+  const manual = cs.steps.filter((x) => x.proof === 'manual');
+  if (manual[0]) await sam('POST', `/cards/AI-1/client-steps/${manual[0].nodeId}/confirm`, { link: 'https://northshore-demo.example/approvals/power-automate/4471', note: 'Tier approved in the Power Automate flow' });
+  if (manual[1]) await sam('POST', `/cards/AI-1/client-steps/${manual[1].nodeId}/confirm`, { link: 'https://northshore-demo.example/sharepoint/impact-assessments/AI-1', note: 'Impact assessment v2 in the library' });
+  step('A published client workflow with proof on three steps; two confirmed on AI-1');
+  const tk = await jordan('POST', `/engagements/${E}/ingest-tokens`, { name: 'Credit model CI' });
+  await fetch(`${B}/ingest/evidence`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${tk.token}` }, body: JSON.stringify({
+    title: 'Credit model 2.3: evaluation results', kind: 'eval', useCase: 'AI-1', control: ctl?.key, filename: 'eval-2.3.json',
+    content: JSON.stringify({ auc: 0.91, approvalRateGapByAgeBand: 0.021, threshold: 0.03, passed: true }), metrics: { auc: 0.91, approvalGapPct: 2.1, passed: true },
+    source: { system: 'github', repo: 'northshore/credit-model', branch: 'main', commit: '4f2a9c1e7b3d', run: '1187' } }) }).catch(() => {});
+  step('A pipeline token, and one push of evaluation results for AI-1');
+  await jordan('POST', `/engagements/${E}/outbound`, { name: 'Model Risk channel', kind: 'teams', url: 'https://northshore-demo.example/teams-webhook/model-risk', events: ['card.waiting', 'test.failed', 'issue.raised'] }).catch(() => {});
+  step('A write-back target to the Model Risk channel (write-back stays off)');
+  const csv = 'Title,Objective,Type\nVendor contracts reviewed for AI data use,Contracts with AI suppliers are checked before signing for data use and audit rights,preventive\nQuarterly penetration test of the chatbot,Security test the chatbot every quarter,detective\n';
+  const imp = await jordan('POST', `/engagements/${E}/controls/import`, { filename: 'northshore-controls.csv', dataBase64: Buffer.from(csv).toString('base64'), preview: false });
+  const c0 = (await andrew('GET', `/engagements/${E}/controls`)).find((c) => c.key === imp.added?.[0]);
+  if (c0) await sam('POST', `/controls/${c0.id}/map`, { libraryCode: 'TPR-01' });
+  step("Two of Northshore's own controls uploaded; one mapped to the library across frameworks");
+  for (const ref of ['Art. 53', 'Art. 54', 'Art. 55']) await jordan('PUT', `/engagements/${E}/requirements/euAiAct`, { ref, applicable: false, reason: 'Northshore uses general-purpose models from vendors; it does not provide one.' }).catch(() => {});
+  step('EU AI Act model-provider articles marked not applicable, with the reason');
 }

@@ -29,6 +29,7 @@ export function toEngagement(r: any): Engagement {
     modules: { ...NO_MODULES, ...(r.modules ?? {}) },
     clientTools: Array.isArray(r.client_tools) ? r.client_tools : [],
     writeBack: !!r.write_back,
+    clientStepsDefault: r.client_steps_default !== false,
     createdAt: iso(r.created_at)!,
   };
 }

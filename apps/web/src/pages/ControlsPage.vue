@@ -15,10 +15,11 @@ import { api, csv, day, downloadText } from '../api';
 import { useApp } from '../stores/app';
 import StandardsTab from '../components/StandardsTab.vue';
 import HarmonizeTab from '../components/HarmonizeTab.vue';
+import RequirementsTab from '../components/RequirementsTab.vue';
 
 const app = useApp();
 const route = useRoute();
-const tab = computed(() => route.params.tab as 'standards' | 'register' | 'library' | 'soa' | 'traceability' | 'harmonize');
+const tab = computed(() => route.params.tab as 'standards' | 'requirements' | 'register' | 'library' | 'soa' | 'traceability' | 'harmonize');
 
 const controls = ref<EngagementControl[]>([]);
 const library = ref<LibraryControl[]>([]);
@@ -37,7 +38,7 @@ async function load() {
     else if (tab.value === 'soa') {
       soa.value = await api(`/engagements/${E}/soa`);
       drafts.value = Object.fromEntries(soa.value.map((s) => [s.id, { applicable: s.applicable, justification: s.justification }]));
-    } else if (tab.value !== 'harmonize') trace.value = await api(`/engagements/${E}/traceability`);
+    } else if (tab.value !== 'harmonize' && tab.value !== 'requirements') trace.value = await api(`/engagements/${E}/traceability`);
   } catch (e: any) {
     app.toast(e.message, 'error');
   } finally {
@@ -162,6 +163,7 @@ function exportTrace() {
     <KpiStrip page="controls" />
     <nav class="tabs">
       <RouterLink to="/controls/standards" :class="{ active: tab === 'standards' }">Standards</RouterLink>
+      <RouterLink to="/controls/requirements" :class="{ active: tab === 'requirements' }">Every Requirement</RouterLink>
       <RouterLink to="/controls/register" :class="{ active: tab === 'register' }">Our Controls</RouterLink>
       <RouterLink to="/controls/library" :class="{ active: tab === 'library' }">Control Library</RouterLink>
       <RouterLink v-if="app.mod('soa') || tab === 'soa'" to="/controls/soa" :class="{ active: tab === 'soa' }">What Applies</RouterLink>
@@ -174,6 +176,7 @@ function exportTrace() {
     <!-- Register -->
     <StandardsTab v-else-if="tab === 'standards'" :rows="trace" />
     <HarmonizeTab v-else-if="tab === 'harmonize'" />
+    <RequirementsTab v-else-if="tab === 'requirements'" />
 
     <template v-else-if="tab === 'register'">
       <div class="toolbar">

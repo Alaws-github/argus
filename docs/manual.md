@@ -1,6 +1,6 @@
 # ARGUS: User Manual
 
-Version 1.2.6 · November 2026 · for ARGUS 1.7.3
+Version 1.2.7 · November 2026 · for ARGUS 1.7.4
 
 This manual explains ARGUS, the Assurance, Risk & Governance Unified System: what it is for, how to use the live site, and how a piece of work flows through it from the first request to the board report. It is written for assurance, risk and governance professionals, not for developers. Screenshots use the fictional demo engagement (Northshore Financial Group) on the live site, so you can follow along as you read (section 4).
 
@@ -10,13 +10,20 @@ This manual explains ARGUS, the Assurance, Risk & Governance Unified System: wha
 
 ## What's new in this edition
 
-This edition (1.2.6) follows edition 1.2.5 and covers ARGUS 1.4.1 to 1.7.3. Every screenshot was retaken for 1.2.4. New in 1.2.6 (ARGUS 1.7.3):
+This edition (1.2.7) follows edition 1.2.6 and covers ARGUS 1.4.1 to 1.7.4. Every screenshot was retaken for 1.2.4. New in 1.2.7 (ARGUS 1.7.4):
+
+- **Every Requirement.** The complete list of requirements for each framework, so you can see when a framework is fully met (section 21.2).
+- **Clearer sources and Verifier.** Each source says what it is and which frameworks it draws on; the Verifier says what to do in plain words (sections 12 and 31.1).
+- **Client steps your way.** A use case can follow no client workflow, and an engagement can make that the default. Steps without a proof are shown as context only. Checks can run on a schedule, and a workflow can require its steps before sign-off (section 34.2).
+- **Client tools and workflows is a module.** Engagements that work only in ARGUS don't see client workflows, connected tools, pipelines or write-back (section 7.1).
+
+New in 1.2.6 (ARGUS 1.7.3):
 
 - **Client steps on each use case.** Each client step can say what proves it was done, and ARGUS checks it in the client's tools for every use case (section 34.2).
 - **Write-back.** When switched on, ARGUS posts to Teams or Slack, creates Jira tickets or ServiceNow records, or calls a webhook on set events (section 34.3).
 - **Pipelines push evidence.** Build pipelines send evaluation results, fairness metrics or an SBOM straight in (section 23.3). Connectors can also read AWS S3, Azure Blob Storage, GitHub, GitLab and Bitbucket.
 - **Healthcare frameworks.** FDA Good Machine Learning Practice and HIPAA (section 21.1).
-- **Across Frameworks.** Map a control once and it counts for every framework (section 21.2).
+- **Across Frameworks.** Map a control once and it counts for every framework (section 21.3).
 
 New in 1.2.5 (ARGUS 1.7.2):
 
@@ -290,7 +297,7 @@ There are two levels of settings:
 | AI testing and monitoring | Evaluation suites, red teaming against the OWASP LLM Top 10, scheduled runs and drift alerts |
 | Incidents | AI incidents with their regulatory notification deadlines |
 | AI inventory | Every AI system and agent at the client, with the agent register checks |
-| Evidence connectors | Scheduled pulls of reports and exports from the client's systems (Settings > Connected tools) |
+| Client tools and workflows | Client workflows and each use case's client steps, connectors to the client's tools (Settings > Connected tools), evidence pushed from pipelines, and write-back. Switched on by itself when you pick a workflow or tools while adding the engagement |
 | Statement of Applicability and traceability | Which controls apply and why, and the chain from obligation to evidence |
 | Advanced AI settings | More than one agent per step with routing, and testing the agents on the golden dataset |
 
@@ -419,8 +426,10 @@ The **Risk Classifier** drafts a tier, an oversight model, the factors that drov
 Each item shows:
 
 - **Why**: the agent's reasoning, written before its answer.
-- **Sources**: the K-numbered passages it relied on. Click one to read exactly what it saw. **No source cited** means you should check that item yourself.
-- **Verifier**: if the draft has been checked (section 31), a second AI's verdict on whether the sources back the item, and the quote it rests on.
+- **Based on**: the passages it relied on, each saying what it is (a framework requirement, a library control, ARGUS's method, the client's own document) and which frameworks it draws on, for example "ARGUS method: Risk tiers, drawing on the EU AI Act". Click one to read exactly what the agent saw. The K-number on the right is its reference in the knowledge base. **No source cited** means you should check that item yourself.
+- **Verifier**: if the draft has been checked (section 31), whether the item is **backed by what it cites**, what to do about it ("Some of it is not in the passages it cites. Check that part yourself before accepting."), and the words in the passage it rests on.
+
+![Sources and the Verifier on one item](images/manual/m60-sources-verifier.jpg)
 
 **What you decide** is stated in a box at the top. For each item:
 
@@ -538,16 +547,17 @@ Every kept risk, with inherent likelihood and impact, the controls treating it, 
 
 ## 21. Standards and controls
 
-The **Controls** page has six tabs.
+The **Controls** page has seven tabs.
 
 ![Standards](images/manual/m30-standards.jpg)
 
 - **Standards**: one card per framework, explained in plain English, with a coverage bar. Each requirement is **Proven** (a control in place, tested, passing and evidenced), **In progress** (a control still needs a test, evidence or a fix), a **Gap** (no control) or **Not applicable** (excluded with a reason). Open a card for each requirement and its next step.
+- **Every Requirement**: every requirement of each framework, and whether it is met (section 21.2).
 - **Our Controls**: the control register: owner, status, risks treated, tests, evidence and open issues. Download as CSV.
 - **Control Library**: the 37 reusable controls, each mapped to the standards it helps meet, with a test procedure and the evidence usually expected.
 - **What Applies**: the Statement of Applicability. For each library control, whether it applies to this engagement and why. Exclusions need a reason an auditor would accept.
 - **Traceability**: from each obligation to the library controls that meet it, the controls in place, their tests and evidence, with gaps marked.
-- **Across Frameworks**: how much of each framework the engagement's controls cover, and a library match for the client's own controls (section 21.2).
+- **Across Frameworks**: how much of each framework the engagement's controls cover, and a library match for the client's own controls (section 21.3).
 
 ![Our controls](images/manual/m31-controls.jpg)
 
@@ -566,11 +576,39 @@ For a hospital, insurer, health technology firm or their vendors, choose **FDA G
 
 These obligations show only on engagements that chose these frameworks. ARGUS summarises them in its own words; the FDA and HHS publish the originals.
 
-### 21.2 Across frameworks
+### 21.2 Every requirement
+
+![Every requirement of a framework](images/manual/m62-every-requirement.jpg)
+
+The **Standards** cards summarise each framework's key requirements. To know whether a framework is **fully met**, open **Controls > Every Requirement**. It lists every requirement of each framework in scope by its official number, with a short title in ARGUS's own words:
+
+| Framework | Listed |
+| --- | --- |
+| NIST AI RMF | All 72 subcategories |
+| ISO/IEC 42001 | Clauses 4.1 to 10.2 (27) and all 38 Annex A controls |
+| EU AI Act | The 33 articles that place duties on organisations (authorities and penalties are left out) |
+| Jamaica DPA 2020 | The eight data protection standards and five other duties |
+| NIST CSF 2.0 | All 22 categories |
+| COSO | All 17 principles |
+| OWASP | The LLM Top 10 (2025) and the Agentic Top 10 (2026) |
+| FDA GMLP | The 10 principles and the change control plan |
+| HIPAA | The Security Rule standards, the Privacy Rule duties that touch AI, the breach notices and the HHS decision support rule |
+
+Each requirement is **Proven** (a control that meets it is tested, passing and evidenced, and nothing failed), **In progress** (a control meets it but isn't proven yet), a **Gap** (no control meets it) or **Not applicable** (with a reason). The framework is **fully met** only when every requirement is proven or not applicable; the first tile says how many are left.
+
+To close a gap:
+
+- **Map a control**: link one of the engagement's controls (including the client's own) to the requirement. Then test it and add evidence.
+- Add the library control the row suggests to a use case.
+- **Not applicable** (leads and admins): give the reason an auditor will read. **It applies** undoes it.
+
+Every mapping and scoping decision is in the audit log.
+
+### 21.3 Across frameworks
 
 ![Across Frameworks](images/manual/m59-across-frameworks.jpg)
 
-**Controls > Across Frameworks** shows how one control can meet several frameworks at once. Each framework in scope has a tile with how many of its references in the library the engagement's controls cover (click it to see what isn't covered yet). The table lists each control and the references it meets in each framework.
+**Controls > Across Frameworks** shows how one control can meet several frameworks at once. Each framework in scope has a tile with how many of its requirements (the complete list, section 21.2) have a control (click it to see what isn't covered yet). The table lists each control and the references it meets in each framework.
 
 To bring in the client's own controls: upload them on **Our Controls** (section 21), then, for each one marked **Not mapped**, accept the suggested library control under **Looks like**. The control keeps its own wording and gains every framework reference of that library control. Each mapping is in the audit log.
 ## 22. Testing
@@ -771,7 +809,7 @@ A suggestion changes nothing until you click **Apply**. Applying runs it under y
 
 ### 31.1 The Verifier
 
-The Verifier is a second AI that reads each item of a classification or control design next to the passages it cites and gives a verdict: supported, partly supported, not supported, or contradicted by its sources. A "supported" verdict must quote a cited passage word for word; the harness checks the quote, and doesn't trust a verdict whose quote isn't there. The Verifier is advisory: it never decides an item. If the same model wrote and checked a draft, the panel says so.
+The Verifier is a second check that reads each item of a classification or control design next to the passages it cites and says whether the item is **backed by what it cites**, **only partly backed**, **not backed**, or whether **what it cites says otherwise**. With no AI model set for it, it matches key words; with a model, a second AI judges. A "supported" verdict must quote a cited passage word for word; the harness checks the quote, and doesn't trust a verdict whose quote isn't there. The Verifier is advisory: it never decides an item. If the same model wrote and checked a draft, the panel says so.
 
 On a draft, **Check with the Verifier** asks for a check. An admin can turn on automatic checks of every new draft under **AI > Checking the AI > Verifier**.
 
@@ -929,6 +967,14 @@ Each use case follows the latest published workflow, or one picked for it, and s
 ![Client steps on a use case](images/manual/m54-client-steps.jpg)
 
 **Check now** (preparers and above) reads each step's connector and marks the step done (✓), waiting (…) or not done (✕), with the records it found and a link to them. A step that passes files what proved it as evidence, once; checking again with the same records adds nothing. **Confirm by hand** records a step that ARGUS can't read, with a link or a note. Checks and confirmations are in the audit log.
+
+Choose which workflow a use case follows under **Follows**: the engagement default, a particular published workflow, or **No client workflow** (the list then shrinks to one line, with **Change**). Under **Settings > General**, **Client steps on use cases** sets the default for the engagement: follow the latest published workflow, or no client workflow for teams that work only in ARGUS.
+
+![Client steps on use cases, under Settings > General](images/manual/m63-client-steps-default.jpg)
+
+Only steps with a proof are tracked and counted ("2 of 3 done"); the others are shown as context, in grey. **Confirm** appears only on steps whose proof is "A person confirms it". A step checked through a connector is also checked on its connector's schedule (daily or weekly), so a step that stops being done shows up without anyone clicking.
+
+**Client steps must be done before sign-off** (in the workflow, under the publish panel) makes the tracked steps an exit criterion of sign-off: a use case following that workflow can't be signed off until each is done. A person still signs off.
 
 Client steps never move a use case. They give the people who decide at ARGUS's gates the client's own paper trail, already checked.
 

@@ -2,6 +2,21 @@
 
 What changed in each release of ARGUS, newest first. The version shown under Sign Out comes from package.json. Start a new release with `npm run release -- X.Y.Z`.
 
+## v1.7.4 (2026-11-11)
+
+Frameworks fully accounted for, clearer sources, and client steps that fit how each team works.
+
+- **Every Requirement** (Controls). The complete requirement list for each framework, by its official number with ARGUS's own short titles: all 72 NIST AI RMF subcategories; ISO/IEC 42001 clauses 4 to 10 and all 38 Annex A controls; the 33 EU AI Act articles that place duties on organisations; the Jamaica DPA's eight standards and five other duties; the 22 NIST CSF 2.0 categories; the 17 COSO principles; the OWASP LLM and Agentic Top 10s; the FDA GMLP principles and change control plan; and the HIPAA Security, Privacy and Breach rules with the HHS decision support rule. Each requirement is proven, in progress, a gap or not applicable (with a reason, audited). A framework shows as **fully met** only when every requirement is proven or not applicable. Map any control to a requirement to close a gap. Across Frameworks now counts against the complete lists, and Standards says its cards are the key requirements only.
+- **Sources say what they are.** On a draft, **Based on** lists each source as what it is (framework requirement, library control, ARGUS method, client document) with the frameworks it draws on, not just a K-number. The Verifier says "Backed by what it cites" and what to do, quotes the passage, and no longer shows word stems. The model line says "the built-in rules (no AI model)" instead of rules-v1.
+- **Follow no client workflow.** A use case's **Follows** list has **No client workflow**, which shrinks Client steps to one line. **Settings > General > Client steps on use cases** sets the engagement default.
+- **Quieter client steps.** Only steps with a proof are tracked and counted; the rest are context. **Confirm** is offered only on "A person confirms it" steps (the server refuses the others).
+- **Scheduled checks.** Steps checked through a daily or weekly connector are checked on that schedule.
+- **Require client steps before sign-off** (per workflow, versioned with each publish): an exit criterion on sign-off. A person still signs off.
+- **Client tools and workflows is a module** (it replaces Evidence connectors). Off for new engagements unless a workflow or tools are picked when adding one. Hides Client workflows, Connected tools, From Client Tools and Client steps; nothing is deleted.
+- **Demo data:** Northshore has a published workflow with proof (two steps confirmed on AI-1), a pipeline push, a write-back target (off), two of its own controls (one mapped) and three EU AI Act articles scoped out; Palmcrest has HIPAA and FDA GMLP.
+- New checks in `npm run test:v174` (35) and in `npm run test:agents` (sign-off blocked by a client step).
+
+
 ## v1.7.3 (2026-11-11)
 
 Client workflows that do something, write-back, evidence from pipelines, healthcare frameworks and one control for many frameworks.

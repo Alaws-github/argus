@@ -93,9 +93,9 @@ function ruleVerdict(claim: Claim, cited: SourcePassage[]): Omit<ItemVerdict, 'i
     if (n > best) (best = n), (quote = s.trim().slice(0, 240));
   }
   const pct = Math.round(overlap * 100);
-  if (overlap >= 0.3) return { verdict: 'supported', reason: `Its sources share ${pct}% of its key terms (${shared.slice(0, 5).join(', ')}).`, quote, quoteFound: !!quote };
-  if (overlap >= 0.15) return { verdict: 'partly', reason: `Its sources share only ${pct}% of its key terms; some of it rests on nothing cited.`, quote, quoteFound: !!quote };
-  return { verdict: 'unsupported', reason: `Its sources are about something else (${pct}% of key terms in common).`, quote: '', quoteFound: false };
+  if (overlap >= 0.3) return { verdict: 'supported', reason: `${pct}% of its key words appear in the passages it cites.`, quote, quoteFound: !!quote };
+  if (overlap >= 0.15) return { verdict: 'partly', reason: `Only ${pct}% of its key words appear in the passages it cites.`, quote, quoteFound: !!quote };
+  return { verdict: 'unsupported', reason: `Only ${pct}% of its key words appear in the passages it cites.`, quote: '', quoteFound: false };
 }
 
 // ---------------------------------------------------------------------------

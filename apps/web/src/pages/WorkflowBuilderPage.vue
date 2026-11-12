@@ -38,7 +38,8 @@ const setZoom = (z: number) => (zoom.value = Math.min(1.4, Math.max(0.4, Math.ro
 const canEdit = computed(() => app.can('manage_engagement') && wf.value?.status !== 'retired' && !viewing.value);
 
 const shown = computed<WfGraph>(() => viewing.value?.graph ?? graph.value);
-const state = () => JSON.stringify({ g: graph.value, n: name.value, d: description.value });
+const requireSteps = ref(false); // v1.7.4: tracked client steps must be done before sign-off
+const state = () => JSON.stringify({ g: graph.value, n: name.value, d: description.value, r: requireSteps.value });
 const dirty = computed(() => !!wf.value && state() !== saved.value);
 const check = computed(() => validateWorkflow(shown.value));
 const byId = computed(() => new Map(shown.value.nodes.map((n) => [n.id, n])));
@@ -56,6 +57,7 @@ async function load() {
   graph.value = JSON.parse(JSON.stringify(d.workflow.graph));
   name.value = d.workflow.name;
   description.value = d.workflow.description;
+  requireSteps.value = !!d.workflow.requireSteps;
   saved.value = state();
   history.length = 0;
 }
@@ -210,7 +212,7 @@ const problemOf = (id: string) => check.value.nodeProblems[id]?.length ?? 0;
 async function save() {
   busy.value = true;
   try {
-    const d = await api<{ workflow: Workflow }>(`/workflows/${wf.value!.id}`, { method: 'PATCH', body: { name: name.value, description: description.value, graph: graph.value } });
+    const d = await api<{ workflow: Workflow }>(`/workflows/${wf.value!.id}`, { method: 'PATCH', body: { name: name.value, description: description.value, graph: graph.value, requireSteps: requireSteps.value } });
     wf.value = d.workflow;
     saved.value = state();
     app.toast(check.value.problems.length ? `Draft saved. ${check.value.problems.length} thing${check.value.problems.length === 1 ? '' : 's'} to fix before it can be published.` : 'Draft saved');
@@ -458,6 +460,7 @@ const STATUS: Record<string, [string, string]> = { draft: ['Draft', 'amber'], pu
         </ul>
         <p v-else class="small muted">Every governance rule passes: all five gates are on every path, in order, and a person decides after every agent step.</p>
         <label class="field"><span>What it covers</span><textarea v-model="description" class="textarea" :disabled="!canEdit" maxlength="400" placeholder="Which use cases follow it, and whose process it is" /></label>
+        <label class="check-row"><input v-model="requireSteps" type="checkbox" :disabled="!canEdit" /><span><strong>Client steps must be done before sign-off</strong><span class="muted small hint-inline">A use case following this workflow can't be signed off until every step with a proof is done. A person still signs off. Takes effect when published.</span></span></label>
         <div class="wf-rules small">
           <span class="label-caps">The rules</span>
           <ul class="plain">

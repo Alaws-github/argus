@@ -117,3 +117,7 @@ Engagements store their frameworks as text, and older ones say "NIST AI RMF" whe
 ### write-back-reads-the-audit-log `design`
 Write-back sends are driven by audit entries read after commit, not by calls inside each route: one place decides what an event is (`eventOf`), a send can never roll back or change an ARGUS record, no agent path can reach it, and switching it on doesn't replay history (the cursor starts at the latest entry). Off per engagement by default; create-only (new message, ticket or record).
 **Enforced by:** test scripts/v173-test.mjs (nothing sent while off, issue to webhook and Jira, audit with sha256, no write tool for agents)
+
+### coverage-needs-the-whole-list `design`
+Coverage measured against ARGUS's own references (2 NIST obligations, 26 library references) showed high percentages that meant "of what ARGUS tracks". The owner wants frameworks fully met, so coverage now counts against the complete requirement list (`FRAMEWORK_CATALOG`), and fully met needs every requirement proven or not applicable with a reason. Never show a percentage of a partial list as if it were the framework.
+**Enforced by:** test scripts/v174-test.mjs (72 NIST subcategories, 65 ISO items, fully met only when all accounted for)

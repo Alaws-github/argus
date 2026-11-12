@@ -56,7 +56,7 @@ const AI_MENU = computed(() => [
   ...(app.mod('advanced_ai') ? [{ to: '/agent-testing/golden', label: 'Checking the AI', icon: 'checking', hint: 'Golden dataset and the Verifier', match: '/agent-testing' }] : []),
 ]);
 const SETTINGS = [
-  { to: '/workflows', label: 'Client Workflows', icon: 'workflow', hint: "The client's process, with the governance gates built in" },
+  ...(app.mod('connectors') ? [{ to: '/workflows', label: 'Client Workflows', icon: 'workflow', hint: "The client's process, with the governance gates built in" }] : []),
   { to: '/settings/general', label: 'Engagement Settings', icon: 'engagement', match: '/settings/(general|workflow|integrations|access)' },
   { to: '/workspace/models', label: 'Workspace Settings', icon: 'workspace', match: '/workspace' },
   { to: '/audit', label: 'Audit Log', icon: 'audit' },

@@ -16,6 +16,8 @@ import VerifierBar from './VerifierBar.vue';
 import { draftProgress } from '../lib/drafts';
 
 const props = defineProps<{ cardKey: string }>();
+// v1.7.4: say which model drafted it in words; the offline rules aren't an AI model.
+const modelWords = (m?: string | null) => (!m ? 'an agent' : /^rules/.test(m) ? 'the built-in rules (no AI model)' : m);
 const emit = defineEmits<{ close: [] }>();
 const app = useApp();
 
@@ -266,7 +268,7 @@ const actionLabel = (a: string) =>
           <span class="ai-mark">AI</span>
           <div class="grow">
             <h3>The Risk Classifier proposes: {{ TIER_LABELS[card.classification.tier] }} risk, {{ card.classification.risks.length }} starting risks</h3>
-            <p class="small muted">Drafted on {{ lastModel }} from the use case profile and {{ passagesHere.length }} knowledge-base passages.</p>
+            <p class="small muted">Drafted by {{ modelWords(lastModel) }} from the use case profile and {{ passagesHere.length }} passages from the knowledge base (frameworks, library controls, ARGUS's method and the client's documents).</p>
           </div>
         </div>
         <div class="decide-box">
@@ -311,7 +313,7 @@ const actionLabel = (a: string) =>
           <span class="ai-mark">AI</span>
           <div class="grow">
             <h3>{{ DRAFT_HEADLINE }}</h3>
-            <p class="small muted">Drafted by the {{ agentName }} on {{ draft.model }}{{ passagesHere.length ? ` with ${passagesHere.length} knowledge-base passages` : '' }}.</p>
+            <p class="small muted">Drafted by the {{ agentName }} using {{ modelWords(draft.model) }}{{ passagesHere.length ? ` with ${passagesHere.length} knowledge-base passages` : '' }}.</p>
           </div>
         </div>
         <div class="decide-box"><strong>What you decide:</strong> {{ DRAFT_ASK[card.stage] }}</div>
@@ -380,7 +382,7 @@ const actionLabel = (a: string) =>
           <span class="ai-mark">AI</span>
           <div class="grow">
             <h3>The Control Designer proposes {{ card.design.controls.length }} controls</h3>
-            <p class="small muted">Drafted on {{ lastModel }} from the approved risks, the control library and {{ passagesHere.length }} knowledge-base passages.</p>
+            <p class="small muted">Drafted by {{ modelWords(lastModel) }} from the approved risks, the control library and {{ passagesHere.length }} passages from the knowledge base.</p>
           </div>
         </div>
         <div class="decide-box">

@@ -66,7 +66,7 @@ export const MODULE_INFO: Record<Module, { label: string; hint: string }> = {
   evals: { label: 'AI testing and monitoring', hint: 'Evaluation suites, red teaming against the OWASP LLM Top 10, scheduled runs and drift alerts' },
   incidents: { label: 'Incidents', hint: 'Record AI incidents with their regulatory notification deadlines' },
   inventory: { label: 'AI inventory', hint: 'Every AI system and agent in use at the client, with the agent register checks' },
-  connectors: { label: 'Evidence connectors', hint: 'Pull reports and exports from the client\'s systems on a schedule' },
+  connectors: { label: 'Client tools and workflows', hint: "Client workflows and each use case's client steps, connectors to the client's tools, evidence pushed from pipelines, and write-back" },
   soa: { label: 'Statement of Applicability and traceability', hint: 'Which controls apply and why, and the chain from obligation to evidence' },
   advanced_ai: { label: 'Advanced AI settings', hint: 'More than one agent per stage with routing, and testing the agents on the golden dataset' },
 };
@@ -722,6 +722,8 @@ export interface Engagement {
   clientTools: string[];
   /** v1.7.3: ARGUS may send messages and create tickets in the client's tools (off by default). */
   writeBack: boolean;
+  /** v1.7.4: new use cases follow the latest published client workflow (true) or none (false). */
+  clientStepsDefault: boolean;
 }
 
 // Risk appetite: the highest residual score the engagement accepts without
@@ -745,8 +747,10 @@ export const EngagementPatch = z.object({
   modules: z.object(Object.fromEntries(MODULES.map((m) => [m, z.boolean().optional()])) as Record<Module, z.ZodOptional<z.ZodBoolean>>).optional(),
   clientTools: z.array(z.string().max(40)).max(40).optional(),
   writeBack: z.boolean().optional(),
+  clientStepsDefault: z.boolean().optional(),
 });
 export * from './grc.js';
 export * from './workflow.js';
 export * from './tools-catalog.js';
 export * from './integrations.js';
+export * from './framework-catalog.js';

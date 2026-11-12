@@ -37,12 +37,21 @@ async function saveTools() {
   } catch (err: any) { app.toast(err.message, 'error'); }
 }
 const TABS = computed(() => ({
-  // v1.7.2: "Approval gates" (was Workflow, now that Client Workflows exist) and "Connected tools" (was Integrations), always shown.
-  general: 'General', workflow: 'Approval gates', agents: 'AI Agents', integrations: 'Connected tools',
+  // v1.7.2: "Approval gates" (was Workflow, now that Client Workflows exist). v1.7.4: "Connected tools" shows with the
+  // Client tools and workflows module (or when linked to directly).
+  general: 'General', workflow: 'Approval gates', agents: 'AI Agents',
+  ...(app.mod('connectors') || route.params.tab === 'integrations' ? { integrations: 'Connected tools' } : {}),
   access: 'Access',
 }));
 const tab = computed(() => (['general', 'workflow', 'integrations', 'agents', 'access'].includes(String(route.params.tab)) ? String(route.params.tab) : 'general'));
 
+async function setStepsDefault(on: boolean) {
+  try {
+    const e = await api(`/engagements/${app.engagementId}`, { method: 'PATCH', body: { clientStepsDefault: on } });
+    Object.assign(app.engagement!, e);
+    app.toast(on ? 'Use cases follow the latest published client workflow' : 'Use cases follow no client workflow unless one is picked');
+  } catch (e: any) { app.toast(e.message, 'error'); }
+}
 // Optional modules for this engagement. The core flow is always on.
 async function toggleModule(m: Module) {
   try {
@@ -403,6 +412,12 @@ const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join('').slice(0
         <button v-for="m in MODULES" :key="m" class="switch" :class="{ on: app.mod(m) }" role="switch" :aria-checked="app.mod(m)" :disabled="!app.can('manage_engagement')" @click="toggleModule(m)">
           <span class="track" /><span style="text-align: left"><strong style="color: var(--text)">{{ MODULE_INFO[m].label }}</strong> <span class="small muted">{{ MODULE_INFO[m].hint }}</span></span>
         </button>
+      </div>
+      <!-- v1.7.4: whether new use cases follow a client workflow; each use case can change it. -->
+      <div v-if="app.mod('connectors')" class="field" style="margin-top: 12px">
+        <span>Client steps on use cases</span>
+        <label class="check-row"><input type="radio" name="csd" :checked="app.engagement?.clientStepsDefault !== false" :disabled="!app.can('manage_engagement')" @change="setStepsDefault(true)" /><span><strong>Follow the latest published client workflow</strong><span class="muted small hint-inline">Each use case shows the client's steps. Any use case can opt out.</span></span></label>
+        <label class="check-row"><input type="radio" name="csd" :checked="app.engagement?.clientStepsDefault === false" :disabled="!app.can('manage_engagement')" @change="setStepsDefault(false)" /><span><strong>No client workflow</strong><span class="muted small hint-inline">The team works in ARGUS only. Any use case can still opt in.</span></span></label>
       </div>
     </section>
 

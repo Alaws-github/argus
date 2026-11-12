@@ -15,7 +15,7 @@ const iso = (v: any) => (v instanceof Date ? v.toISOString() : v ? String(v) : n
 
 export const toWorkflow = (r: any): Workflow => ({
   id: r.id, key: `WF-${r.number}`, name: r.name, description: r.description, status: r.status, version: r.version, graph: r.graph,
-  changedSincePublish: r.changed_since_publish, updatedBy: r.updated_by, updatedAt: iso(r.updated_at)!, publishedBy: r.published_by, publishedAt: iso(r.published_at),
+  changedSincePublish: r.changed_since_publish, updatedBy: r.updated_by, updatedAt: iso(r.updated_at)!, publishedBy: r.published_by, publishedAt: iso(r.published_at), requireSteps: !!r.require_steps,
 });
 
 // Shape checks on every save: the governance gates and the trigger stay.
@@ -75,11 +75,12 @@ export function workflowRoutes(r: Router, db: Db, actorOf: (req: Request) => str
     const actor = actorOf(req);
     const next = await db.tx(async (q) => {
       const { rows } = await q.query(
-        `UPDATE workflows SET name = coalesce($2, name), description = coalesce($3, description), graph = coalesce($4::jsonb, graph), changed_since_publish = true, updated_by = $5, updated_at = now() WHERE id = $1 RETURNING *`,
-        [w.id, b.name ?? null, b.description ?? null, b.graph ? JSON.stringify(b.graph) : null, actor]);
+        `UPDATE workflows SET name = coalesce($2, name), description = coalesce($3, description), graph = coalesce($4::jsonb, graph), require_steps = coalesce($6, require_steps), changed_since_publish = true, updated_by = $5, updated_at = now() WHERE id = $1 RETURNING *`,
+        [w.id, b.name ?? null, b.description ?? null, b.graph ? JSON.stringify(b.graph) : null, actor, b.requireSteps ?? null]);
       await logAudit(q, actor, 'workflow.saved', `workflow:WF-${w.number}`, {
         ...(b.name && b.name !== w.name ? { name: { from: w.name, to: b.name } } : {}),
         ...(b.graph ? { steps: b.graph.nodes.length, arrows: b.graph.edges.length } : {}),
+        ...(b.requireSteps !== undefined && b.requireSteps !== w.require_steps ? { requireStepsBeforeSignOff: b.requireSteps } : {}),
       });
       return rows[0];
     });
@@ -103,7 +104,7 @@ export function workflowRoutes(r: Router, db: Db, actorOf: (req: Request) => str
     const actor = actorOf(req);
     const next = await db.tx(async (q) => {
       const v = w.version + 1;
-      await q.query(`INSERT INTO workflow_versions (workflow_id, version, name, graph, note, published_by) VALUES ($1,$2,$3,$4,$5,$6)`, [w.id, v, w.name, JSON.stringify(w.graph), b.note, actor]);
+      await q.query(`INSERT INTO workflow_versions (workflow_id, version, name, graph, note, published_by, require_steps) VALUES ($1,$2,$3,$4,$5,$6,$7)`, [w.id, v, w.name, JSON.stringify(w.graph), b.note, actor, !!w.require_steps]);
       const { rows } = await q.query(`UPDATE workflows SET status = 'published', version = $2, changed_since_publish = false, published_by = $3, published_at = now() WHERE id = $1 RETURNING *`, [w.id, v, actor]);
       await logAudit(q, actor, 'workflow.published', `workflow:WF-${w.number}`, { version: v, note: b.note, steps: w.graph.nodes.length });
       return rows[0];
@@ -119,8 +120,8 @@ export function workflowRoutes(r: Router, db: Db, actorOf: (req: Request) => str
     if (!vr[0]) throw httpError(404, 'Version not found');
     const actor = actorOf(req);
     const next = await db.tx(async (q) => {
-      const { rows } = await q.query(`UPDATE workflows SET graph = $2, name = $3, status = CASE WHEN status = 'retired' THEN 'draft' ELSE status END, changed_since_publish = true, updated_by = $4, updated_at = now() WHERE id = $1 RETURNING *`,
-        [w.id, JSON.stringify(vr[0].graph), vr[0].name, actor]);
+      const { rows } = await q.query(`UPDATE workflows SET graph = $2, name = $3, require_steps = $5, status = CASE WHEN status = 'retired' THEN 'draft' ELSE status END, changed_since_publish = true, updated_by = $4, updated_at = now() WHERE id = $1 RETURNING *`,
+        [w.id, JSON.stringify(vr[0].graph), vr[0].name, actor, !!vr[0].require_steps]);
       await logAudit(q, actor, 'workflow.restored', `workflow:WF-${w.number}`, { version: b.version });
       return rows[0];
     });

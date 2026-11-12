@@ -67,6 +67,7 @@ npm run dev          # web http://localhost:5173, API http://localhost:4300
 npm run typecheck
 npm run db:reset     # STOP THE APP FIRST. Rebuilds data/pglite with the demo
 npm run demo         # app running: 5 people, 5 client engagements (scripts/demo/run.mjs; BASE_URL for a hosted site; DEMO_ADMIN_EMAIL/PASSWORD if accounts exist; clients already there are skipped; --only=a,b picks; --alone removes Client Zero)
+npm run demo:topup   # app running: adds the v1.7.3 and v1.7.4 demo pieces to Northshore and Palmcrest on a site built before them (BASE_URL, DEMO_ADMIN_EMAIL/PASSWORD); only adds, safe to run again (scripts/demo/topup-v174.mjs)
 npm run demo:build   # app STOPPED: saved copies in demos/ (all + one per client); demo:list, demo:load -- <copy>, demo:save -- <name> (scripts/demo/library.mjs; backs up data/ first, never copies secret.key)
 npm run smoke        # 68 API checks; needs a fresh db and a running server
 npm run test:agents  # 30 drafting-agent checks incl. a cheating mock model

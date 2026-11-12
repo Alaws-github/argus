@@ -99,3 +99,7 @@ A client workflow drawn once and never opened again is a diagram. Each client st
 ### say-what-a-source-is `design`
 A reviewer saw "K-55 · Risk tiers" and "Its sources share 45% of its key terms (limit, interact, duti)" and couldn't tell what either meant. Sources now say what they are (framework requirement, library control, ARGUS method, client document) and which frameworks they draw on (`describeSource`); the K-number stays, small, as the reference. Verifier verdicts say what to do (`VERDICT_ADVICE`), never show word stems, and the offline rules are called "the built-in rules (no AI model)".
 **Enforced by:** test scripts/v174-test.mjs (no stems in reasons); browser check of a classification draft
+
+### notice-is-a-flex-column `bug`
+The `.notice` box lays its children out as a flex column, so a sentence with bold words and a link inside one `<p class="notice">` broke onto six lines (each inline element became its own row). Use `.notice` for a box of blocks; for a single sentence, set `display: block` on it or put the sentence inside a child element.
+**Enforced by:** none - a browser check of Controls > Standards at 1440 and 390 (layout is not covered by the API tests)

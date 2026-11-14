@@ -11,6 +11,7 @@ import { pullDue } from '../integrations/connectors.js';
 import { dispatchOutbound } from '../integrations/outbound.js';
 import { checkDueSteps } from '../integrations/client-steps.js';
 
+/** How often the scheduler ticks (MONITOR_TICK_MS, 15 seconds by default). */
 export const MONITOR_TICK_MS = Number(process.env.MONITOR_TICK_MS || 15_000);
 const PERIOD_MS = { daily: 864e5, weekly: 7 * 864e5 } as const;
 let busy = false;
@@ -72,6 +73,7 @@ export async function checkRun(db: Db, runId: string) {
   if (alerts.length) emit('alert', { engagementId: r.engagement_id });
 }
 
+/** When a daily or weekly schedule next runs. */
 export function nextRun(schedule: string, from = Date.now()) {
   const p = PERIOD_MS[schedule as keyof typeof PERIOD_MS];
   return p ? new Date(from + p).toISOString() : null;

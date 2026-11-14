@@ -10,6 +10,13 @@ import { extract } from '../core/extract.js';
 import { indexEvidence, scheduleEmbedding } from '../knowledge/kb.js';
 import { getEvidence, putEvidence } from '../core/storage.js';
 
+/**
+ * Registers these 4 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/evidence
+ * - POST /evidence
+ * - GET /evidence/:id/verify
+ * - GET /evidence/:id/download
+ */
 export function evidenceRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // ---------------------------------------------------------------- evidence
   r.get(

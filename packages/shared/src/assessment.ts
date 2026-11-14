@@ -14,6 +14,7 @@ export const ASSESSMENT_AREAS = [
   { id: 'privacy', name: 'Data protection', basis: 'Jamaica DPA 2020; ISO/IEC 42001 A.7' },
   { id: 'manage', name: 'Issue management and monitoring', basis: 'NIST AI RMF Manage; ISO/IEC 42001 clause 10' },
 ] as const;
+/** One readiness assessment area. */
 export type AreaId = (typeof ASSESSMENT_AREAS)[number]['id'];
 
 // A common capability-maturity scale.

@@ -5,6 +5,7 @@ import { decrypt } from '../core/crypto.js';
 import { DEFAULT_PRICES } from '../agents/pricing.js';
 import { toIso } from '../core/format.js';
 
+/** A provider row as stored (its key encrypted). */
 export interface ProviderRow {
   id: string;
   type: ProviderType;
@@ -25,6 +26,7 @@ export interface ProviderRow {
 
 const envKeyFor = (type: ProviderType) => (type === 'anthropic' ? process.env.ANTHROPIC_API_KEY : undefined);
 
+/** A provider row as an API record, without its key. */
 export function toProvider(r: ProviderRow & { used_by?: number }): Provider {
   const fromEnv = !r.api_key_enc && !!envKeyFor(r.type);
   const prices = r.prices ?? {};
@@ -54,15 +56,18 @@ export function toProvider(r: ProviderRow & { used_by?: number }): Provider {
   };
 }
 
+/** The query for providers with the number of agents using each. */
 export const PROVIDER_SELECT = `
   SELECT p.*, (SELECT count(*)::int FROM agents a WHERE a.provider_id = p.id OR a.fallback_provider_id = p.id) AS used_by
   FROM providers p`;
 
+/** A provider row by id, or null. */
 export async function getProviderRow(q: Queryable, id: string): Promise<ProviderRow | null> {
   const { rows } = await q.query(`SELECT * FROM providers WHERE id = $1`, [id]);
   return rows[0] ?? null;
 }
 
+/** A provider's API key, decrypted. */
 export function apiKeyOf(r: Pick<ProviderRow, 'type' | 'api_key_enc'>): string | undefined {
   if (r.api_key_enc) return decrypt(r.api_key_enc);
   return envKeyFor(r.type);
@@ -106,6 +111,10 @@ export async function discoverModels(
 // embedding models the agents can't use. Keep the ones that write text.
 const NOT_TEXT =
   /(tts|image|imagen|veo|audio|embedding|embed|live|computer-use|native|aqa|whisper|dall-e|moderation|transcribe|realtime|vision-only|learnlm)/i;
+/**
+ * For Gemini and OpenAI, the model ids that can chat (dropping embedding, image and audio models); other
+ * providers' lists are kept as they are.
+ */
 export function keepChatModels(baseUrl: string, ids: string[]): string[] {
   if (/generativelanguage\.googleapis\.com/.test(baseUrl)) {
     return ids.filter((m) => /gemini|gemma/i.test(m) && !NOT_TEXT.test(m));

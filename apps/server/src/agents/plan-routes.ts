@@ -11,11 +11,21 @@ import { createCard } from '../board/cards.js';
 import { scheduleEmbedding } from '../knowledge/kb.js';
 import { emit } from '../core/realtime.js';
 import { OPENING, plannerTarget, plannerTurn, toPlan } from './planner.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 const SELECT = `SELECT p.*, c.key AS card_key FROM plans p LEFT JOIN cards c ON c.id = p.card_id`;
 const now = () => new Date().toISOString();
 
-export function planRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 7 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/plans
+ * - POST /engagements/:id/plans
+ * - GET /plans/:id
+ * - POST /plans/:id/messages
+ * - PATCH /plans/:id
+ * - POST /plans/:id/add
+ * - DELETE /plans/:id
+ */
+export function planRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   const load = async (req: Request, forWrite = false) => {
     const { rows } = await db.query(`${SELECT} WHERE p.id::text = $1`, [req.params.id]);
     if (!rows[0]) throw httpError(404, 'Plan not found');

@@ -18,6 +18,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 // review (the prompt-injection control from Anser ADR 028). An agent's custom
 // instructions from Settings are appended after them; they can't replace them.
 const RULES = readFileSync(resolve(here, 'prompts/risk-classifier.md'), 'utf8');
+/** The Risk Classifier's rules file version (rule 8). */
 export const RULES_VERSION = createHash('sha256').update(RULES).digest('hex').slice(0, 12);
 
 const CATEGORIES: RiskCategory[] = [
@@ -94,6 +95,7 @@ function profileText(card: Card, feedback: string | null, about: string) {
 // What the agent checks its own draft against before handing it in (v1.6).
 const CRITIQUE = readRubric(new URL('./prompts/risk-classifier.critique.md', import.meta.url), 'utf8');
 
+/** Proposes a use case's risk tier, oversight model and starting risks. A person approves at the gate. */
 export async function runRiskClassifier(ctx: AgentContext, db: Db, log: Log): Promise<AgentResult<Classification>> {
   const { card, feedback } = ctx;
   await log('step', `Read the use case profile for ${card.key}`);

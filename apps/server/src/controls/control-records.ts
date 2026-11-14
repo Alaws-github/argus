@@ -15,6 +15,7 @@ export const toLibrary = (r: any) => ({
   refs: r.refs,
   builtIn: r.built_in,
 });
+/** The query for controls with their card, library control and test and evidence counts. */
 export const CONTROL_SELECT = `
   SELECT c.*, k.key AS card_key, l.code AS library_code,
     COALESCE((SELECT json_agg(cr.risk_id) FROM control_risks cr WHERE cr.control_id = c.id), '[]') AS risk_ids,
@@ -25,6 +26,7 @@ export const CONTROL_SELECT = `
     (SELECT count(*)::int FROM evidence e WHERE e.control_id = c.id OR e.test_id IN (SELECT id FROM tests WHERE control_id = c.id)) AS ev,
     (SELECT count(*)::int FROM issues i WHERE i.control_id = c.id AND i.status IN ('open','in_remediation','ready_for_retest')) AS open_issues
   FROM controls c LEFT JOIN cards k ON k.id = c.card_id LEFT JOIN control_library l ON l.id = c.library_id`;
+/** A control row as an API record. */
 export const toControl = (r: any) => ({
   id: r.id,
   key: `C-${r.number}`,

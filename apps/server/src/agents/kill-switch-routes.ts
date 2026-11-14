@@ -6,6 +6,10 @@ import { httpError, type ActorOf, type Wrap } from '../core/http.js';
 import { type Db } from '../core/db.js';
 import { emit } from '../core/realtime.js';
 
+/**
+ * Registers this route on the API router (each path is under /api):
+ * - POST /agents/:id/kill
+ */
 export function killSwitchRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // ------------------------------------------------- agent kill switch, audit
   r.post(

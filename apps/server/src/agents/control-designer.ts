@@ -13,6 +13,7 @@ import type { AgentContext, AgentResult, Log } from './types.js';
 /** What the agent checks its own draft against before handing it in (v1.6). */
 const CRITIQUE = readPrompt('control-designer.critique.md');
 const RULES = readPrompt('control-designer.md');
+/** The Control Designer's rules file version (rule 8). */
 export const RULES_VERSION = createHash('sha256').update(RULES).digest('hex').slice(0, 12);
 
 const SCHEMA = {
@@ -48,6 +49,7 @@ interface Lib {
   test_procedure: string;
   risk_categories: string[];
 }
+/** An approved risk the Control Designer designs controls for. */
 export interface Risk {
   title: string;
   category: string;

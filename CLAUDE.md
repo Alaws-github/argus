@@ -8,7 +8,7 @@ Context for Claude working on this project. Read this first, then:
 
 **v1.7** added the dashboard look (KPI tiles on every working page), client workflows (a builder around the governance gates) and an assistant that shows its steps live. v1.6 built `docs/plans/v1.6-agentic-ai.md`; "What v1.6 simplified" below says where it differs. **Releases from here are numbered 1.7.1, 1.7.2 and so on.** v1.7.1 put workflow steps in the client's business tools (`packages/shared/src/tools-catalog.ts`): Microsoft 365, ServiceNow, Jira, Google Workspace, Slack and others, read through read-only connectors, never written to. v1.7.2 moved connector management to Settings > Connected tools (with the engagement's `clientTools`), opens the connector form in place from a workflow step (`features/integrations/ConnectorForm.vue`), made Tests and Evidence > From Client Tools a read-only view, added the optional wizard step "How does the client work?" (template draft workflow and client tools, no credentials), and renamed the Settings tab Workflow to Approval gates. v1.7.3 gave client steps a proof (`proof`, `proofStatus` on a workflow node) checked per use case through connectors (`client-steps.ts`, `features/integrations/ClientSteps.vue`), added opt-in write-back (`outbound.ts`, `features/integrations/WriteBackCard.vue`), evidence pushed from pipelines (`ingest.ts`, `features/integrations/PipelinesCard.vue`), S3 (SigV4) and Azure Blob (SAS) reads, FDA GMLP and HIPAA (`library-health.ts`), and Controls > Across Frameworks (`harmonize.ts`, `features/controls/HarmonizeTab.vue`). Shared types for these are in `packages/shared/src/integrations.ts`. Client steps inform the people at the gates; they never move a card. v1.7.4 added the complete requirement list per framework (`packages/shared/src/framework-catalog.ts`, `requirements.ts`, `features/controls/RequirementsTab.vue`: Controls > Every Requirement), plainer sources and Verifier wording (`describeSource`, `VERDICT_ADVICE`), `cards.workflow_mode` (auto, none, pinned) with `engagements.client_steps_default`, tracked-only client steps, scheduled checks (`checkDueSteps`), `workflows.require_steps` (a sign-off exit criterion) and the Client tools and workflows module (the `connectors` module key).
 
-**v1.7.7** split every long server function into named steps and gave each drafting agent its own file; behaviour is unchanged. **v1.7.6** reorganised the code by feature (see Layout), split the big route files, moved shared helpers to `core/`, and broke the engine's `runCard` and engagement creation into named steps; behaviour is unchanged. **v1.7.5** added coding standards (`docs/CODING-STANDARDS.md`), ESLint, Prettier and a pre-commit hook, and formatted all code; behaviour is unchanged.
+**v1.7.8** split the large screens into components (Settings and Agent testing tabs, the drawer's panels with `use-card-drawer.ts`, the workflow inspector with `use-workflow-builder.ts`, KPI tile builders), put a JSDoc comment on every export and generated the API reference and feature READMEs (`npm run docs`); behaviour is unchanged. **v1.7.7** split every long server function into named steps and gave each drafting agent its own file; behaviour is unchanged. **v1.7.6** reorganised the code by feature (see Layout), split the big route files, moved shared helpers to `core/`, and broke the engine's `runCard` and engagement creation into named steps; behaviour is unchanged. **v1.7.5** added coding standards (`docs/CODING-STANDARDS.md`), ESLint, Prettier and a pre-commit hook, and formatted all code; behaviour is unchanged.
 
 **Every change updates its records** (checklist in AGENTS.md): `CHANGELOG.md`, the version in `package.json` for a release, the manual and its screenshots when the UI changes, this file and `README.md`, `assistant-pages.ts` for new pages, and a lesson for every bug, correction or design decision. **UI and UX are part of the job**: check every screen change in the browser, dark mode first, at desktop and phone widths.
 
@@ -67,7 +67,8 @@ These are the product. Any change must keep them, and the tests check them.
 npm install
 npm run dev          # web http://localhost:5173, API http://localhost:4300
 npm run typecheck
-npm run check        # lint (ESLint), format check (Prettier) and typecheck; a pre-commit hook lints and formats staged files
+npm run check        # lint (ESLint), format check (Prettier), typecheck and check:docs; a pre-commit hook lints and formats staged files
+npm run docs         # rebuild docs/API.md, docs/api/openapi.json and the README in each feature folder from the code
 npm run lint:fix     # and npm run format: fix lint and layout in place
 npm run db:reset     # STOP THE APP FIRST. Rebuilds data/pglite with the demo
 npm run demo         # app running: 5 people, 5 client engagements (scripts/demo/run.mjs; BASE_URL for a hosted site; DEMO_ADMIN_EMAIL/PASSWORD if accounts exist; clients already there are skipped; --only=a,b picks; --alone removes Client Zero)
@@ -143,24 +144,27 @@ apps/server/src
   setup/              seed.ts (demo engagement, providers, agents, library), reset.ts (npm run db:reset)
 apps/web/src
   App.vue, main.ts    shell (menu, engagement switcher, account menu) and the router
-  features/<feature>/ pages and components per feature, named as on the server: board (BoardPage, PlanPage, CardDrawer,
-                      DraftItem, VerifierBar, FilterPill, NewUseCase, runs, drafts.ts), engagements (OverviewPage, AddEngagementPage,
-                      SettingsPage, EngagementAccess), controls (ControlsPage and its tabs, ControlUpload), integrations (WorkflowsPage,
-                      WorkflowBuilderPage, ConnectorForm, ConnectorsTab, ClientSteps, WriteBackCard, PipelinesCard), ai (ModelsPage,
-                      ProviderForm), assistant (AssistantPanel), auth (SignIn, SsoSettings), workspace (Workspace, Users, Account),
-                      and one folder each for audit, risks, testing, issues, incidents, evals, inventory, reporting, knowledge, agent-testing
-  components/         shared building blocks: AppIcon, ArgusLogo, KpiStrip, StackedBars, StatusPill
+  features/<feature>/ pages and components per feature, named as on the server: board (BoardPage, PlanPage, CardDrawer with
+                      use-card-drawer.ts and its panels Card*.vue, DraftItem, VerifierBar, FilterPill, NewUseCase, runs, drafts.ts),
+                      engagements (OverviewPage, AddEngagementPage, SettingsPage with one Settings*Tab.vue per tab, EngagementAccess),
+                      controls (ControlsPage and its tabs, ControlUpload), integrations (WorkflowsPage, WorkflowBuilderPage with
+                      use-workflow-builder.ts and WorkflowInspector, ConnectorForm, ConnectorsTab, ClientSteps, WriteBackCard,
+                      PipelinesCard), ai (ModelsPage, ProviderForm), assistant (AssistantPanel, assistant-labels.ts, use-tag-picker.ts),
+                      agent-testing (AgentTestingPage with one Agent*Tab.vue per tab), auth (SignIn, SsoSettings), workspace,
+                      and one folder each for audit, risks, testing, issues, incidents, evals, inventory, reporting, knowledge
+  components/         shared building blocks: AppIcon, ArgusLogo, KpiStrip (tiles per page in kpi-tiles.ts), StackedBars, StatusPill
   lib/                markdown.ts (safe Markdown for model text), links.ts (keyLink, ?focus=), unsaved.ts (useUnsaved)
   stores/app.ts       session, engagement, cards, permissions (can() is false for writes on archived engagements)
   api.ts, styles.css  the API client; GoldenEye design tokens (dark first)
-docs/                 plain-language docs, CODING-STANDARDS.md, lessons, runbooks, diagrams and images
-scripts/              test suites, mock-model.cjs, demo data (scripts/demo/), lesson checks
+docs/                 plain-language docs, CODING-STANDARDS.md, API.md and api/openapi.json (generated), lessons, runbooks, images
+scripts/              test suites, mock-model.cjs, demo data (scripts/demo/), lesson checks, docs/build-docs.mjs
 data/                 database, evidence files, secret.key (gitignored; back up together)
 ```
 
 ## Conventions
 
 - **Coding standards:** `docs/CODING-STANDARDS.md` (from the maintainers' guides for TypeScript, Vue, Express, PostgreSQL and Zod). `npm run check` must pass with no ESLint errors; don't add `any` warnings. Vue templates compile with `whitespace: 'preserve'` (see the standards file) because Prettier may move a space between tags onto a new line.
+- **Comments and generated docs:** every export has a JSDoc comment and every file a header comment. `docs/API.md`, `docs/api/openapi.json` and each feature folder's `README.md` are generated by `npm run docs`; never edit them by hand. A new feature folder needs a description in `scripts/docs/build-docs.mjs`.
 - **Schema changes:** append `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` to `core/schema.sql`; never edit earlier statements. Add new tables to the drop lists in `reset.ts`, and to the export and delete in `archive.ts` if they belong to an engagement.
 - **New agent:** a rules file in `prompts/`, a Zod schema in `shared`, an offline rules implementation, server checks on everything it cites, dispatch and apply in `engine.ts`, its rules version in `RULES_VERSIONS`, and tests in `scripts/agents-test.mjs`.
 - **New feature or route:** put it in its feature folder (server `src/<feature>/`, web `src/features/<feature>/`); a new route file is `<feature>/<thing>-routes.ts` exporting `thingRoutes(r, db, actorOf, wrap)`, registered in `api-router.ts`; use `httpError` and the helpers in `core/` rather than redefining them. Add a `RULES` entry in `auth.ts` (default: GET needs read, other methods need prepare).

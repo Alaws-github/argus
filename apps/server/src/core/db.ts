@@ -5,10 +5,12 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DATA_DIR } from './paths.js';
 
+/** Anything that runs a query: the database or a transaction. */
 export interface Queryable {
   query<T = any>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
 }
 
+/** The database: queries, and tx() for a transaction. */
 export interface Db extends Queryable {
   kind: 'postgres' | 'pglite';
   exec(sql: string): Promise<void>;
@@ -67,6 +69,7 @@ async function openPglite(): Promise<Db> {
 
 let instance: Db | null = null;
 
+/** Opens the database: Postgres when DATABASE_URL is set, otherwise PGlite in data/pglite. */
 export async function getDb(): Promise<Db> {
   if (instance) return instance;
   instance = process.env.DATABASE_URL ? await openPostgres(process.env.DATABASE_URL) : await openPglite();
@@ -76,6 +79,7 @@ export async function getDb(): Promise<Db> {
 // True once the vector extension is installed; without it search is keyword only.
 export let vectorAvailable = false;
 
+/** Runs schema.sql (idempotent: each version appends its changes). */
 export async function migrate(db: Db) {
   const sql = readFileSync(resolve(here, 'schema.sql'), 'utf8');
   await db.exec(sql);

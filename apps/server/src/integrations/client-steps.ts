@@ -11,7 +11,7 @@
 // governance gates are still decided by named people (rule 1). They give the
 // person deciding the client's own paper trail, checked.
 import { createHash } from 'node:crypto';
-import type { Request, Router } from 'express';
+import type { Router } from 'express';
 import { z } from 'zod';
 import { DONE_WORDS, type ClientStep, type ProofKind, type WfGraph } from '@gh/shared';
 import type { Db, Queryable } from '../core/db.js';
@@ -20,7 +20,7 @@ import { readConnector } from './connectors.js';
 import { putEvidence } from '../core/storage.js';
 import { getSettings } from '../settings/settings-store.js';
 import { emit } from '../core/realtime.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 import { toIso } from '../core/format.js';
 
 const CLIENT_TYPES = new Set(['start', 'person', 'task', 'notify']);
@@ -72,6 +72,10 @@ function collect(v: unknown, out: unknown[] = [], depth = 0): unknown[] {
   return out;
 }
 
+/**
+ * The records in a connector's reply (JSON, or one line per record), with each record's link resolved
+ * against the reply's address.
+ */
 export function readRecords(buf: Buffer, mime: string, base: URL | null = null): Rec[] {
   const s = buf.toString('utf8');
   let json: unknown;
@@ -106,6 +110,7 @@ export function readRecords(buf: Buffer, mime: string, base: URL | null = null):
 const mentions = (text: string, key: string) =>
   new RegExp(`(^|[^A-Za-z0-9])${key.replace(/[-]/g, '\\-')}(?![0-9])`, 'i').test(text);
 
+/** Whether a step's proof is seen in the records for this use case (rule 32). */
 export function evaluateProof(
   recs: Rec[],
   key: string,
@@ -188,6 +193,7 @@ function orderSteps(g: WfGraph) {
     .filter((n) => CLIENT_TYPES.has(n.type) && (n.config.tool || n.config.proof));
 }
 
+/** How a use case follows a client workflow: the latest published one, none, or a pinned one. */
 export type WorkflowMode = 'auto' | 'none' | 'pinned';
 // The workflow a use case follows (v1.7.4):
 // - pinned: the one chosen for it (if still published);
@@ -248,7 +254,15 @@ export async function stepsBlockingSignOff(q: Queryable, cardId: string): Promis
     .map((n) => n.label);
 }
 
-export function clientStepRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 5 routes on the API router (each path is under /api):
+ * - GET /cards/:id/client-steps
+ * - PUT /cards/:id/workflow
+ * - POST /cards/:id/client-steps/check
+ * - POST /cards/:id/client-steps/:node/confirm
+ * - DELETE /cards/:id/client-steps/:node
+ */
+export function clientStepRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   const cardOf = async (id: string) => {
     const c = (
       await db.query(

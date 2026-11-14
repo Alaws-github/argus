@@ -20,7 +20,8 @@ import type { Db } from '../core/db.js';
 import { logAudit } from '../audit/audit.js';
 import { createSession, setCookie } from './auth.js';
 import { decrypt, encrypt } from '../core/crypto.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
+/** The OpenID Connect settings an admin saves. */
 export const SsoConfig = z.object({
   enabled: z.boolean(),
   label: z.string().trim().max(60).default('your organisation'),
@@ -42,6 +43,7 @@ export const SsoConfig = z.object({
 });
 type Stored = Omit<z.infer<typeof SsoConfig>, 'clientSecret'> & { secretEnc: string | null };
 
+/** The saved single sign-on settings, or null. */
 export async function getSso(db: Db): Promise<Stored | null> {
   const { rows } = await db.query(`SELECT value FROM settings WHERE key = 'sso'`);
   return rows[0]?.value ?? null;
@@ -73,7 +75,15 @@ const pending = new Map<string, { nonce: string; verifier: string; redirectUri: 
 const b64url = (b: Buffer) => b.toString('base64url');
 const base = (req: Request) => process.env.PUBLIC_URL?.replace(/\/+$/, '') || `${req.protocol}://${req.get('host')}`;
 
-export function ssoRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 5 routes on the API router (each path is under /api):
+ * - GET /auth/sso
+ * - GET /auth/sso/start
+ * - GET /auth/sso/callback
+ * - GET /sso/config
+ * - PUT /sso/config
+ */
+export function ssoRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // Public: does the sign-in page show the SSO button?
   r.get(
     '/auth/sso',

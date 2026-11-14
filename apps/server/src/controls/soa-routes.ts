@@ -7,6 +7,11 @@ import { toIso } from '../core/format.js';
 import { type ActorOf, type Wrap } from '../core/http.js';
 import { type Db } from '../core/db.js';
 
+/**
+ * Registers these 2 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/soa
+ * - PUT /engagements/:id/soa/:libraryId
+ */
 export function soaRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // ------------------------------------------------- Statement of Applicability
   r.get(

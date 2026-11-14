@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { RiskCategory, RiskTier, Oversight, type Card, type ItemDecision } from '@gh/shared';
 
+/** The stages whose drafts are decided item by item (rule 12). */
 export const DECIDED_STAGES = ['classify', 'design', 'validate', 'report'] as const;
 
 // The items a person decides on, for the card's current stage and draft.
@@ -23,6 +24,7 @@ export function itemsFor(card: Card): string[] {
   return [];
 }
 
+/** The draft items at the card's stage that have no decision yet. */
 export function undecided(card: Card): string[] {
   const d = card.decisions?.[card.stage] ?? {};
   return itemsFor(card).filter((k) => !d[k]);
@@ -47,6 +49,7 @@ const EDITS: Record<string, z.ZodTypeAny> = {
     .partial(),
 };
 
+/** Checks an edited draft item has the right fields and values. */
 export function checkEdit(item: string, edit: unknown) {
   const kind = item.split(':')[0];
   const schema = EDITS[kind];

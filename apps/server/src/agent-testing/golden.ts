@@ -55,6 +55,7 @@ const ex = (e: Partial<NewGoldenCase['expected']>): NewGoldenCase['expected'] =>
   ...e,
 });
 
+/** The built-in golden cases, seeded once. */
 export const GOLDEN_SEED: Seed[] = [
   {
     ref: 'gc-credit',
@@ -540,6 +541,7 @@ export const LABEL_SEED: {
   },
 ];
 
+/** Seeds the golden cases and judge labels if they aren't there yet. */
 export async function ensureGolden(q: Queryable) {
   for (const c of GOLDEN_SEED) {
     await q.query(
@@ -583,6 +585,7 @@ export const toCase = (r: any): GoldenCase => ({
   createdBy: r.created_by,
   createdAt: toIso(r.created_at)!,
 });
+/** A golden run row as an API record. */
 export const toRunRow = (r: any): GoldenRun => ({
   id: r.id,
   key: `GR-${r.number}`,
@@ -602,6 +605,7 @@ export const toRunRow = (r: any): GoldenRun => ({
   regressions: r.regressions ?? [],
   previous: r.previous,
 });
+/** A judge label row as an API record. */
 export const toLabel = (r: any): JudgeLabel => ({
   id: r.id,
   key: `L-${r.number}`,
@@ -614,6 +618,7 @@ export const toLabel = (r: any): JudgeLabel => ({
   createdBy: r.created_by,
   createdAt: toIso(r.created_at)!,
 });
+/** A calibration row as an API record. */
 export const toCalibration = (r: any): Calibration => ({
   ...r.result,
   id: r.id,
@@ -703,6 +708,7 @@ function scoreDesigner(c: GoldenCase, out: any): GoldenCheck[] {
   return checks;
 }
 
+/** The provider and model a golden run uses. */
 export interface GoldenTarget {
   provider: ProviderRow;
   model: string;
@@ -973,6 +979,7 @@ export function agreement(pairs: { human: 'good' | 'bad'; judgeGood: boolean }[]
 }
 const round = (x: number) => Math.round(x * 1000) / 1000;
 
+/** Measures the Verifier against people's labels (kappa and false passes), audited, its spend recorded. */
 export async function calibrate(db: Db, target: JudgeTarget | null, actor: string): Promise<Calibration> {
   const { rows } = await db.query(`SELECT * FROM judge_labels ORDER BY number`);
   const labels = rows.map(toLabel);

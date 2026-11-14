@@ -9,6 +9,7 @@ const REGISTER: Record<string, string> = {
   INC: '/incidents',
 };
 
+/** The page a record key links to (AI-3, R-5, C-2...), or null if it isn't one ARGUS knows. */
 export function keyLink(key: string, cardKeys: Set<string>): string | null {
   const k = key.toUpperCase();
   if (cardKeys.has(k)) return `/?card=${encodeURIComponent(k)}`;

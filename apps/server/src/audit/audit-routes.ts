@@ -7,6 +7,11 @@ import { type ActorOf, type Wrap } from '../core/http.js';
 import { type Db } from '../core/db.js';
 import { toAudit } from '../settings/settings-store.js';
 
+/**
+ * Registers these 2 routes on the API router (each path is under /api):
+ * - GET /audit
+ * - GET /audit/verify
+ */
 export function auditRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // Audit log with filters: free text, who, what, address and a date range.
   r.get(

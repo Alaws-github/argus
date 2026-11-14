@@ -29,7 +29,9 @@ const local = {
     }
   },
 };
+/** The colour theme: follow the system, light or dark. */
 export type Theme = 'system' | 'light' | 'dark';
+/** Applies a colour theme to the page. */
 export function applyTheme(t: Theme) {
   if (t === 'system') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', t);
@@ -37,6 +39,7 @@ export function applyTheme(t: Theme) {
 applyTheme((local.get('gh.theme') as Theme) || 'dark');
 let wired = false;
 
+/** The app's shared state: the session, engagements, cards, permissions, theme and the assistant. */
 export const useApp = defineStore('app', {
   state: () => ({
     engagements: [] as Engagement[],

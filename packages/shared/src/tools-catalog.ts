@@ -11,7 +11,9 @@
 // either have no read API that fits, or reading needs a sign-in flow that
 // writes, such as a POST sign-in).
 export type ToolUse = 'documents' | 'approvals' | 'tickets' | 'notify' | 'spreadsheet' | 'dashboard' | 'sign' | 'tasks';
+/** How a connector signs in to a business tool. */
 export type ToolAuth = 'azure_ad' | 'google_sa' | 'basic' | 'bearer' | 'header' | 'aws_sigv4' | 'azure_sas';
+/** How a connector reads a business tool: the sign-in, an example address and setup help. */
 export interface ToolRead {
   auth: ToolAuth;
   scope?: string;
@@ -19,6 +21,7 @@ export interface ToolRead {
   help: string;
   headerName?: string;
 }
+/** A business tool a client may use, what it is used for and how a connector reads it. */
 export interface BusinessTool {
   id: string;
   name: string;
@@ -35,6 +38,7 @@ const M365_HELP =
 const GOOGLE_HELP =
   "Create a service account in the client's Google Cloud project, share the drive, folder or sheet with its email address (Viewer), and paste its JSON key.";
 
+/** Every business tool ARGUS knows (generic names; read-only). */
 export const BUSINESS_TOOLS: BusinessTool[] = [
   // Microsoft 365
   {
@@ -352,8 +356,11 @@ export const BUSINESS_TOOLS: BusinessTool[] = [
     },
   },
 ];
+/** The tool groups, in the order they appear in BUSINESS_TOOLS. */
 export const TOOL_GROUPS = [...new Set(BUSINESS_TOOLS.map((t) => t.group))];
+/** The business tool with this id, if there is one. */
 export const toolById = (id?: string | null) => BUSINESS_TOOLS.find((t) => t.id === id) ?? null;
+/** What a tool is used for, in words. */
 export const TOOL_USE_LABELS: Record<ToolUse, string> = {
   documents: 'documents',
   approvals: 'approvals',

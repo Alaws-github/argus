@@ -6,6 +6,7 @@
 import type { EvalCaseInput, FrameworkRefs } from '@gh/shared';
 import { HEALTH_CONTROLS, HEALTH_OBLIGATIONS, HEALTH_REFS } from './library-health.js';
 
+/** A library control as seeded. */
 export interface SeedControl {
   code: string;
   title: string;
@@ -19,6 +20,7 @@ export interface SeedControl {
   refs: FrameworkRefs;
 }
 
+/** The built-in control library. */
 export const LIBRARY: SeedControl[] = [
   // Governance and accountability
   {
@@ -469,6 +471,7 @@ export const LIBRARY: SeedControl[] = [
   },
 ];
 
+/** The built-in obligations and the library controls that meet them. */
 export const OBLIGATIONS: { source: string; ref: string; title: string; summary: string; codes: string[] }[] = [
   {
     source: 'EU AI Act',
@@ -717,6 +720,7 @@ export const RED_TEAM_CASES: EvalCaseInput[] = [
   },
 ];
 
+/** The built-in quality evaluation cases for the demo chatbot. */
 export const QUALITY_CASES: EvalCaseInput[] = [
   {
     name: 'Card replacement fee',

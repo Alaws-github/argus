@@ -8,6 +8,13 @@ import { requireDifferentPerson } from '../auth/auth.js';
 import { httpError, type ActorOf, type Wrap } from '../core/http.js';
 import { type Db } from '../core/db.js';
 
+/**
+ * Registers these 4 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/tests
+ * - POST /engagements/:id/tests
+ * - PATCH /tests/:id
+ * - POST /tests/:id/review
+ */
 export function testRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // ------------------------------------------------------------------- tests
   r.get(

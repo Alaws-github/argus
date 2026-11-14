@@ -5,13 +5,13 @@
 // framework references each control satisfies, how much of each framework
 // in scope the engagement's controls cover, and suggests a library match
 // for controls that aren't mapped yet. A person accepts each mapping.
-import type { Request, Router } from 'express';
+import type { Router } from 'express';
 import { z } from 'zod';
 import { FRAMEWORK_CATALOG, FRAMEWORK_LABELS, frameworksIn, refMeets, type FrameworkRefs } from '@gh/shared';
 import type { Db } from '../core/db.js';
 import { logAudit } from '../audit/audit.js';
 import { emit } from '../core/realtime.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 const STOP = new Set(
   'the a an and or of to for in on is are be by with each its it that this as at from before after per any all their they not no ai'.split(
     ' ',
@@ -35,6 +35,7 @@ export function similarity(a: { title: string; objective: string }, b: { title: 
   return (inter + titleHits) / (A.size + B.size - inter || 1);
 }
 
+/** Merges framework references, keeping each reference once. */
 export function mergeRefs(...all: (FrameworkRefs | null | undefined)[]): FrameworkRefs {
   const out: Record<string, string[]> = {};
   for (const r of all)
@@ -43,7 +44,12 @@ export function mergeRefs(...all: (FrameworkRefs | null | undefined)[]): Framewo
   return out;
 }
 
-export function harmonizeRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 2 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/harmonization
+ * - POST /controls/:id/map
+ */
+export function harmonizeRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   r.get(
     '/engagements/:id/harmonization',
     wrap(async (req, res) => {

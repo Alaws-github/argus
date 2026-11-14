@@ -7,6 +7,12 @@ import { httpError, type ActorOf, type Wrap } from '../core/http.js';
 import { type Db } from '../core/db.js';
 import { emit } from '../core/realtime.js';
 
+/**
+ * Registers these 3 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/alerts
+ * - POST /alerts/:id/acknowledge
+ * - POST /alerts/:id/issue
+ */
 export function alertRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   const toAlert = (a: any) => ({
     id: a.id,

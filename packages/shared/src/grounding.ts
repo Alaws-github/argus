@@ -35,6 +35,7 @@ const SOURCE_FRAMEWORKS: [RegExp, string][] = [
   [/GMLP|Good Machine Learning/i, 'FDA GMLP'],
   [/COSO/i, 'COSO'],
 ];
+/** A source passage described in words: what it is and which frameworks it draws on. */
 export function describeSource(p: Pick<SourcePassage, 'kind' | 'title' | 'ref' | 'text'>): {
   kind: string;
   name: string;

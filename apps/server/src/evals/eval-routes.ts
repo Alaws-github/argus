@@ -11,6 +11,18 @@ import { emit } from '../core/realtime.js';
 import { SUITE_SELECT, toCase, toSuite } from './eval-records.js';
 import { startSuiteRun } from './eval-runner.js';
 
+/**
+ * Registers these 9 routes on the API router (each path is under /api):
+ * - PATCH /evals/:id/schedule
+ * - GET /engagements/:id/evals
+ * - POST /engagements/:id/evals
+ * - GET /evals/:id
+ * - POST /evals/:id/cases
+ * - DELETE /eval-cases/:id
+ * - POST /evals/:id/run
+ * - GET /eval-runs/:id
+ * - POST /eval-runs/:id/issues
+ */
 export function evalRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // ------------------------------------------------------------- evaluations
   // ------------------------------------------------------------- monitoring

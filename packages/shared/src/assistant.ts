@@ -9,6 +9,10 @@ import { SourcePassage } from './grounding.js';
 // Apply; then it runs through the normal API under that person's name.
 const sBase = { title: z.string().trim().min(3).max(160), why: z.string().max(600).default('') };
 const level = z.number().int().min(1).max(5);
+/**
+ * A change the assistant may suggest. Only these kinds exist; none approves, signs off, concludes, accepts
+ * a risk or closes (rule 15).
+ */
 export const AssistantSuggestion = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('decide_item'),
@@ -54,6 +58,7 @@ export const AssistantSuggestion = z.discriminatedUnion('kind', [
     note: z.string().trim().min(3).max(2000),
   }),
 ]);
+/** A suggestion as stored and shown: what the assistant proposed, plus its id and outcome. */
 export type AssistantSuggestion = z.infer<typeof AssistantSuggestion> & {
   id: string;
   status: 'open' | 'applied' | 'discarded' | 'failed';
@@ -62,6 +67,7 @@ export type AssistantSuggestion = z.infer<typeof AssistantSuggestion> & {
   error?: string;
 };
 
+/** One message in an assistant conversation: the text, citations, suggestions, basis and the steps it took. */
 export interface AssistantMessage {
   id: string;
   conversationId?: string | null;

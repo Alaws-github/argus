@@ -27,6 +27,7 @@ const RULES = {
   independent_reviewer: readPrompt('review-assistant.md'),
   report_writer: readPrompt('report-writer.md'),
 };
+/** The four drafting agents' rules file versions, by role (rule 8). */
 export const DRAFTING_RULES_VERSIONS: Record<string, string> = Object.fromEntries(
   Object.entries(RULES).map(([k, v]) => [k, version(v)]),
 );
@@ -198,5 +199,7 @@ export const S = (props: Record<string, unknown>, required = Object.keys(props))
   required,
   properties: props,
 });
+/** A JSON schema string. */
 export const str = { type: 'string' };
+/** A JSON schema array of strings. */
 export const strs = { type: 'array', items: str };

@@ -8,17 +8,20 @@ import type { Db, Queryable } from '../core/db.js';
 import { requestContext } from '../core/context.js';
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
+/** The session cookie's name. */
 export const COOKIE = 'gh_session';
 const SESSION_DAYS = 7;
 // A session also ends after this long without use.
 export const IDLE_HOURS = 12;
 
+/** Hashes a password with scrypt and a random salt. */
 export async function hashPassword(pw: string) {
   const salt = randomBytes(16);
   const key = await scrypt(pw, salt, 64);
   return `scrypt:${salt.toString('base64')}:${key.toString('base64')}`;
 }
 
+/** Checks a password against its stored hash, in constant time. */
 export async function verifyPassword(pw: string, stored: string) {
   const [alg, salt, key] = stored.split(':');
   if (alg !== 'scrypt') return false;
@@ -27,8 +30,10 @@ export async function verifyPassword(pw: string, stored: string) {
   return timingSafeEqual(want, got);
 }
 
+/** A session token's SHA-256; only this is stored. */
 export const tokenId = (token: string) => createHash('sha256').update(token).digest('hex');
 
+/** A user row as an API record. */
 export function toUser(r: any): User {
   const iso = (v: any) => (v instanceof Date ? v.toISOString() : v ? String(v) : null);
   return {
@@ -43,6 +48,10 @@ export function toUser(r: any): User {
   };
 }
 
+/**
+ * Starts a session for a person (it expires after SESSION_DAYS) and returns its token. Only the token's
+ * SHA-256 is stored.
+ */
 export async function createSession(q: Queryable, userId: string, req: Request) {
   const token = randomBytes(32).toString('base64url');
   await q.query(
@@ -58,6 +67,7 @@ export async function createSession(q: Queryable, userId: string, req: Request) 
   return token;
 }
 
+/** Sets the session cookie: HTTP only, SameSite lax, and secure when COOKIE_SECURE is true. */
 export function setCookie(res: Response, token: string) {
   res.cookie(COOKIE, token, {
     httpOnly: true,
@@ -68,6 +78,7 @@ export function setCookie(res: Response, token: string) {
   });
 }
 
+/** The session token from a Cookie header. */
 export function readCookie(header: string | undefined, name = COOKIE) {
   if (!header) return null;
   for (const part of header.split(';')) {
@@ -77,6 +88,7 @@ export function readCookie(header: string | undefined, name = COOKIE) {
   return null;
 }
 
+/** The signed-in person for a session token, or the person an admin is acting as (rule 21). */
 export async function userFromToken(q: Queryable, token: string | null): Promise<User | null> {
   if (!token) return null;
   const { rows } = await q.query(
@@ -100,6 +112,7 @@ export async function userFromToken(q: Queryable, token: string | null): Promise
   return real;
 }
 
+/** Ends a session. */
 export async function endSession(q: Queryable, token: string | null) {
   if (token) await q.query(`DELETE FROM sessions WHERE id = $1`, [tokenId(token)]);
 }
@@ -169,6 +182,19 @@ const RULES: [string, RegExp, Permission][] = [
   ['PATCH', /^\/library/, 'manage_engagement'],
 ];
 
+/**
+ * The permission a request needs: the first matching entry in RULES, otherwise read for GET and prepare
+ * for anything else. The API reference (npm run docs) uses this too, so it always shows the real rule.
+ */
+export function permissionFor(method: string, path: string): Permission {
+  const rule = RULES.find(([m, re]) => (m === '*' || m === method) && re.test(path));
+  return rule ? rule[2] : method === 'GET' ? 'read' : 'prepare';
+}
+
+/** Paths anyone may call without signing in. */
+export const isPublicPath = (path: string) => PUBLIC.has(path);
+
+/** Middleware: signs the request in from its cookie and checks the route's permission (RULES). */
 export function authMiddleware(db: Db) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -187,8 +213,7 @@ export function authMiddleware(db: Db) {
         `UPDATE users SET last_seen_at = now() WHERE id = $1 AND (last_seen_at IS NULL OR last_seen_at < now() - interval '1 minute')`,
         [user.id],
       );
-      const rule = RULES.find(([m, re]) => (m === '*' || m === req.method) && re.test(req.path));
-      const need: Permission = rule ? rule[2] : req.method === 'GET' ? 'read' : 'prepare';
+      const need = permissionFor(req.method, req.path);
       if (!can(user.role, need)) return res.status(403).json({ error: `Your role (${user.role}) can't do this` });
       next();
     } catch (e) {
@@ -197,6 +222,7 @@ export function authMiddleware(db: Db) {
   };
 }
 
+/** Throws 403 unless the signed-in person has this permission. */
 export function requirePerm(req: Request, p: Permission) {
   if (!can(req.user?.role as Role, p))
     throw Object.assign(new Error(`Your role (${req.user?.role}) can't do this`), { status: 403 });

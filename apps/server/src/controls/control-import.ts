@@ -4,6 +4,7 @@
 // sees which rows will be added and which won't, then for real.
 import ExcelJS from 'exceljs';
 
+/** One control read from an uploaded CSV or Excel file. */
 export interface ImportRow {
   row: number;
   title: string;
@@ -90,6 +91,7 @@ async function parseXlsx(buf: Buffer): Promise<string[][]> {
   return out.filter((r) => r.some((x) => x.trim()));
 }
 
+/** Reads controls from a CSV or Excel file, with the problems found in it. */
 export async function readControls(buf: Buffer, filename: string): Promise<{ rows: ImportRow[]; problems: string[] }> {
   const table = /\.xlsx$/i.test(filename)
     ? await parseXlsx(buf)
@@ -130,6 +132,7 @@ export async function readControls(buf: Buffer, filename: string): Promise<{ row
   return { rows, problems };
 }
 
+/** The CSV template people can download to fill in. */
 export const TEMPLATE_CSV = [
   'Title,Objective,Type,Frequency,Owner,Use case,Library code,Risks',
   '"Human review of declined applications","A trained officer reviews every AI decline before the customer is told",preventive,per decision,Head of Retail Credit,AI-1,OVS-01,R-1',

@@ -19,19 +19,20 @@
 import { createHash } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
-import type { Request, Router } from 'express';
+import type { Router } from 'express';
 import { OUTBOUND_EVENTS, OUTBOUND_KINDS, OutboundInput, type OutboundEvent, type OutboundTarget } from '@gh/shared';
 import type { Db } from '../core/db.js';
 import { logAudit } from '../audit/audit.js';
 import { decrypt, encrypt } from '../core/crypto.js';
 import { getSettings } from '../settings/settings-store.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 import { toIso } from '../core/format.js';
 
 // Channel webhooks carry their own secret in the address, so the whole address is encrypted and only its site is shown.
 const URL_IS_SECRET = new Set(['teams', 'slack']);
 const shown = (kind: string, url: string) => (URL_IS_SECRET.has(kind) ? `${new URL(url).origin}/…` : url);
 
+/** A write-back target row as an API record (never its secret). */
 export const toTarget = (r: any): OutboundTarget => ({
   id: r.id,
   key: `WB-${r.number}`,
@@ -81,6 +82,7 @@ async function checkAddress(url: URL, allowPrivate: boolean) {
   if (addrs.some(privateAddress)) throw new Error(`${url.hostname} is on this machine or a private network`);
 }
 
+/** One message write-back sends. */
 export interface Notice {
   event: OutboundEvent;
   engagement: string;
@@ -283,6 +285,7 @@ const linkFor = (event: OutboundEvent, key: string | null, d: any) => {
 
 // Read new audit entries and send what matches. Called by the monitoring tick.
 let running = false;
+/** Sends new audit events to the targets that ticked them, from the cursor on (rule 30). */
 export async function dispatchOutbound(db: Db) {
   if (running) return;
   running = true;
@@ -340,7 +343,15 @@ export async function dispatchOutbound(db: Db) {
   }
 }
 
-export function outboundRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 5 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/outbound
+ * - POST /engagements/:id/outbound
+ * - PATCH /outbound/:id
+ * - DELETE /outbound/:id
+ * - POST /outbound/:id/test
+ */
+export function outboundRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   const one = async (id: string) =>
     toTarget((await db.query(`SELECT * FROM outbound_targets WHERE id = $1`, [id])).rows[0]);
   r.get(

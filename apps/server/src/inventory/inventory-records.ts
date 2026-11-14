@@ -1,6 +1,7 @@
 // Turns AI inventory rows into API records, with the agent register readiness checks.
 import { agentReadiness } from '@gh/shared';
 import { toIso } from '../core/format.js';
+/** An inventory row as an API record, with its use case keys and agent register checks. */
 export const toInventory = (r: any, cardKeys: Record<string, string>) => {
   const item = {
     id: r.id,

@@ -1,9 +1,11 @@
 // Turns control test and evidence rows into API records.
 import { toIso } from '../core/format.js';
+/** The query for tests with their control and use case. */
 export const TEST_SELECT = `
   SELECT t.*, c.number AS control_number, c.title AS control_title,
     (SELECT count(*)::int FROM evidence e WHERE e.test_id = t.id) AS ev
   FROM tests t JOIN controls c ON c.id = t.control_id`;
+/** A test row as an API record. */
 export const toTest = (r: any) => ({
   id: r.id,
   key: `T-${r.number}`,
@@ -28,6 +30,7 @@ export const toTest = (r: any) => ({
   createdAt: toIso(r.created_at),
   draft: r.draft ?? null,
 });
+/** An evidence row as an API record. */
 export const toEvidence = (r: any) => ({
   id: r.id,
   key: `E-${r.number}`,

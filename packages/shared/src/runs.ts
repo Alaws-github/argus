@@ -8,6 +8,7 @@ import { Stage } from './stages.js';
 export const RunStatus = z.enum(['running', 'succeeded', 'failed', 'waiting']);
 export type RunStatus = z.infer<typeof RunStatus>;
 
+/** One agent run on a card: the model, mode, steps, cost and result. */
 export interface Run {
   id: string;
   number: number;
@@ -29,6 +30,7 @@ export interface Run {
   steps: number;
 }
 
+/** One line in a run's log (rule 24). */
 export interface RunEvent {
   id: number;
   runId: string;
@@ -37,6 +39,7 @@ export interface RunEvent {
   text: string;
 }
 
+/** One audit log entry, with its hash in the chain. */
 export interface AuditEntry {
   id: number;
   at: string;

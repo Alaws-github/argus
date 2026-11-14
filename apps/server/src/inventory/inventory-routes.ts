@@ -7,6 +7,12 @@ import { logAudit } from '../audit/audit.js';
 import { httpError, type ActorOf, type Wrap } from '../core/http.js';
 import { type Db } from '../core/db.js';
 
+/**
+ * Registers these 3 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/inventory
+ * - POST /engagements/:id/inventory
+ * - PATCH /inventory/:id
+ */
 export function inventoryRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // --------------------------------------------------------------- inventory
   const cardKeyMap = async (engagementId: string) =>

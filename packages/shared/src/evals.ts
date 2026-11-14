@@ -6,8 +6,10 @@ import { Severity } from './testing.js';
 // Evaluations and red teaming
 // ---------------------------------------------------------------------------
 export const CHECKS = ['contains', 'not_contains', 'regex', 'refuses', 'max_length', 'judge'] as const;
+/** How an evaluation case is checked (contains, regex, refuses, judge and so on). */
 export const CheckType = z.enum(CHECKS);
 export type CheckType = z.infer<typeof CheckType>;
+/** Each check type in words. */
 export const CHECK_LABELS: Record<CheckType, string> = {
   contains: 'Answer contains',
   not_contains: 'Answer must not contain',
@@ -17,6 +19,7 @@ export const CHECK_LABELS: Record<CheckType, string> = {
   judge: 'A judge model decides',
 };
 
+/** One evaluation case: the prompt, the check and what it expects. */
 export const EvalCaseInput = z.object({
   name: z.string().trim().min(2).max(160),
   category: z.string().max(60).default('quality'),
@@ -28,6 +31,7 @@ export const EvalCaseInput = z.object({
 });
 export type EvalCaseInput = z.infer<typeof EvalCaseInput>;
 
+/** An evaluation suite: the system it tests, its threshold and schedule. */
 export const EvalSuiteInput = z.object({
   name: z.string().trim().min(2).max(160),
   kind: z.enum(['quality', 'red_team']),
@@ -40,6 +44,7 @@ export const EvalSuiteInput = z.object({
   judgeModel: z.string().max(120).nullable().default(null),
 });
 
+/** An evaluation suite with its last run and pass trend. */
 export interface EvalSuite {
   id: string;
   key: string;
@@ -65,7 +70,9 @@ export interface EvalSuite {
   trend: number[];
 }
 
+/** How often a suite runs by itself. */
 export const MONITOR_SCHEDULES = ['off', 'daily', 'weekly'] as const;
+/** One monitoring schedule. */
 export type MonitorSchedule = (typeof MONITOR_SCHEDULES)[number];
 
 // An alert from monitoring: a scheduled or manual run fell below its
@@ -88,11 +95,13 @@ export interface MonitorAlert {
   createdAt: string;
 }
 
+/** An evaluation case as stored. */
 export interface EvalCase extends EvalCaseInput {
   id: string;
   suiteId: string;
 }
 
+/** One case's result in a run: the output, whether it passed and why. */
 export interface EvalResult {
   caseId: string;
   caseName: string;

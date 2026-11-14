@@ -19,6 +19,7 @@ export const PlanBrief = z.object({
   priority: Priority.default('p2'),
 });
 export type PlanBrief = z.infer<typeof PlanBrief>;
+/** The brief's fields the Use Case Planner fills in, and which are required. */
 export const PLAN_FIELDS: { key: keyof PlanBrief; label: string; required: boolean }[] = [
   { key: 'title', label: 'Name', required: true },
   { key: 'description', label: 'What it does', required: true },
@@ -30,6 +31,7 @@ export const PLAN_FIELDS: { key: keyof PlanBrief; label: string; required: boole
   { key: 'category', label: 'Kind of AI', required: false },
   { key: 'priority', label: 'Priority', required: false },
 ];
+/** One message in a planning conversation. */
 export interface PlanMessage {
   role: 'planner' | 'user';
   text: string;
@@ -38,6 +40,7 @@ export interface PlanMessage {
   model?: string;
   runtime?: 'rules' | 'live';
 }
+/** A use case being planned: the brief so far, the conversation and the fields a person edited. */
 export interface Plan {
   id: string;
   key: string;

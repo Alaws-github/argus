@@ -28,6 +28,7 @@ export const FRAMEWORK_CHOICES = [
     hint: 'Protected health information in AI, vendor agreements, and fair clinical decision support',
   },
 ] as const;
+/** One framework a new engagement can put in scope. */
 export type FrameworkChoice = (typeof FRAMEWORK_CHOICES)[number]['id'];
 /** v1.7.3: which frameworks an engagement's framework text names ("NIST AI RMF 1.0 · ISO/IEC 42001", or older "NIST AI RMF, ISO/IEC 42001"). */
 export const frameworksIn = (text: string): FrameworkChoice[] =>
@@ -37,6 +38,7 @@ export const frameworksIn = (text: string): FrameworkChoice[] =>
     ),
   ).map((f) => f.id);
 
+/** The client sectors to choose from when adding an engagement. */
 export const SECTORS = [
   'Banking and Credit',
   'Insurance',
@@ -48,12 +50,14 @@ export const SECTORS = [
   'Other',
 ] as const;
 
+/** The model picked for one agent in the Add engagement wizard. */
 export const AgentModelChoice = z.object({
   providerId: z.string().uuid(),
   model: z.string().min(1).max(120),
   effort: z.enum(['low', 'medium', 'high', 'xhigh', 'max']).default('medium'),
 });
 
+/** Everything the Add engagement wizard sends (POST /engagements). */
 export const NewEngagement = z.object({
   name: z.string().trim().min(2).max(80),
   client: z.string().trim().min(2).max(120),

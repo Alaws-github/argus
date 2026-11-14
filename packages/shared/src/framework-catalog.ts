@@ -16,6 +16,7 @@ import { FrameworkRefs } from './controls.js';
 
 // touch AI, the Breach Notification Rule and the HHS rule on decision support.
 export type FrameworkKey = keyof FrameworkRefs;
+/** One requirement of a framework: its official number, ARGUS's own short title and its group. */
 export interface Requirement {
   id: string;
   title: string;
@@ -407,6 +408,7 @@ const HIPAA: Requirement[] = [
   ...rows('HHS Section 1557 rule', [['92.210', 'Patient care decision support tools checked for discrimination']]),
 ];
 
+/** Every requirement of each framework, used to decide "fully met" (rule 33). Titles are ARGUS's own words. */
 export const FRAMEWORK_CATALOG: Record<FrameworkKey, Requirement[]> = {
   nistAiRmf: NIST_AI_RMF,
   iso42001: ISO_42001,

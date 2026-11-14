@@ -21,7 +21,7 @@ import {
 } from './assistant.js';
 import { recordSpend } from '../agent-testing/verifier.js';
 import { AssistantSuggestion } from '@gh/shared';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 const toConversation = (c: any) => ({
   id: c.id,
   title: c.title,
@@ -42,7 +42,19 @@ const snippet = (text: string, q: string) => {
 };
 const Thread = z.object({ kind: z.enum(CONTEXT_KINDS), contextId: z.string().max(80).default('') });
 
-export function assistantRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 9 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/assistant
+ * - GET /engagements/:id/assistant/conversations
+ * - GET /engagements/:id/assistant/conversations/:cid
+ * - PATCH /engagements/:id/assistant/conversations/:cid
+ * - DELETE /engagements/:id/assistant/conversations/:cid
+ * - POST /engagements/:id/assistant
+ * - POST /engagements/:id/assistant/:mid/feedback
+ * - POST /engagements/:id/assistant/:mid/suggestions/:sid/apply
+ * - POST /engagements/:id/assistant/:mid/suggestions/:sid/discard
+ */
+export function assistantRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // Conversations belong to the person who started them; nobody else can read them.
   const ownConversation = async (req: Request, cid: string) => {
     const { rows } = await db.query(`SELECT * FROM assistant_conversations WHERE id = $1 AND engagement_id = $2`, [

@@ -2,7 +2,7 @@
 // what was done, and the lessons. Closing one is a sign-off: it needs a
 // reviewer or lead who didn't report it, a root cause, lessons, and every
 // required notice marked as sent.
-import type { Request, Router } from 'express';
+import type { Router } from 'express';
 import { z } from 'zod';
 import {
   can,
@@ -17,7 +17,7 @@ import type { Db } from '../core/db.js';
 import { logAudit } from '../audit/audit.js';
 import { requireDifferentPerson } from '../auth/auth.js';
 import { emit } from '../core/realtime.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 import { toIso } from '../core/format.js';
 
 const SELECT = `
@@ -25,6 +25,7 @@ const SELECT = `
     COALESCE((SELECT json_agg('I-' || s.number ORDER BY s.number) FROM issues s WHERE s.incident_id = i.id), '[]') AS issue_keys
   FROM incidents i LEFT JOIN inventory v ON v.id = i.inventory_id LEFT JOIN cards c ON c.id = i.card_id`;
 
+/** An incident row as an API record. */
 export const toIncident = (r: any): Incident => ({
   id: r.id,
   key: `INC-${r.number}`,
@@ -66,7 +67,13 @@ const Patch = z.object({
     .optional(),
 });
 
-export function incidentRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 3 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/incidents
+ * - POST /engagements/:id/incidents
+ * - PATCH /incidents/:id
+ */
+export function incidentRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   r.get(
     '/engagements/:id/incidents',
     wrap(async (req, res) => {

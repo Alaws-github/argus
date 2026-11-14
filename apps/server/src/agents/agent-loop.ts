@@ -48,11 +48,13 @@ const GROUPS: Record<AgentTool, string[]> = {
   read_evidence: ['list_evidence', 'read_evidence'],
   ask: ['ask_person'],
 };
+/** The tool names an agent may use: search_knowledge plus its ticked tool groups (rule 23). */
 export const allowedTools = (groups: AgentTool[] | undefined | null) => [
   'search_knowledge',
   ...(groups ?? []).flatMap((g) => GROUPS[g] ?? []),
 ];
 
+/** What a run of the agent loop returns: the final answer, usage, steps, mode and the tools it used. */
 export interface LoopResult extends StructuredResult {
   steps: number;
   repaired: string[];
@@ -60,6 +62,7 @@ export interface LoopResult extends StructuredResult {
   /** Tools the agent used, in order. */ used?: string[];
 }
 
+/** Everything runLoop needs: the call, the format check, the scope for tools and the bounds. */
 export interface LoopOptions {
   call: StructuredCall;
   check: (input: unknown) => string[];

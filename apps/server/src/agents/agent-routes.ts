@@ -19,6 +19,14 @@ const RULES_VERSIONS: Record<string, string> = {
   ...DRAFTING_RULES_VERSIONS,
 };
 
+/**
+ * Registers these 5 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/agents
+ * - PATCH /agents/:id
+ * - POST /engagements/:id/agents
+ * - POST /agents/:id/duplicate
+ * - DELETE /agents/:id
+ */
 export function agentRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // ------------------------------------------------------------------ agents
   r.get(

@@ -7,6 +7,12 @@ import { type Db } from '../core/db.js';
 import { engagementKpis } from './kpis.js';
 import { getSettings, monthSpend } from '../settings/settings-store.js';
 
+/**
+ * Registers these 3 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/kpis
+ * - GET /engagements/:id/overview
+ * - GET /engagements/:id/activity
+ */
 export function overviewRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // v1.7: the numbers for every page's KPI tiles, in one read.
   r.get(

@@ -36,13 +36,11 @@ import { runRiskClassifier, RULES_VERSION as CLASSIFIER_RULES } from '../agents/
 import { runControlDesigner, RULES_VERSION as DESIGNER_RULES } from '../agents/control-designer.js';
 import { exitCriteria } from './exit-criteria.js';
 import { decided } from './decisions.js';
-import {
-  DRAFTING_RULES_VERSIONS,
-  runControlTester,
-  runEvidenceCollector,
-  runReportWriter,
-  runReviewAssistant,
-} from '../agents/drafting.js';
+import { DRAFTING_RULES_VERSIONS } from '../agents/drafting.js';
+import { runEvidenceCollector } from '../agents/evidence-collector.js';
+import { runControlTester } from '../agents/control-tester.js';
+import { runReviewAssistant } from '../agents/review-assistant.js';
+import { runReportWriter } from '../agents/report-writer.js';
 import type { AgentContext } from '../agents/types.js';
 import { verifyCard } from '../agent-testing/verifier.js';
 import { QuestionPause } from '../agents/agent-loop.js';

@@ -417,67 +417,83 @@ export async function chatStep(c: ChatStepCall): Promise<ChatStepResult> {
   }
 }
 
+/** One model step on whichever provider the call names. A cut-off answer throws TruncatedError. */
 async function chatOnce(c: ChatStepCall, max: number): Promise<ChatStepResult> {
-  const base = trimSlash(c.baseUrl);
-  if (c.type === 'anthropic') {
-    if (!c.apiKey) throw new Error('This provider has no API key. Add one on Models & keys.');
-    const messages: any[] = [];
-    for (const m of c.messages) {
-      if (m.role === 'user') messages.push({ role: 'user', content: m.content });
-      else if (m.role === 'assistant')
-        messages.push({
-          role: 'assistant',
-          content: [
-            ...(m.content ? [{ type: 'text', text: m.content }] : []),
-            ...m.calls.map((t) => ({ type: 'tool_use', id: t.id, name: t.name, input: t.args ?? {} })),
-          ],
-        });
-      else {
-        const block = { type: 'tool_result', tool_use_id: m.callId, content: m.content };
-        const last = messages[messages.length - 1];
-        if (last?.role === 'user' && Array.isArray(last.content) && last.content[0]?.type === 'tool_result')
-          last.content.push(block);
-        else messages.push({ role: 'user', content: [block] });
-      }
-    }
-    const r = await postDeterministic(
-      `${base}/v1/messages`,
-      { 'x-api-key': c.apiKey, 'anthropic-version': '2023-06-01' },
-      {
-        model: c.model,
-        max_tokens: max,
-        // The rules and tool list repeat on every turn: cache them.
-        system: [{ type: 'text', text: c.system, cache_control: { type: 'ephemeral' } }],
-        tools: c.tools.map((t, i) => ({
-          name: t.name,
-          description: t.description,
-          input_schema: t.schema,
-          ...(i === c.tools.length - 1 ? { cache_control: { type: 'ephemeral' } } : {}),
-        })),
-        tool_choice: c.forceTool ? { type: 'tool', name: c.forceTool } : { type: 'auto' },
-        messages,
-      },
-      c.timeoutMs,
-    );
-    if (r.stop_reason === 'max_tokens') throw new TruncatedError(max);
-    const blocks = r.content ?? [];
-    return {
-      text: blocks
-        .filter((b: any) => b.type === 'text')
-        .map((b: any) => b.text)
-        .join('\n'),
-      calls: blocks
-        .filter((b: any) => b.type === 'tool_use')
-        .map((b: any) => ({ id: b.id, name: b.name, args: b.input })),
-      tokensIn: r.usage?.input_tokens ?? 0,
-      tokensOut: r.usage?.output_tokens ?? 0,
-      tokensCached: r.usage?.cache_read_input_tokens ?? 0,
-    };
-  }
+  if (c.type === 'anthropic') return anthropicChatStep(c, max);
+  return chatCompletionsStep(c, max);
+}
 
-  // OpenAI-compatible and Ollama share the chat shape; Ollama sends arguments as objects.
-  const ollama = c.type === 'ollama';
-  if (ollama && !c.apiKey) throw new Error('This provider has no API key. Add one on Models & keys.');
+/**
+ * The loop's messages in Anthropic's shape: assistant tool calls are tool_use blocks, and tool results
+ * go back in one user message (consecutive results are grouped, as the API requires).
+ */
+function toAnthropicMessages(msgs: ChatMsg[]) {
+  const messages: any[] = [];
+  for (const m of msgs) {
+    if (m.role === 'user') messages.push({ role: 'user', content: m.content });
+    else if (m.role === 'assistant')
+      messages.push({
+        role: 'assistant',
+        content: [
+          ...(m.content ? [{ type: 'text', text: m.content }] : []),
+          ...m.calls.map((t) => ({ type: 'tool_use', id: t.id, name: t.name, input: t.args ?? {} })),
+        ],
+      });
+    else {
+      const block = { type: 'tool_result', tool_use_id: m.callId, content: m.content };
+      const last = messages[messages.length - 1];
+      if (last?.role === 'user' && Array.isArray(last.content) && last.content[0]?.type === 'tool_result')
+        last.content.push(block);
+      else messages.push({ role: 'user', content: [block] });
+    }
+  }
+  return messages;
+}
+
+/** One step on Anthropic's Messages API, with the rules and tool list cached between steps. */
+async function anthropicChatStep(c: ChatStepCall, max: number): Promise<ChatStepResult> {
+  if (!c.apiKey) throw new Error('This provider has no API key. Add one on Models & keys.');
+  const r = await postDeterministic(
+    `${trimSlash(c.baseUrl)}/v1/messages`,
+    { 'x-api-key': c.apiKey, 'anthropic-version': '2023-06-01' },
+    {
+      model: c.model,
+      max_tokens: max,
+      // The rules and tool list repeat on every turn: cache them.
+      system: [{ type: 'text', text: c.system, cache_control: { type: 'ephemeral' } }],
+      tools: c.tools.map((t, i) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.schema,
+        ...(i === c.tools.length - 1 ? { cache_control: { type: 'ephemeral' } } : {}),
+      })),
+      tool_choice: c.forceTool ? { type: 'tool', name: c.forceTool } : { type: 'auto' },
+      messages: toAnthropicMessages(c.messages),
+    },
+    c.timeoutMs,
+  );
+  if (r.stop_reason === 'max_tokens') throw new TruncatedError(max);
+  const blocks = r.content ?? [];
+  return {
+    text: blocks
+      .filter((b: any) => b.type === 'text')
+      .map((b: any) => b.text)
+      .join('\n'),
+    calls: blocks
+      .filter((b: any) => b.type === 'tool_use')
+      .map((b: any) => ({ id: b.id, name: b.name, args: b.input })),
+    tokensIn: r.usage?.input_tokens ?? 0,
+    tokensOut: r.usage?.output_tokens ?? 0,
+    tokensCached: r.usage?.cache_read_input_tokens ?? 0,
+  };
+}
+
+/**
+ * The loop's messages in the chat-completions shape that OpenAI-compatible servers and Ollama share.
+ * Ollama sends tool arguments as objects and has no call ids; others get any extra fields back
+ * (Gemini's thought signature) so the next step is accepted.
+ */
+function toChatCompletionMessages(c: ChatStepCall, ollama: boolean) {
   const messages: any[] = [{ role: 'system', content: c.system }];
   for (const m of c.messages) {
     if (m.role === 'user') messages.push({ role: 'user', content: m.content });
@@ -501,6 +517,55 @@ async function chatOnce(c: ChatStepCall, max: number): Promise<ChatStepResult> {
         ollama ? { role: 'tool', content: m.content } : { role: 'tool', tool_call_id: m.callId, content: m.content },
       );
   }
+  return messages;
+}
+
+/** Ollama's reply: its text, tool calls (given new ids) and token counts. */
+function readOllamaReply(r: any, max: number): ChatStepResult {
+  if (r.done_reason === 'length') throw new TruncatedError(max);
+  const msg = r.message ?? {};
+  return {
+    text: msg.content ?? '',
+    calls: (msg.tool_calls ?? []).map((t: any) => ({
+      id: newId(),
+      name: t.function?.name,
+      ...safeArgs(t.function?.arguments),
+    })),
+    tokensIn: r.prompt_eval_count ?? 0,
+    tokensOut: r.eval_count ?? 0,
+    tokensCached: 0,
+  };
+}
+
+/** An OpenAI-compatible reply: its text, tool calls (keeping any extra fields) and token counts. */
+function readChatCompletionReply(r: any, max: number): ChatStepResult {
+  const choice = r.choices?.[0] ?? {};
+  if (choice.finish_reason === 'length') throw new TruncatedError(max);
+  const msg = choice.message ?? {};
+  return {
+    text: typeof msg.content === 'string' ? msg.content : '',
+    calls: (msg.tool_calls ?? []).map((t: any) => {
+      // Keep anything beyond the standard fields (Gemini puts its thought signature in extra_content).
+      const { id, type, function: fn, index, ...extra } = t ?? {};
+      return {
+        id: id ?? newId(),
+        name: fn?.name,
+        ...safeArgs(fn?.arguments),
+        ...(Object.keys(extra).length ? { extra } : {}),
+      };
+    }),
+    tokensIn: r.usage?.prompt_tokens ?? 0,
+    tokensOut: r.usage?.completion_tokens ?? 0,
+    tokensCached: r.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+  };
+}
+
+/** One step on an OpenAI-compatible server or Ollama. A 400 about tools means tool use doesn't work there. */
+async function chatCompletionsStep(c: ChatStepCall, max: number): Promise<ChatStepResult> {
+  const ollama = c.type === 'ollama';
+  if (ollama && !c.apiKey) throw new Error('This provider has no API key. Add one on Models & keys.');
+  const base = trimSlash(c.baseUrl);
+  const messages = toChatCompletionMessages(c, ollama);
   const tools = c.tools.map((t) => ({
     type: 'function',
     function: { name: t.name, description: t.description, parameters: t.schema },
@@ -536,40 +601,7 @@ async function chatOnce(c: ChatStepCall, max: number): Promise<ChatStepResult> {
       throw new ToolsUnsupportedError(e.message);
     throw e;
   }
-  if (ollama) {
-    if (r.done_reason === 'length') throw new TruncatedError(max);
-    const msg = r.message ?? {};
-    return {
-      text: msg.content ?? '',
-      calls: (msg.tool_calls ?? []).map((t: any) => ({
-        id: newId(),
-        name: t.function?.name,
-        ...safeArgs(t.function?.arguments),
-      })),
-      tokensIn: r.prompt_eval_count ?? 0,
-      tokensOut: r.eval_count ?? 0,
-      tokensCached: 0,
-    };
-  }
-  const choice = r.choices?.[0] ?? {};
-  if (choice.finish_reason === 'length') throw new TruncatedError(max);
-  const msg = choice.message ?? {};
-  return {
-    text: typeof msg.content === 'string' ? msg.content : '',
-    calls: (msg.tool_calls ?? []).map((t: any) => {
-      // Keep anything beyond the standard fields (Gemini puts its thought signature in extra_content).
-      const { id, type, function: fn, index, ...extra } = t ?? {};
-      return {
-        id: id ?? newId(),
-        name: fn?.name,
-        ...safeArgs(fn?.arguments),
-        ...(Object.keys(extra).length ? { extra } : {}),
-      };
-    }),
-    tokensIn: r.usage?.prompt_tokens ?? 0,
-    tokensOut: r.usage?.completion_tokens ?? 0,
-    tokensCached: r.usage?.prompt_tokens_details?.cached_tokens ?? 0,
-  };
+  return ollama ? readOllamaReply(r, max) : readChatCompletionReply(r, max);
 }
 
 // Plain chat call, used by evaluation suites to exercise the system under test.

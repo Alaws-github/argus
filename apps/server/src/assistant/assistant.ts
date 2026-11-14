@@ -575,96 +575,95 @@ export async function answer(
   };
 }
 
-// Offline: no model, so no free-text reasoning. It shows what the knowledge
-// base says, and the gaps the harness's own checks can see, with suggestions
-// built from those checks.
-function rulesAnswer(ctx: Context, question: string, passages: SourcePassage[]): Reply {
-  const lines: string[] = [];
-  const suggestions: any[] = [];
-  const add = (s: any) => {
-    const c = checkSuggestion(s, ctx);
-    if (c.ok && suggestions.length < 4)
-      suggestions.push({ ...c.s, id: randomBytes(6).toString('hex'), status: 'open' });
-  };
-  const card = ctx.card;
-  const pg = ctx.page;
-  if (pg && (asksAboutPage(question) || (!card && !passages.length))) {
-    if (pg.guide) {
-      lines.push(`You're on ${pg.guide.name}. ${pg.guide.purpose}`);
-      if (pg.guide.actions.length) lines.push(`What you can do here: ${pg.guide.actions.join('; ')}.`);
-    } else lines.push(`You're on ${pg.path}.`);
-    const heads = pg.snapshot
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l.length > 2 && l.length < 90)
-      .slice(0, 12);
-    if (heads.length) lines.push(`On screen now: ${heads.join(' · ')}.`);
-  }
-  if (card?.stage === 'classify' && card.classification) {
-    const c = card.classification;
-    lines.push(
-      `The Risk Classifier proposes ${c.tier} risk with ${c.oversight.replace(/_/g, ' ')}, and ${c.risks.length} starting risks.`,
-    );
-    const left = undecided(card);
-    lines.push(
-      left.length
-        ? `${left.length} item${left.length === 1 ? '' : 's'} still need your decision: ${left.join(', ')}.`
-        : 'Every item has a decision; a reviewer can approve.',
-    );
-    const v = (card.verification as any)?.classify;
-    c.risks.forEach((r, i) => {
-      const verdict = v?.items.find((x: any) => x.item === `risk:${i}`);
-      if (!r.sources.length) {
-        lines.push(`risk:${i} "${r.title}" cites no source. Check it against the profile before keeping it.`);
-      } else if (verdict && verdict.verdict !== 'supported') {
-        lines.push(`The Verifier says risk:${i} "${r.title}" is ${verdict.verdict}: ${verdict.reason}`);
-        add({
-          kind: 'rerun_agent',
-          title: `Ask the Risk Classifier to reconsider "${r.title}"`,
-          why: "The Verifier found its sources don't back it up.",
-          cardId: card.id,
-          note: `Reconsider "${r.title}": the Verifier found it ${verdict.verdict} by its sources. Cite a passage that supports it or drop it.`,
-        });
-      }
-    });
-    if (c.openQuestions.length) lines.push(`Questions for the business owner: ${c.openQuestions.join(' ')}`);
-  } else if (card?.stage === 'design' && card.design) {
-    lines.push(`The Control Designer proposes ${card.design.controls.length} controls.`);
-    const left = undecided(card);
-    if (left.length) lines.push(`${left.length} still need your decision.`);
-    card.design.controls.forEach((c, i) => {
-      if (!c.owner || /business owner/i.test(c.owner))
-        add({
-          kind: 'decide_item',
-          title: `Name an owner for ${c.libraryCode ?? c.title}`,
-          why: 'A control without a named owner is hard to test.',
-          cardId: card.id,
-          item: `control:${i}`,
-          decision: 'edit',
-          edit: { owner: card.useCase.businessOwner || 'Business owner' },
-          reason: 'Named the accountable owner',
-        });
-    });
-    if (card.design.gaps.length) lines.push(`Gaps the agent noted: ${card.design.gaps.join(' ')}`);
-  } else if (card) {
-    lines.push(
-      `${card.key} is at ${card.stage}, status ${card.status.replace('_', ' ')}.${card.statusNote ? ` ${card.statusNote}` : ''}`,
-    );
-  }
-  // Register gaps any reader would want flagged.
-  const bare = ctx.text
+/** What an offline answer collects as it goes: lines of text and up to four checked suggestions. */
+interface OfflineAnswer {
+  lines: string[];
+  /** Adds a suggestion if it passes checkSuggestion (rule 15) and there is room. */
+  add: (s: any) => void;
+}
+
+/** The page the person is on: what it is for, what they can do, and the headings on screen. */
+function describePage(a: OfflineAnswer, pg: NonNullable<Context['page']>) {
+  if (pg.guide) {
+    a.lines.push(`You're on ${pg.guide.name}. ${pg.guide.purpose}`);
+    if (pg.guide.actions.length) a.lines.push(`What you can do here: ${pg.guide.actions.join('; ')}.`);
+  } else a.lines.push(`You're on ${pg.path}.`);
+  const heads = pg.snapshot
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 2 && l.length < 90)
+    .slice(0, 12);
+  if (heads.length) a.lines.push(`On screen now: ${heads.join(' · ')}.`);
+}
+
+/** A classification awaiting decisions: what is left to decide, risks with no source or a weak Verifier verdict. */
+function reviewClassification(a: OfflineAnswer, card: NonNullable<Context['card']>) {
+  const c = card.classification!;
+  a.lines.push(
+    `The Risk Classifier proposes ${c.tier} risk with ${c.oversight.replace(/_/g, ' ')}, and ${c.risks.length} starting risks.`,
+  );
+  const left = undecided(card);
+  a.lines.push(
+    left.length
+      ? `${left.length} item${left.length === 1 ? '' : 's'} still need your decision: ${left.join(', ')}.`
+      : 'Every item has a decision; a reviewer can approve.',
+  );
+  const v = (card.verification as any)?.classify;
+  c.risks.forEach((r, i) => {
+    const verdict = v?.items.find((x: any) => x.item === `risk:${i}`);
+    if (!r.sources.length) {
+      a.lines.push(`risk:${i} "${r.title}" cites no source. Check it against the profile before keeping it.`);
+    } else if (verdict && verdict.verdict !== 'supported') {
+      a.lines.push(`The Verifier says risk:${i} "${r.title}" is ${verdict.verdict}: ${verdict.reason}`);
+      a.add({
+        kind: 'rerun_agent',
+        title: `Ask the Risk Classifier to reconsider "${r.title}"`,
+        why: "The Verifier found its sources don't back it up.",
+        cardId: card.id,
+        note: `Reconsider "${r.title}": the Verifier found it ${verdict.verdict} by its sources. Cite a passage that supports it or drop it.`,
+      });
+    }
+  });
+  if (c.openQuestions.length) a.lines.push(`Questions for the business owner: ${c.openQuestions.join(' ')}`);
+}
+
+/** A control design awaiting decisions: what is left to decide, controls with no named owner, and the gaps. */
+function reviewDesign(a: OfflineAnswer, card: NonNullable<Context['card']>) {
+  const design = card.design!;
+  a.lines.push(`The Control Designer proposes ${design.controls.length} controls.`);
+  const left = undecided(card);
+  if (left.length) a.lines.push(`${left.length} still need your decision.`);
+  design.controls.forEach((c, i) => {
+    if (!c.owner || /business owner/i.test(c.owner))
+      a.add({
+        kind: 'decide_item',
+        title: `Name an owner for ${c.libraryCode ?? c.title}`,
+        why: 'A control without a named owner is hard to test.',
+        cardId: card.id,
+        item: `control:${i}`,
+        decision: 'edit',
+        edit: { owner: card.useCase.businessOwner || 'Business owner' },
+        reason: 'Named the accountable owner',
+      });
+  });
+  if (design.gaps.length) a.lines.push(`Gaps the agent noted: ${design.gaps.join(' ')}`);
+}
+
+/** Register gaps any reader would want flagged: serious risks with no control, and risks with no owner. */
+function flagRegisterGaps(a: OfflineAnswer, text: string) {
+  const bare = text
     .split('\n')
     .filter((l) => /^R-\d+ /.test(l) && / controls: 0\b/.test(l) && /score: (1[2-9]|2\d)\b/.test(l));
   if (bare.length)
-    lines.push(
+    a.lines.push(
       `${bare.length} risk${bare.length === 1 ? '' : 's'} scoring 12 or more have no control: ${bare.map((l) => l.split(' ')[0]).join(', ')}.`,
     );
-  const noOwner = ctx.text.split('\n').filter((l) => /^R-\d+ /.test(l) && / owner: none\b/.test(l));
+  const noOwner = text.split('\n').filter((l) => /^R-\d+ /.test(l) && / owner: none\b/.test(l));
   for (const l of noOwner.slice(0, 2)) {
     const id = l.match(/id=([0-9a-f-]{36})/)?.[1];
     const uc = l.match(/useCase: (\S+)/)?.[1];
     if (id)
-      add({
+      a.add({
         kind: 'update_risk',
         riskId: id,
         owner: 'Business owner',
@@ -672,23 +671,49 @@ function rulesAnswer(ctx: Context, question: string, passages: SourcePassage[]):
         why: `Every risk needs a named owner${uc ? ` (it belongs to ${uc})` : ''}. Change the name before applying if needed.`,
       });
   }
+}
+
+// Offline: no model, so no free-text reasoning. It shows what the knowledge
+// base says, and the gaps the harness's own checks can see, with suggestions
+// built from those checks.
+function rulesAnswer(ctx: Context, question: string, passages: SourcePassage[]): Reply {
+  const suggestions: any[] = [];
+  const a: OfflineAnswer = {
+    lines: [],
+    add: (s: any) => {
+      const c = checkSuggestion(s, ctx);
+      if (c.ok && suggestions.length < 4)
+        suggestions.push({ ...c.s, id: randomBytes(6).toString('hex'), status: 'open' });
+    },
+  };
+  const card = ctx.card;
+  const pg = ctx.page;
+  const showsPage = !!pg && (asksAboutPage(question) || (!card && !passages.length));
+  if (pg && showsPage) describePage(a, pg);
+  if (card?.stage === 'classify' && card.classification) reviewClassification(a, card);
+  else if (card?.stage === 'design' && card.design) reviewDesign(a, card);
+  else if (card)
+    a.lines.push(
+      `${card.key} is at ${card.stage}, status ${card.status.replace('_', ' ')}.${card.statusNote ? ` ${card.statusNote}` : ''}`,
+    );
+  flagRegisterGaps(a, ctx.text);
   const aboutPage = !!pg && asksAboutPage(question);
   // A question about the page isn't a question for the knowledge base.
-  if (aboutPage) lines.push('Ask about anything on it, for example which items need attention.');
+  if (aboutPage) a.lines.push('Ask about anything on it, for example which items need attention.');
   else if (passages.length)
-    lines.push(
+    a.lines.push(
       `From the knowledge base on "${question.slice(0, 80)}": ${passages
         .slice(0, 2)
         .map((p) => `${p.title} (${p.id})`)
         .join('; ')}. Open the sources below to read them.`,
     );
-  else lines.push('Nothing in the knowledge base matched the question.');
-  lines.push(
+  else a.lines.push('Nothing in the knowledge base matched the question.');
+  a.lines.push(
     'This is the offline assistant: it reports what the harness can check by itself. Connect a model on Models & Keys (the workspace default or one picked for the assistant) for full answers.',
   );
   const top = aboutPage ? [] : passages.slice(0, 2);
   return {
-    text: lines.join('\n\n'),
+    text: a.lines.join('\n\n'),
     citations: top.map((p) => p.id),
     passages: top.map((p) => ({ ...p, text: p.text.slice(0, 1200) })),
     suggestions,
@@ -697,7 +722,7 @@ function rulesAnswer(ctx: Context, question: string, passages: SourcePassage[]):
     runtime: 'rules',
     costUsd: 0,
     basis: [
-      ...(ctx.page && (asksAboutPage(question) || (!card && !passages.length)) ? ['page' as const] : []),
+      ...(showsPage ? ['page' as const] : []),
       ...(card ? ['records' as const] : []),
       ...(top.length ? ['knowledge' as const] : []),
     ],

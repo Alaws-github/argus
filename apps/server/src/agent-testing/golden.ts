@@ -3,6 +3,7 @@
 // and calibration of the Verifier against claims people labelled good or bad.
 // This is how you tell whether a new model, prompt or rules change made the
 // agents better or worse, before it touches client work.
+import type { AgentContext } from '../agents/types.js';
 import { randomUUID } from 'node:crypto';
 import {
   AGENT_ROLES,
@@ -714,6 +715,206 @@ export interface GoldenContext {
   about: string;
   instructions: string;
 }
+type JudgeTargetOrNull = Awaited<ReturnType<typeof import('./verifier.js').verifierTarget>> | null;
+
+/** Records the start of a golden run, audited. Returns its id. */
+async function recordGoldenRunStart(
+  db: Db,
+  run: { agent: GoldenAgent; target: GoldenTarget; withVerifier: boolean; actor: string; mode: string },
+  caseCount: number,
+  context: GoldenContext | null,
+) {
+  const { agent, target, withVerifier, actor, mode } = run;
+  return db.tx(async (q) => {
+    const { rows } = await q.query(
+      `INSERT INTO golden_runs (agent, provider, model, runtime, rules_version, with_verifier, started_by, mode) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, number`,
+      [
+        agent,
+        target.provider.name,
+        target.model,
+        target.provider.type === 'rules' ? 'dry-run' : 'live',
+        agent === 'risk_classifier' ? CLASSIFIER_RULES : DESIGNER_RULES,
+        withVerifier,
+        actor,
+        mode,
+      ],
+    );
+    await logAudit(q, actor, 'golden.run_started', `golden:GR-${rows[0].number}`, {
+      agent,
+      model: target.model,
+      provider: target.provider.name,
+      cases: caseCount,
+      withVerifier,
+      mode,
+      context: context?.engagement ?? 'none',
+    });
+    return rows[0].id as string;
+  });
+}
+
+/** The agent context for one golden case: a made-up card, the chosen model and, optionally, an engagement's context. */
+function goldenCaseContext(
+  c: GoldenCase,
+  agent: GoldenAgent,
+  target: GoldenTarget,
+  defaultEffort: AgentContext['effort'],
+  context: GoldenContext | null,
+  mode: 'agentic' | 'single',
+): AgentContext {
+  return {
+    card: fakeCard(c),
+    feedback: null,
+    provider: target.provider,
+    apiKey: apiKeyOf(target.provider),
+    model: target.model,
+    effort: defaultEffort,
+    instructions: context?.instructions ?? '',
+    engagementAbout: context?.about ?? '',
+    timeoutMs: 300_000,
+    // A golden case has no records behind it and nobody to answer, so no questions.
+    role: agent,
+    mode,
+    maxSteps: DEFAULT_MAX_STEPS,
+    selfCheck: true,
+    tools: AGENT_ROLES[agent].tools,
+    answers: '',
+    questionsLeft: 0,
+  };
+}
+
+/**
+ * Runs the agent on one golden case and scores its answer against the case's expectations, with the
+ * Verifier's verdicts when asked. Returns the result and what it cost (billed providers only).
+ */
+async function runGoldenCase(
+  db: Db,
+  agent: GoldenAgent,
+  target: GoldenTarget,
+  c: GoldenCase,
+  ctx: AgentContext,
+  verifier: JudgeTargetOrNull,
+  withVerifier: boolean,
+): Promise<{ result: GoldenResult; spend: number }> {
+  const noop = async () => {};
+  let spend = 0;
+  try {
+    const res =
+      agent === 'risk_classifier'
+        ? await runRiskClassifier(ctx, db, noop)
+        : await runControlDesigner(ctx, db, noop, c.risks as Risk[]);
+    if (target.provider.billed)
+      spend += costUsd(priceFor(target.model, target.provider.prices), res.tokensIn, res.tokensOut, res.tokensCached);
+    const out: any = res.output;
+    const checks = agent === 'risk_classifier' ? scoreClassifier(c, out) : scoreDesigner(c, out);
+    const got =
+      agent === 'risk_classifier'
+        ? `Tier ${out.tier}, ${out.oversight.replace(/_/g, ' ')}; risks: ${out.risks.map((r: any) => r.category.replace('_', ' ')).join(', ')}`
+        : `Controls: ${out.controls.map((x: any) => x.libraryCode ?? x.title).join(', ')}`;
+    const result: GoldenResult = {
+      caseId: c.id,
+      key: c.key,
+      title: c.title,
+      pass: checks.every((k) => k.pass),
+      checks,
+      got,
+      error: null,
+    };
+    if (withVerifier) {
+      const stage = agent === 'risk_classifier' ? 'classify' : 'design';
+      const { claims, passages } = claimsFromDraft(
+        stage,
+        agent === 'risk_classifier' ? { classification: out } : { design: out },
+      );
+      const v = await judge(claims, passages, verifier);
+      spend += v.costUsd;
+      result.verdicts = {
+        supported: v.items.filter((i) => i.verdict === 'supported').length,
+        total: v.items.length,
+      };
+    }
+    return { result, spend };
+  } catch (e: any) {
+    return {
+      result: {
+        caseId: c.id,
+        key: c.key,
+        title: c.title,
+        pass: false,
+        checks: [],
+        got: '',
+        error: String(e?.message ?? e).slice(0, 500),
+      },
+      spend,
+    };
+  }
+}
+
+/** Cases and checks passed, and the share of claims the Verifier found supported. */
+function summariseGoldenRun(results: GoldenResult[]) {
+  const checks = results.flatMap((r) => r.checks);
+  const v = results.filter((r) => r.verdicts);
+  const supported = v.reduce((n, r) => n + r.verdicts!.supported, 0);
+  const total = v.reduce((n, r) => n + r.verdicts!.total, 0);
+  return {
+    cases: results.length,
+    passed: results.filter((r) => r.pass).length,
+    checks: checks.length,
+    checksPassed: checks.filter((k) => k.pass).length,
+    supportedPct: total ? Math.round((supported / total) * 100) : null,
+  };
+}
+
+/**
+ * Finishes a golden run: the summary, regressions (cases that passed on this agent's previous
+ * completed run and fail now), its spend (counted by the spend cap, rule 14), audited.
+ */
+async function finishGoldenRun(
+  db: Db,
+  id: string,
+  run: { agent: GoldenAgent; target: GoldenTarget; actor: string },
+  results: GoldenResult[],
+  spend: number,
+) {
+  const { agent, target, actor } = run;
+  const summary = summariseGoldenRun(results);
+  const { rows: prev } = await db.query(
+    `SELECT number, results FROM golden_runs WHERE agent = $1 AND status = 'done' AND id <> $2 ORDER BY number DESC LIMIT 1`,
+    [agent, id],
+  );
+  const before = new Set<string>((prev[0]?.results ?? []).filter((r: any) => r.pass).map((r: any) => r.caseId));
+  const regressions = results.filter((r) => !r.pass && before.has(r.caseId)).map((r) => r.key);
+  await db.tx(async (q) => {
+    await q.query(
+      `UPDATE golden_runs SET status = 'done', summary = $2, regressions = $3, previous = $4, ended_at = now() WHERE id = $1`,
+      [id, JSON.stringify(summary), JSON.stringify(regressions), prev[0] ? `GR-${prev[0].number}` : null],
+    );
+    await recordSpend(q, 'golden', target.model, spend);
+    await logAudit(q, actor, 'golden.run_finished', `golden:${id}`, {
+      agent,
+      model: target.model,
+      ...summary,
+      regressions,
+      costUsd: spend,
+    });
+  });
+  emit('golden', { id });
+}
+
+/** Marks a golden run failed when something outside a single case went wrong. */
+async function markGoldenRunFailed(db: Db, id: string, e: any) {
+  await db
+    .query(`UPDATE golden_runs SET status = 'failed', summary = $2, ended_at = now() WHERE id = $1`, [
+      id,
+      JSON.stringify({ error: String(e?.message ?? e) }),
+    ])
+    .catch(() => {});
+  emit('golden', { id });
+}
+
+/**
+ * Starts a golden run: every golden case of the agent, run in the background one by one, each result
+ * saved and sent live as it lands. Returns the run's id at once.
+ */
 export async function startGoldenRun(
   db: Db,
   agent: GoldenAgent,
@@ -727,157 +928,24 @@ export async function startGoldenRun(
   if (target.provider.type === 'rules') mode = 'single';
   const { rows: cases } = await db.query(`SELECT * FROM golden_cases WHERE agent = $1 ORDER BY number`, [agent]);
   if (!cases.length) throw Object.assign(new Error('There are no golden cases for this agent yet'), { status: 409 });
-  const verifier = withVerifier ? await (await import('./verifier')).verifierTarget(db) : null;
-  const runtime = target.provider.type === 'rules' ? 'dry-run' : 'live';
-  const id = await db.tx(async (q) => {
-    const { rows } = await q.query(
-      `INSERT INTO golden_runs (agent, provider, model, runtime, rules_version, with_verifier, started_by, mode) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, number`,
-      [
-        agent,
-        target.provider.name,
-        target.model,
-        runtime,
-        agent === 'risk_classifier' ? CLASSIFIER_RULES : DESIGNER_RULES,
-        withVerifier,
-        actor,
-        mode,
-      ],
-    );
-    await logAudit(q, actor, 'golden.run_started', `golden:GR-${rows[0].number}`, {
-      agent,
-      model: target.model,
-      provider: target.provider.name,
-      cases: cases.length,
-      withVerifier,
-      mode,
-      context: context?.engagement ?? 'none',
-    });
-    return rows[0].id as string;
-  });
+  const verifier = withVerifier ? await (await import('./verifier.js')).verifierTarget(db) : null;
+  const run = { agent, target, withVerifier, actor, mode };
+  const id = await recordGoldenRunStart(db, run, cases.length, context);
   void (async () => {
     const settings = await getSettings(db);
     const results: GoldenResult[] = [];
     let spend = 0;
     for (const row of cases) {
       const c = toCase(row);
-      const card = fakeCard(c);
-      const ctx = {
-        card,
-        feedback: null,
-        provider: target.provider,
-        apiKey: apiKeyOf(target.provider),
-        model: target.model,
-        effort: settings.defaultEffort,
-        instructions: context?.instructions ?? '',
-        engagementAbout: context?.about ?? '',
-        timeoutMs: 300_000,
-        // A golden case has no records behind it and nobody to answer, so no questions.
-        role: agent,
-        mode,
-        maxSteps: DEFAULT_MAX_STEPS,
-        selfCheck: true,
-        tools: AGENT_ROLES[agent].tools,
-        answers: '',
-        questionsLeft: 0,
-      };
-      const noop = async () => {};
-      try {
-        const res =
-          agent === 'risk_classifier'
-            ? await runRiskClassifier(ctx, db, noop)
-            : await runControlDesigner(ctx, db, noop, c.risks as Risk[]);
-        if (target.provider.billed)
-          spend += costUsd(
-            priceFor(target.model, target.provider.prices),
-            res.tokensIn,
-            res.tokensOut,
-            res.tokensCached,
-          );
-        const out: any = res.output;
-        const checks = agent === 'risk_classifier' ? scoreClassifier(c, out) : scoreDesigner(c, out);
-        const got =
-          agent === 'risk_classifier'
-            ? `Tier ${out.tier}, ${out.oversight.replace(/_/g, ' ')}; risks: ${out.risks.map((r: any) => r.category.replace('_', ' ')).join(', ')}`
-            : `Controls: ${out.controls.map((x: any) => x.libraryCode ?? x.title).join(', ')}`;
-        const result: GoldenResult = {
-          caseId: c.id,
-          key: c.key,
-          title: c.title,
-          pass: checks.every((k) => k.pass),
-          checks,
-          got,
-          error: null,
-        };
-        if (withVerifier) {
-          const stage = agent === 'risk_classifier' ? 'classify' : 'design';
-          const { claims, passages } = claimsFromDraft(
-            stage,
-            agent === 'risk_classifier' ? { classification: out } : { design: out },
-          );
-          const v = await judge(claims, passages, verifier);
-          spend += v.costUsd;
-          result.verdicts = {
-            supported: v.items.filter((i) => i.verdict === 'supported').length,
-            total: v.items.length,
-          };
-        }
-        results.push(result);
-      } catch (e: any) {
-        results.push({
-          caseId: c.id,
-          key: c.key,
-          title: c.title,
-          pass: false,
-          checks: [],
-          got: '',
-          error: String(e?.message ?? e).slice(0, 500),
-        });
-      }
+      const ctx = goldenCaseContext(c, agent, target, settings.defaultEffort, context, mode);
+      const done = await runGoldenCase(db, agent, target, c, ctx, verifier, withVerifier);
+      results.push(done.result);
+      spend += done.spend;
       await db.query(`UPDATE golden_runs SET results = $2 WHERE id = $1`, [id, JSON.stringify(results)]);
       emit('golden', { id });
     }
-    const checks = results.flatMap((r) => r.checks);
-    const v = results.filter((r) => r.verdicts);
-    const supported = v.reduce((n, r) => n + r.verdicts!.supported, 0);
-    const total = v.reduce((n, r) => n + r.verdicts!.total, 0);
-    const summary = {
-      cases: results.length,
-      passed: results.filter((r) => r.pass).length,
-      checks: checks.length,
-      checksPassed: checks.filter((k) => k.pass).length,
-      supportedPct: total ? Math.round((supported / total) * 100) : null,
-    };
-    // Regressions: cases that passed on this agent's previous completed run.
-    const { rows: prev } = await db.query(
-      `SELECT number, results FROM golden_runs WHERE agent = $1 AND status = 'done' AND id <> $2 ORDER BY number DESC LIMIT 1`,
-      [agent, id],
-    );
-    const before = new Set<string>((prev[0]?.results ?? []).filter((r: any) => r.pass).map((r: any) => r.caseId));
-    const regressions = results.filter((r) => !r.pass && before.has(r.caseId)).map((r) => r.key);
-    await db.tx(async (q) => {
-      await q.query(
-        `UPDATE golden_runs SET status = 'done', summary = $2, regressions = $3, previous = $4, ended_at = now() WHERE id = $1`,
-        [id, JSON.stringify(summary), JSON.stringify(regressions), prev[0] ? `GR-${prev[0].number}` : null],
-      );
-      await recordSpend(q, 'golden', target.model, spend);
-      await logAudit(q, actor, 'golden.run_finished', `golden:${id}`, {
-        agent,
-        model: target.model,
-        ...summary,
-        regressions,
-        costUsd: spend,
-      });
-    });
-    emit('golden', { id });
-  })().catch(async (e) => {
-    await db
-      .query(`UPDATE golden_runs SET status = 'failed', summary = $2, ended_at = now() WHERE id = $1`, [
-        id,
-        JSON.stringify({ error: String(e?.message ?? e) }),
-      ])
-      .catch(() => {});
-    emit('golden', { id });
-  });
+    await finishGoldenRun(db, id, run, results, spend);
+  })().catch((e) => markGoldenRunFailed(db, id, e));
   return id;
 }
 

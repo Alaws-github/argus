@@ -1,20 +1,20 @@
 # Code structure backlog
 
-Long functions still to split into named, single-purpose steps (v1.7.6 split `runCard` and engagement creation). Line counts are from v1.7.6, without blank lines and comments. Split one at a time, with the suites that cover it run before and after.
+What is left of splitting long code into named, single-purpose pieces. v1.7.6 split `runCard` and engagement creation; v1.7.7 split every other long server function (the four drafting agents now have a file each). Split one at a time, with the checks that cover it run before and after.
 
 Route registration functions (`xxxRoutes`) are long because they list many short handlers, which is the usual Express pattern; split those only when a single handler inside is long.
 
-| Function | File | Lines | Covered by |
-|---|---|---|---|
-| `runReviewAssistant` | `apps/server/src/agents/drafting.ts` | 238 | `test:agents`, `test:v16` |
-| `startGoldenRun` | `apps/server/src/agent-testing/golden.ts` | 163 | `test:verifier` |
-| `runControlTester` | `apps/server/src/agents/drafting.ts` | 155 | `test:agents` |
-| `runReportWriter` | `apps/server/src/agents/drafting.ts` | 151 | `test:agents` |
-| `runLoop` | `apps/server/src/agents/agent-loop.ts` | 150 | `test:v16` |
-| `chatOnce` | `apps/server/src/ai/llm.ts` | 148 | `test:v15`, `test:v16` |
-| the evidence push handler in `ingestRouter` | `apps/server/src/integrations/ingest.ts` | 133 | `test:v173` |
-| `runControlDesigner` | `apps/server/src/agents/control-designer.ts` | 131 | `test:agents` |
-| `runEvidenceCollector` | `apps/server/src/agents/drafting.ts` | 128 | `test:agents` |
-| the tiles computed for every page | `apps/web/src/components/KpiStrip.vue` | 281 | browser check of every page |
+## Server
 
-Large Vue files to split into components per tab or panel: `features/engagements/SettingsPage.vue` (about 1,100 lines), `features/integrations/WorkflowBuilderPage.vue`, `features/agent-testing/AgentTestingPage.vue`, `features/assistant/AssistantPanel.vue`, `features/board/CardDrawer.vue` (each about 900).
+Done in v1.7.7: no server function outside the route registration lists is over 120 lines (blank lines and comments not counted).
+
+## Web (planned for 1.7.8)
+
+| File | About | Split into | Covered by |
+|---|---|---|---|
+| `features/engagements/SettingsPage.vue` | 1,100 lines | one component per Settings tab | browser check of every tab, `test:v12`, `test:v174` |
+| `features/integrations/WorkflowBuilderPage.vue` | 960 | canvas, inspector, icon rail | browser check, `test:v17` |
+| `features/agent-testing/AgentTestingPage.vue` | 950 | one component per tab | browser check, `test:verifier` |
+| `features/assistant/AssistantPanel.vue` | 940 | conversation list, message, composer | browser check, `test:assistant` |
+| `features/board/CardDrawer.vue` | 890 | one component per drawer section | browser check |
+| `components/KpiStrip.vue` | 280-line computed | one tile builder per page | browser check of every page |

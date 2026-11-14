@@ -2,6 +2,18 @@
 
 What changed in each release of ARGUS, newest first. The version shown under Sign Out comes from package.json. Start a new release with `npm run release -- X.Y.Z`.
 
+## v1.7.7 (2026-11-14)
+
+Every long server function split into named, single-purpose steps. No change to what the app does.
+
+- **One file per drafting agent.** `agents/drafting.ts` held four agents in 900 lines. Each now has its own file, like the Risk Classifier and Control Designer: `evidence-collector.ts`, `control-tester.ts`, `review-assistant.ts` and `report-writer.ts`. `drafting.ts` keeps what they share (their rules, reading controls and evidence, the model call).
+- **Each agent reads the same way:** gather its inputs, draft (offline rules or a model brief), check the draft (rule 6), log and return. The checks are now named functions you can find on their own: `checkEvidencePlan`, `checkTestDrafts`, `mergeModelReview`, `checkFigures`, `checkDesign`. The Review assistant's standard checks are split into `testChallenges`, `issueChallenges` and `riskChallenges`.
+- **The agent loop** (`runLoop`): setting up the tools, running the look-ups the model asks for, falling back to a single call and the repair and self-check messages are separate functions. The bounds (rule 26) are unchanged.
+- **Model calls** (`chatOnce`): one function per provider shape, Anthropic and the OpenAI-compatible and Ollama shape they share, with message conversion and reply reading in their own functions.
+- **Golden runs, the pipeline push and the offline helpers:** `startGoldenRun` is split into start, one case, summary, finish and failure. The pipeline evidence push is split into checking the token, finding the control and use case, storing the content and saving the evidence. The Risk Classifier's offline rules read the profile's signals once, then build the factors, risks and questions from them. The assistant's offline answer has one function per part. The KPI read is a named table of 13 queries.
+- No server function outside the route registration lists is now over 120 lines. The large screens are still to do (`docs/plans/code-structure-backlog.md`).
+
+
 ## v1.7.6 (2026-11-14)
 
 Code organised by feature, so a developer can find everything about one feature in one place. No change to what the app does.

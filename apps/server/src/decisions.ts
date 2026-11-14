@@ -31,15 +31,30 @@ export function undecided(card: Card): string[] {
 // What may be edited on each kind of item.
 const EDITS: Record<string, z.ZodTypeAny> = {
   tier: z.object({ tier: RiskTier, oversight: Oversight }).partial(),
-  risk: z.object({ title: z.string().trim().min(3).max(200), category: RiskCategory, likelihood: z.number().int().min(1).max(5), impact: z.number().int().min(1).max(5) }).partial(),
-  control: z.object({ title: z.string().trim().min(3).max(200), owner: z.string().max(120), objective: z.string().max(800) }).partial(),
-  summary: z.object({ headline: z.string().trim().min(5).max(200), summary: z.string().trim().min(20).max(4000) }).partial(),
+  risk: z
+    .object({
+      title: z.string().trim().min(3).max(200),
+      category: RiskCategory,
+      likelihood: z.number().int().min(1).max(5),
+      impact: z.number().int().min(1).max(5),
+    })
+    .partial(),
+  control: z
+    .object({ title: z.string().trim().min(3).max(200), owner: z.string().max(120), objective: z.string().max(800) })
+    .partial(),
+  summary: z
+    .object({ headline: z.string().trim().min(5).max(200), summary: z.string().trim().min(20).max(4000) })
+    .partial(),
 };
 
 export function checkEdit(item: string, edit: unknown) {
   const kind = item.split(':')[0];
   const schema = EDITS[kind];
-  if (!schema) throw Object.assign(new Error(`${kind === 'challenge' ? 'A challenge' : 'This item'} can be accepted or rejected, not edited`), { status: 400 });
+  if (!schema)
+    throw Object.assign(
+      new Error(`${kind === 'challenge' ? 'A challenge' : 'This item'} can be accepted or rejected, not edited`),
+      { status: 400 },
+    );
   const parsed = schema.parse(edit);
   if (!Object.keys(parsed).length) throw Object.assign(new Error('Nothing was changed'), { status: 400 });
   return parsed as Record<string, unknown>;

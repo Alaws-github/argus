@@ -11,9 +11,18 @@ import { DATA_DIR } from './db.js';
 
 const DIR = resolve(DATA_DIR, 'evidence');
 const env = process.env;
-const r2 = env.R2_ACCOUNT_ID && env.R2_BUCKET && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY
-  ? { client: new AwsClient({ accessKeyId: env.R2_ACCESS_KEY_ID, secretAccessKey: env.R2_SECRET_ACCESS_KEY, service: 's3', region: 'auto' }), base: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${env.R2_BUCKET}/evidence/` }
-  : null;
+const r2 =
+  env.R2_ACCOUNT_ID && env.R2_BUCKET && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY
+    ? {
+        client: new AwsClient({
+          accessKeyId: env.R2_ACCESS_KEY_ID,
+          secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+          service: 's3',
+          region: 'auto',
+        }),
+        base: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${env.R2_BUCKET}/evidence/`,
+      }
+    : null;
 // R2_ENDPOINT overrides the address, for testing against another S3-compatible store.
 if (r2 && env.R2_ENDPOINT) r2.base = `${env.R2_ENDPOINT.replace(/\/+$/, '')}/${env.R2_BUCKET}/evidence/`;
 
@@ -45,7 +54,13 @@ export async function getEvidence(hash: string): Promise<Buffer | null> {
 
 export async function deleteEvidence(hash: string) {
   let removed = false;
-  if (existsSync(local(hash))) { unlinkSync(local(hash)); removed = true; }
-  if (r2) { const res = await r2.client.fetch(r2.base + hash, { method: 'DELETE' }); removed = removed || res.ok; }
+  if (existsSync(local(hash))) {
+    unlinkSync(local(hash));
+    removed = true;
+  }
+  if (r2) {
+    const res = await r2.client.fetch(r2.base + hash, { method: 'DELETE' });
+    removed = removed || res.ok;
+  }
   return removed;
 }

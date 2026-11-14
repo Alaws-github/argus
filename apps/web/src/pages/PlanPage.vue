@@ -20,7 +20,17 @@ const text = ref('');
 const sending = ref(false);
 const adding = ref(false);
 const chatEl = ref<HTMLElement | null>(null);
-const brief = reactive<PlanBrief>({ title: '', businessOwner: '', description: '', dataUsed: '', affectedPeople: '', autonomy: 'human_in_loop', vendor: '', category: 'other', priority: 'p2' });
+const brief = reactive<PlanBrief>({
+  title: '',
+  businessOwner: '',
+  description: '',
+  dataUsed: '',
+  affectedPeople: '',
+  autonomy: 'human_in_loop',
+  vendor: '',
+  category: 'other',
+  priority: 'p2',
+});
 
 const AUTONOMY = {
   assistive: 'Assistive: a person does the work',
@@ -63,12 +73,22 @@ onMounted(async () => {
     else await newPlan();
   }
 });
-watch(() => route.query.new, (n) => n && void newPlan());
+watch(
+  () => route.query.new,
+  (n) => n && void newPlan(),
+);
 
 const editable = computed(() => plan.value?.status === 'draft' && plan.value.createdBy === app.user?.name);
 const aiMode = computed(() => plan.value?.mode === 'ai' && planner.value.on);
-const drafted = (k: string) => aiMode.value && plan.value && !plan.value.edited.includes(k) && String((plan.value.brief as any)[k] ?? '').trim() !== '' && plan.value.messages.some((m) => m.role === 'user');
-const missing = computed(() => PLAN_FIELDS.filter((f) => f.required && !String((brief as any)[f.key] ?? '').trim()).map((f) => f.label));
+const drafted = (k: string) =>
+  aiMode.value &&
+  plan.value &&
+  !plan.value.edited.includes(k) &&
+  String((plan.value.brief as any)[k] ?? '').trim() !== '' &&
+  plan.value.messages.some((m) => m.role === 'user');
+const missing = computed(() =>
+  PLAN_FIELDS.filter((f) => f.required && !String((brief as any)[f.key] ?? '').trim()).map((f) => f.label),
+);
 
 async function send() {
   const t = text.value.trim();
@@ -105,7 +125,11 @@ async function saveField(k: keyof PlanBrief) {
 }
 async function setMode(mode: 'ai' | 'manual') {
   if (!plan.value || plan.value.mode === mode) return;
-  if (mode === 'ai' && !planner.value.on) return app.toast('The Use Case Planner is switched off for this engagement. A lead can turn it on in Settings > Agents.', 'error');
+  if (mode === 'ai' && !planner.value.on)
+    return app.toast(
+      'The Use Case Planner is switched off for this engagement. A lead can turn it on in Settings > Agents.',
+      'error',
+    );
   show(await api<Plan>(`/plans/${plan.value.id}`, { method: 'PATCH', body: { mode } }));
 }
 async function addToIntake() {
@@ -130,7 +154,8 @@ async function remove() {
   if (next) await open(next.id);
   else await newPlan();
 }
-const label = (p: Plan) => p.brief.title || (p.messages.find((m) => m.role === 'user')?.text.slice(0, 40) ?? 'New plan');
+const label = (p: Plan) =>
+  p.brief.title || (p.messages.find((m) => m.role === 'user')?.text.slice(0, 40) ?? 'New plan');
 </script>
 
 <template>
@@ -138,38 +163,92 @@ const label = (p: Plan) => p.brief.title || (p.messages.find((m) => m.role === '
     <div class="page-head">
       <div>
         <h1>Add a use case</h1>
-        <p v-if="aiMode">Talk it through with the {{ planner.name ?? 'Use Case Planner' }}. It asks a few questions and drafts a brief you can edit; then you add it to Intake.</p>
+        <p v-if="aiMode"
+          >Talk it through with the {{ planner.name ?? 'Use Case Planner' }}. It asks a few questions and drafts a brief
+          you can edit; then you add it to Intake.</p
+        >
         <p v-else>Fill in the brief yourself, then add it to Intake.</p>
       </div>
       <div class="segmented" role="radiogroup" aria-label="How to fill the brief">
-        <button role="radio" :aria-checked="plan?.mode === 'ai'" :class="{ on: plan?.mode === 'ai' && planner.on }" :disabled="!editable" @click="setMode('ai')"><span class="seg-ai">AI</span>Plan with AI</button>
-        <button role="radio" :aria-checked="plan?.mode === 'manual'" :class="{ on: plan?.mode === 'manual' || !planner.on }" :disabled="!editable" @click="setMode('manual')">Fill it in myself</button>
+        <button
+          role="radio"
+          :aria-checked="plan?.mode === 'ai'"
+          :class="{ on: plan?.mode === 'ai' && planner.on }"
+          :disabled="!editable"
+          @click="setMode('ai')"
+          ><span class="seg-ai">AI</span>Plan with AI</button
+        >
+        <button
+          role="radio"
+          :aria-checked="plan?.mode === 'manual'"
+          :class="{ on: plan?.mode === 'manual' || !planner.on }"
+          :disabled="!editable"
+          @click="setMode('manual')"
+          >Fill it in myself</button
+        >
       </div>
     </div>
 
     <div class="plan-grid" :class="{ manual: !aiMode }">
       <aside class="plan-drafts">
-        <div class="spread"><span class="label-caps">Drafts</span><button class="btn sm" @click="newPlan()">+ New plan</button></div>
-        <button v-for="p in plans" :key="p.id" class="draft-item" :class="{ selected: p.id === plan?.id }" @click="open(p.id)">
+        <div class="spread"
+          ><span class="label-caps">Drafts</span><button class="btn sm" @click="newPlan()">+ New plan</button></div
+        >
+        <button
+          v-for="p in plans"
+          :key="p.id"
+          class="draft-item"
+          :class="{ selected: p.id === plan?.id }"
+          @click="open(p.id)"
+        >
           <span class="clip" style="display: block">{{ label(p) }}</span>
-          <span class="small faint">{{ p.status === 'added' ? `Added as ${p.cardKey ?? 'a card'}` : `Draft · ${ago(p.updatedAt)} ago` }}</span>
+          <span class="small faint">{{
+            p.status === 'added' ? `Added as ${p.cardKey ?? 'a card'}` : `Draft · ${ago(p.updatedAt)} ago`
+          }}</span>
         </button>
       </aside>
 
       <section v-if="aiMode && plan" class="card plan-chat">
         <div class="spread">
-          <div class="row"><span class="agent-mark">UP</span><div><strong>{{ planner.name }}</strong><span class="small faint mono" style="display: block">{{ planner.runtime === 'live' ? planner.model : 'offline rules' }}</span></div></div>
-          <span v-if="planner.runtime !== 'live'" class="badge warn" title="Pick a model for the Use Case Planner in Settings > Agents">Offline</span>
+          <div class="row"
+            ><span class="agent-mark">UP</span
+            ><div
+              ><strong>{{ planner.name }}</strong
+              ><span class="small faint mono" style="display: block">{{
+                planner.runtime === 'live' ? planner.model : 'offline rules'
+              }}</span></div
+            ></div
+          >
+          <span
+            v-if="planner.runtime !== 'live'"
+            class="badge warn"
+            title="Pick a model for the Use Case Planner in Settings > Agents"
+            >Offline</span
+          >
         </div>
         <div ref="chatEl" class="chat-log" aria-live="polite">
           <div v-for="(m, i) in plan.messages" :key="i" class="msg" :class="m.role === 'planner' ? 'ai' : 'me'">
             <span class="small faint">{{ m.role === 'planner' ? m.author : 'You' }}</span>
             <div class="ap-md plan-md" v-html="renderMarkdown(m.text)" />
           </div>
-          <div v-if="sending" class="msg ai"><span class="small faint">{{ planner.name }}</span><p class="pulse">Thinking…</p></div>
+          <div v-if="sending" class="msg ai"
+            ><span class="small faint">{{ planner.name }}</span
+            ><p class="pulse">Thinking…</p></div
+          >
         </div>
         <form v-if="editable" class="chat-input" @submit.prevent="send">
-          <textarea v-model="text" class="textarea" rows="2" :placeholder="plan.messages.some((m) => m.role === 'user') ? 'Answer, or ask for a change' : 'Describe the use case: what it does and who it affects'" :disabled="sending" @keydown="onKey" />
+          <textarea
+            v-model="text"
+            class="textarea"
+            rows="2"
+            :placeholder="
+              plan.messages.some((m) => m.role === 'user')
+                ? 'Answer, or ask for a change'
+                : 'Describe the use case: what it does and who it affects'
+            "
+            :disabled="sending"
+            @keydown="onKey"
+          />
           <button class="btn primary" :disabled="sending || !text.trim()">Send</button>
         </form>
         <p v-else class="small faint">This plan is on the board as {{ plan.cardKey }}.</p>
@@ -178,43 +257,124 @@ const label = (p: Plan) => p.brief.title || (p.messages.find((m) => m.role === '
       <section v-if="plan" class="card plan-brief">
         <div class="spread">
           <h2>Brief</h2>
-          <span class="small faint">{{ editable ? 'Saved' : plan.status === 'added' ? `On the board as ${plan.cardKey}` : `${plan.createdBy}'s draft` }}</span>
+          <span class="small faint">{{
+            editable
+              ? 'Saved'
+              : plan.status === 'added'
+                ? `On the board as ${plan.cardKey}`
+                : `${plan.createdBy}'s draft`
+          }}</span>
         </div>
         <fieldset class="bare stack" style="gap: 10px" :disabled="!editable">
-          <label class="field"><span>Name <span v-if="drafted('title')" class="ai-tag">AI</span></span><input v-model="brief.title" class="input" placeholder="Loan pre-approval scoring" @blur="saveField('title')" /></label>
-          <label class="field"><span>What it does <span v-if="drafted('description')" class="ai-tag">AI</span></span><textarea v-model="brief.description" class="textarea" rows="3" placeholder="What the AI does, who acts on its output, how often" @blur="saveField('description')" /></label>
-          <label class="field"><span>Business owner <span v-if="drafted('businessOwner')" class="ai-tag">AI</span></span><input v-model="brief.businessOwner" class="input" placeholder="Head of Retail Credit" @blur="saveField('businessOwner')" /></label>
-          <label class="field"><span>Data it uses <span v-if="drafted('dataUsed')" class="ai-tag">AI</span></span><textarea v-model="brief.dataUsed" class="textarea" rows="2" placeholder="Every data source. Say if any of it identifies a person." @blur="saveField('dataUsed')" /></label>
-          <label class="field"><span>People affected <span v-if="drafted('affectedPeople')" class="ai-tag">AI</span></span><input v-model="brief.affectedPeople" class="input" placeholder="Who sees its output or is decided about" @blur="saveField('affectedPeople')" /></label>
+          <label class="field"
+            ><span>Name <span v-if="drafted('title')" class="ai-tag">AI</span></span
+            ><input
+              v-model="brief.title"
+              class="input"
+              placeholder="Loan pre-approval scoring"
+              @blur="saveField('title')"
+          /></label>
+          <label class="field"
+            ><span>What it does <span v-if="drafted('description')" class="ai-tag">AI</span></span
+            ><textarea
+              v-model="brief.description"
+              class="textarea"
+              rows="3"
+              placeholder="What the AI does, who acts on its output, how often"
+              @blur="saveField('description')"
+            />
+          </label>
+          <label class="field"
+            ><span>Business owner <span v-if="drafted('businessOwner')" class="ai-tag">AI</span></span
+            ><input
+              v-model="brief.businessOwner"
+              class="input"
+              placeholder="Head of Retail Credit"
+              @blur="saveField('businessOwner')"
+          /></label>
+          <label class="field"
+            ><span>Data it uses <span v-if="drafted('dataUsed')" class="ai-tag">AI</span></span
+            ><textarea
+              v-model="brief.dataUsed"
+              class="textarea"
+              rows="2"
+              placeholder="Every data source. Say if any of it identifies a person."
+              @blur="saveField('dataUsed')"
+            />
+          </label>
+          <label class="field"
+            ><span>People affected <span v-if="drafted('affectedPeople')" class="ai-tag">AI</span></span
+            ><input
+              v-model="brief.affectedPeople"
+              class="input"
+              placeholder="Who sees its output or is decided about"
+              @blur="saveField('affectedPeople')"
+          /></label>
           <label class="field">
             <span>Autonomy <span v-if="drafted('autonomy')" class="ai-tag">AI</span></span>
-            <select v-model="brief.autonomy" class="select" @change="saveField('autonomy')"><option v-for="(l, k) in AUTONOMY" :key="k" :value="k">{{ l }}</option></select>
+            <select v-model="brief.autonomy" class="select" @change="saveField('autonomy')"
+              ><option v-for="(l, k) in AUTONOMY" :key="k" :value="k">{{ l }}</option></select
+            >
           </label>
           <div class="grid" style="grid-template-columns: 1fr 1fr">
             <label class="field">
-              <span>Kind of AI <span v-if="drafted('category') && brief.category !== 'other'" class="ai-tag">AI</span></span>
-              <select v-model="brief.category" class="select" @change="saveField('category')"><option v-for="(l, k) in CATEGORY_LABELS" :key="k" :value="k">{{ l }}</option></select>
+              <span
+                >Kind of AI
+                <span v-if="drafted('category') && brief.category !== 'other'" class="ai-tag">AI</span></span
+              >
+              <select v-model="brief.category" class="select" @change="saveField('category')"
+                ><option v-for="(l, k) in CATEGORY_LABELS" :key="k" :value="k">{{ l }}</option></select
+              >
             </label>
-            <label class="field"><span>Vendor or model <span v-if="drafted('vendor')" class="ai-tag">AI</span></span><input v-model="brief.vendor" class="input" placeholder="In-house, or the vendor" @blur="saveField('vendor')" /></label>
+            <label class="field"
+              ><span>Vendor or model <span v-if="drafted('vendor')" class="ai-tag">AI</span></span
+              ><input
+                v-model="brief.vendor"
+                class="input"
+                placeholder="In-house, or the vendor"
+                @blur="saveField('vendor')"
+            /></label>
           </div>
           <div class="field">
             <span>Priority</span>
             <div class="segmented" role="radiogroup" aria-label="Priority">
-              <button v-for="(l, k) in PRIORITY_LABELS" :key="k" type="button" role="radio" :aria-checked="brief.priority === k" :class="{ on: brief.priority === k }" @click="brief.priority = k; saveField('priority')">{{ l }}</button>
+              <button
+                v-for="(l, k) in PRIORITY_LABELS"
+                :key="k"
+                type="button"
+                role="radio"
+                :aria-checked="brief.priority === k"
+                :class="{ on: brief.priority === k }"
+                @click="
+                  brief.priority = k;
+                  saveField('priority');
+                "
+                >{{ l }}</button
+              >
             </div>
           </div>
         </fieldset>
         <details class="small">
           <summary>What the agents receive</summary>
-          <p class="muted">After a reviewer or lead takes it forward from Intake, the Risk Classifier reads this brief, the engagement description and the knowledge-base passages that match it, and drafts a risk tier and starting risks for a person to decide.</p>
+          <p class="muted"
+            >After a reviewer or lead takes it forward from Intake, the Risk Classifier reads this brief, the engagement
+            description and the knowledge-base passages that match it, and drafts a risk tier and starting risks for a
+            person to decide.</p
+          >
         </details>
-        <p v-if="editable && missing.length" class="small" style="color: var(--warn)">Still needed: {{ missing.join(', ') }}</p>
+        <p v-if="editable && missing.length" class="small" style="color: var(--warn)"
+          >Still needed: {{ missing.join(', ') }}</p
+        >
         <div v-if="editable" class="row" style="flex-wrap: wrap">
-          <button class="btn primary" :disabled="adding || missing.length > 0" @click="addToIntake">{{ adding ? 'Adding…' : 'Add to Intake' }}</button>
+          <button class="btn primary" :disabled="adding || missing.length > 0" @click="addToIntake">{{
+            adding ? 'Adding…' : 'Add to Intake'
+          }}</button>
           <span class="grow" />
           <button class="btn ghost danger" @click="remove">Delete draft</button>
         </div>
-        <p v-if="editable" class="small faint">It goes to Intake under your name. Someone else decides whether it goes forward.</p>
+        <p v-if="editable" class="small faint"
+          >It goes to Intake under your name. Someone else decides whether it goes forward.</p
+        >
       </section>
     </div>
   </div>

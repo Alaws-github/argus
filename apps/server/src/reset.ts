@@ -10,9 +10,14 @@ import { cancelEmbedding } from './kb.js';
 // The embedded database allows one program at a time. Resetting it while the
 // app is running damages it, so refuse.
 const PORT = Number(process.env.PORT || 4300);
-const running = await fetch(`http://localhost:${PORT}/api/health`, { signal: AbortSignal.timeout(1500) }).then(() => true, () => false);
+const running = await fetch(`http://localhost:${PORT}/api/health`, { signal: AbortSignal.timeout(1500) }).then(
+  () => true,
+  () => false,
+);
 if (running) {
-  console.error(`[reset] The app is running on port ${PORT}. Stop it first (Ctrl+C in its terminal), then run npm run db:reset again.`);
+  console.error(
+    `[reset] The app is running on port ${PORT}. Stop it first (Ctrl+C in its terminal), then run npm run db:reset again.`,
+  );
   process.exit(1);
 }
 
@@ -20,7 +25,9 @@ if (running) {
 const url = process.env.DATABASE_URL;
 if (url && !/@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(url) && process.env.RESET_HOSTED !== 'yes') {
   console.error('[reset] DATABASE_URL points at a hosted database. Resetting would delete everything on that site.');
-  console.error('[reset] For local work, close this terminal and open a new one without DATABASE_URL. To really wipe it, set RESET_HOSTED=yes.');
+  console.error(
+    '[reset] For local work, close this terminal and open a new one without DATABASE_URL. To really wipe it, set RESET_HOSTED=yes.',
+  );
   process.exit(1);
 }
 

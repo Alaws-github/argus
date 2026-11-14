@@ -8,6 +8,8 @@ export function useUnsaved<T>(form: Ref<T> | (() => T)) {
   const read = () => (typeof form === 'function' ? (form as () => T)() : form.value);
   const saved = ref(JSON.stringify(read()));
   const dirty = computed(() => JSON.stringify(read()) !== saved.value);
-  const mark = () => { saved.value = JSON.stringify(read()); };
+  const mark = () => {
+    saved.value = JSON.stringify(read());
+  };
   return { dirty, mark };
 }

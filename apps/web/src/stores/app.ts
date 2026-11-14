@@ -4,7 +4,11 @@ import { defineStore } from 'pinia';
 import { can, type Card, type Engagement, type Module, type Permission, type Stage, type User } from '@gh/shared';
 import { api, socket } from '../api';
 
-interface Toast { id: number; text: string; kind: 'info' | 'error' }
+interface Toast {
+  id: number;
+  text: string;
+  kind: 'info' | 'error';
+}
 
 let initOnce: Promise<void> | null = null;
 
@@ -51,7 +55,12 @@ export const useApp = defineStore('app', {
     notify: local.get('gh.notify') === 'on',
     // The assistant panel: what it is about. A card drawer sets its card;
     // otherwise it follows the page.
-    assistant: { open: false, kind: 'engagement' as 'card' | 'risks' | 'controls' | 'issues' | 'engagement', contextId: '', label: '' },
+    assistant: {
+      open: false,
+      kind: 'engagement' as 'card' | 'risks' | 'controls' | 'issues' | 'engagement',
+      contextId: '',
+      label: '',
+    },
   }),
   getters: {
     engagement: (s) => s.engagements.find((e) => e.id === s.engagementId) ?? null,
@@ -67,7 +76,14 @@ export const useApp = defineStore('app', {
     mod: (s) => (m: Module) => !!s.engagements.find((e) => e.id === s.engagementId)?.modules?.[m],
     active: (s) => s.engagements.filter((e) => !e.archivedAt),
     archived: (s) => s.engagements.filter((e) => e.archivedAt),
-    needsYou: (s) => s.cards.filter((c) => c.status === 'needs_approval' || c.status === 'question' || c.status === 'failed' || (c.stage === 'intake' && c.status === 'idle')),
+    needsYou: (s) =>
+      s.cards.filter(
+        (c) =>
+          c.status === 'needs_approval' ||
+          c.status === 'question' ||
+          c.status === 'failed' ||
+          (c.stage === 'intake' && c.status === 'idle'),
+      ),
   },
   actions: {
     openAssistant(kind: 'card' | 'risks' | 'controls' | 'issues' | 'engagement', contextId = '', label = '') {
@@ -98,7 +114,11 @@ export const useApp = defineStore('app', {
     async load() {
       this.engagements = await api('/engagements');
       const saved = local.get('gh.engagement');
-      this.engagementId = this.engagements.find((e) => e.id === saved)?.id ?? this.engagements.find((e) => !e.archivedAt)?.id ?? this.engagements[0]?.id ?? '';
+      this.engagementId =
+        this.engagements.find((e) => e.id === saved)?.id ??
+        this.engagements.find((e) => !e.archivedAt)?.id ??
+        this.engagements[0]?.id ??
+        '';
       this.health = await api('/health');
       await this.loadBoard();
       if (wired) {
@@ -113,7 +133,8 @@ export const useApp = defineStore('app', {
           return;
         }
         const i = this.cards.findIndex((c) => c.id === card.id);
-        if (['needs_approval', 'question'].includes(card.status) && this.cards[i]?.status !== card.status) this.alert(card);
+        if (['needs_approval', 'question'].includes(card.status) && this.cards[i]?.status !== card.status)
+          this.alert(card);
         if (i >= 0) this.cards.splice(i, 1, card);
         else this.cards.push(card);
         this.slots.busy = this.cards.filter((c) => c.status === 'running').length;
@@ -126,7 +147,8 @@ export const useApp = defineStore('app', {
       });
       socket.on('engagement:deleted', ({ id }: { id: string }) => {
         this.engagements = this.engagements.filter((e) => e.id !== id);
-        if (this.engagementId === id) void this.switchEngagement(this.engagements.find((e) => !e.archivedAt)?.id ?? '').catch(() => {});
+        if (this.engagementId === id)
+          void this.switchEngagement(this.engagements.find((e) => !e.archivedAt)?.id ?? '').catch(() => {});
       });
       this.loaded = true;
     },
@@ -159,9 +181,14 @@ export const useApp = defineStore('app', {
     },
     async setNotify(on: boolean) {
       if (on) {
-        if (!('Notification' in window)) return this.toast("This browser doesn't support desktop notifications", 'error');
+        if (!('Notification' in window))
+          return this.toast("This browser doesn't support desktop notifications", 'error');
         const p = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
-        if (p !== 'granted') return this.toast('Notifications are blocked for this site. Allow them in the browser, then try again.', 'error');
+        if (p !== 'granted')
+          return this.toast(
+            'Notifications are blocked for this site. Allow them in the browser, then try again.',
+            'error',
+          );
       }
       this.notify = on;
       local.set('gh.notify', on ? 'on' : 'off');
@@ -169,9 +196,19 @@ export const useApp = defineStore('app', {
     // A card needs a person, this tab is in the background and the person can act on it.
     alert(card: Card) {
       const asks = card.status === 'question';
-      if (!this.notify || !document.hidden || !this.can(asks ? 'prepare' : 'approve') || !('Notification' in window) || Notification.permission !== 'granted') return;
+      if (
+        !this.notify ||
+        !document.hidden ||
+        !this.can(asks ? 'prepare' : 'approve') ||
+        !('Notification' in window) ||
+        Notification.permission !== 'granted'
+      )
+        return;
       const eng = this.engagements.find((e) => e.id === card.engagementId)?.name ?? '';
-      const n = new Notification(asks ? `${card.key}: an agent has a question` : `${card.key} needs your approval`, { body: `${card.title}${eng ? ` · ${eng}` : ''}`, tag: card.id });
+      const n = new Notification(asks ? `${card.key}: an agent has a question` : `${card.key} needs your approval`, {
+        body: `${card.title}${eng ? ` · ${eng}` : ''}`,
+        tag: card.id,
+      });
       n.onclick = () => {
         window.focus();
         location.assign(`/?card=${encodeURIComponent(card.key)}`);

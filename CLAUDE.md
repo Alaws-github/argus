@@ -8,6 +8,8 @@ Context for Claude working on this project. Read this first, then:
 
 **v1.7** added the dashboard look (KPI tiles on every working page), client workflows (a builder around the governance gates) and an assistant that shows its steps live. v1.6 built `docs/plans/v1.6-agentic-ai.md`; "What v1.6 simplified" below says where it differs. **Releases from here are numbered 1.7.1, 1.7.2 and so on.** v1.7.1 put workflow steps in the client's business tools (`packages/shared/src/tools-catalog.ts`): Microsoft 365, ServiceNow, Jira, Google Workspace, Slack and others, read through read-only connectors, never written to. v1.7.2 moved connector management to Settings > Connected tools (with the engagement's `clientTools`), opens the connector form in place from a workflow step (`components/ConnectorForm.vue`), made Tests and Evidence > From Client Tools a read-only view, added the optional wizard step "How does the client work?" (template draft workflow and client tools, no credentials), and renamed the Settings tab Workflow to Approval gates. v1.7.3 gave client steps a proof (`proof`, `proofStatus` on a workflow node) checked per use case through connectors (`client-steps.ts`, `components/ClientSteps.vue`), added opt-in write-back (`outbound.ts`, `components/WriteBackCard.vue`), evidence pushed from pipelines (`ingest.ts`, `components/PipelinesCard.vue`), S3 (SigV4) and Azure Blob (SAS) reads, FDA GMLP and HIPAA (`library-health.ts`), and Controls > Across Frameworks (`harmonize.ts`, `components/HarmonizeTab.vue`). Shared types for these are in `packages/shared/src/integrations.ts`. Client steps inform the people at the gates; they never move a card. v1.7.4 added the complete requirement list per framework (`packages/shared/src/framework-catalog.ts`, `requirements.ts`, `components/RequirementsTab.vue`: Controls > Every Requirement), plainer sources and Verifier wording (`describeSource`, `VERDICT_ADVICE`), `cards.workflow_mode` (auto, none, pinned) with `engagements.client_steps_default`, tracked-only client steps, scheduled checks (`checkDueSteps`), `workflows.require_steps` (a sign-off exit criterion) and the Client tools and workflows module (the `connectors` module key).
 
+**v1.7.5** added coding standards (`docs/CODING-STANDARDS.md`), ESLint, Prettier and a pre-commit hook, and formatted all code; behaviour is unchanged.
+
 **Every change updates its records** (checklist in AGENTS.md): `CHANGELOG.md`, the version in `package.json` for a release, the manual and its screenshots when the UI changes, this file and `README.md`, `assistant-pages.ts` for new pages, and a lesson for every bug, correction or design decision. **UI and UX are part of the job**: check every screen change in the browser, dark mode first, at desktop and phone widths.
 
 ## What this is
@@ -65,6 +67,8 @@ These are the product. Any change must keep them, and the tests check them.
 npm install
 npm run dev          # web http://localhost:5173, API http://localhost:4300
 npm run typecheck
+npm run check        # lint (ESLint), format check (Prettier) and typecheck; a pre-commit hook lints and formats staged files
+npm run lint:fix     # and npm run format: fix lint and layout in place
 npm run db:reset     # STOP THE APP FIRST. Rebuilds data/pglite with the demo
 npm run demo         # app running: 5 people, 5 client engagements (scripts/demo/run.mjs; BASE_URL for a hosted site; DEMO_ADMIN_EMAIL/PASSWORD if accounts exist; clients already there are skipped; --only=a,b picks; --alone removes Client Zero)
 npm run demo:topup   # app running: adds the v1.7.3 and v1.7.4 demo pieces to Northshore and Palmcrest on a site built before them (BASE_URL, DEMO_ADMIN_EMAIL/PASSWORD); only adds, safe to run again (scripts/demo/topup-v174.mjs)
@@ -157,7 +161,7 @@ apps/web/src
   pages/          one file per page; components/CardDrawer.vue is the use case side panel
   markdown.ts     safe Markdown for model text (escape first; internal links and record keys only, v1.7); lib/links.ts keyLink and ?focus= row highlighting;
   pages/WorkflowsPage.vue, WorkflowBuilderPage.vue  client workflows list and builder (icon rail, canvas, inspector); lib/unsaved.ts useUnsaved (Save disabled until a change)
-  components/     KpiStrip (v1.7 KPI tiles per page), Icon (inline line icons for menus and buttons), FilterPill (board filters), ControlUpload, AssistantPanel (Ask), StandardsTab (plain-English framework coverage), ProviderForm (presets), VerifierBar, DraftItem, ConnectorForm (v1.7.2: the connector modal, used in Settings > Connected tools and in place in the workflow builder), ConnectorsTab (manage mode in Settings, read-only view in Tests and Evidence)
+  components/     KpiStrip (v1.7 KPI tiles per page), AppIcon (inline line icons for menus and buttons; was Icon.vue before v1.7.5), FilterPill (board filters), ControlUpload, AssistantPanel (Ask), StandardsTab (plain-English framework coverage), ProviderForm (presets), VerifierBar, DraftItem, ConnectorForm (v1.7.2: the connector modal, used in Settings > Connected tools and in place in the workflow builder), ConnectorsTab (manage mode in Settings, read-only view in Tests and Evidence)
   styles.css      GoldenEye design tokens (dark first, light via data-theme or system)
 docs/             plain-language docs, runbooks, diagrams (Mermaid source) and images
 scripts/          smoke.mjs, agents-test.mjs, grounding-test.mjs, verifier-test.mjs, assistant-test.mjs, operations-test.mjs, mock-model.cjs, demo-data.mjs
@@ -166,6 +170,7 @@ data/             database, evidence files, secret.key (gitignored; back up toge
 
 ## Conventions
 
+- **Coding standards:** `docs/CODING-STANDARDS.md` (from the maintainers' guides for TypeScript, Vue, Express, PostgreSQL and Zod). `npm run check` must pass with no ESLint errors; don't add `any` warnings. Vue templates compile with `whitespace: 'preserve'` (see the standards file) because Prettier may move a space between tags onto a new line.
 - **Schema changes:** append `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` to `schema.sql`; never edit earlier statements. Add new tables to the drop lists in `reset.ts`, and to the export and delete in `archive.ts` if they belong to an engagement.
 - **New agent:** a rules file in `prompts/`, a Zod schema in `shared`, an offline rules implementation, server checks on everything it cites, dispatch and apply in `engine.ts`, its rules version in `RULES_VERSIONS`, and tests in `scripts/agents-test.mjs`.
 - **New permission or route:** add a `RULES` entry in `auth.ts` (default: GET needs read, other methods need prepare).

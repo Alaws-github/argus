@@ -20,11 +20,19 @@ import { B, PEOPLE, PW, client, engagementCtx, sleep, step } from './lib.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const only = args.find((a) => a.startsWith('--only='))?.slice(7).toLowerCase().split(',').filter(Boolean);
+const only = args
+  .find((a) => a.startsWith('--only='))
+  ?.slice(7)
+  .toLowerCase()
+  .split(',')
+  .filter(Boolean);
 const picked = (f) => !only || only.some((o) => f.toLowerCase().includes(o));
-const files = readdirSync(resolve(here, 'engagements')).filter((f) => f.endsWith('.mjs') && !f.startsWith('_')).sort();
+const files = readdirSync(resolve(here, 'engagements'))
+  .filter((f) => f.endsWith('.mjs') && !f.startsWith('_'))
+  .sort();
 const scenarios = [];
-for (const f of files) scenarios.push({ file: f, ...(await import(pathToFileURL(resolve(here, 'engagements', f)).href)) });
+for (const f of files)
+  scenarios.push({ file: f, ...(await import(pathToFileURL(resolve(here, 'engagements', f)).href)) });
 
 if (args.includes('--list')) {
   for (const s of scenarios) console.log(`${s.file.padEnd(32)} ${s.engagement.client} · ${s.engagement.name}`);
@@ -37,11 +45,22 @@ if (args.includes('--list')) {
 // demo client already there is skipped, so you can run it again after a stop.
 let state;
 for (let i = 0; i < 20; i++) {
-  try { const r = await fetch(B + '/auth/state'); if (r.ok) { state = await r.json(); break; } } catch {}
+  try {
+    const r = await fetch(B + '/auth/state');
+    if (r.ok) {
+      state = await r.json();
+      break;
+    }
+  } catch {
+    // Not answering yet; try again below.
+  }
   if (i === 0) console.log(`Waiting for ${B} to answer (a hosted server can take a minute to wake up)...`);
   await sleep(5000);
 }
-if (!state) { console.error(`Couldn't reach ${B}. Check BASE_URL, and that the site opens in your browser.`); process.exit(1); }
+if (!state) {
+  console.error(`Couldn't reach ${B}. Check BASE_URL, and that the site opens in your browser.`);
+  process.exit(1);
+}
 
 const andrew = client();
 if (state.needsSetup) {
@@ -51,21 +70,30 @@ if (state.needsSetup) {
   try {
     await andrew('POST', '/auth/login', { email, password: process.env.DEMO_ADMIN_PASSWORD || PW });
   } catch {
-    console.error(`This site already has accounts, and signing in as ${email} failed.\nSet the admin you created and its password, then run again, for example in PowerShell:\n  $env:DEMO_ADMIN_EMAIL="you@example.com"; $env:DEMO_ADMIN_PASSWORD="your-password"; npm run demo`);
+    console.error(
+      `This site already has accounts, and signing in as ${email} failed.\nSet the admin you created and its password, then run again, for example in PowerShell:\n  $env:DEMO_ADMIN_EMAIL="you@example.com"; $env:DEMO_ADMIN_PASSWORD="your-password"; npm run demo`,
+    );
     process.exit(1);
   }
   const me = await andrew('GET', '/auth/me');
-  if (me.role !== 'admin') { console.error(`${email} is not an admin. Use an admin account.`); process.exit(1); }
+  if (me.role !== 'admin') {
+    console.error(`${email} is not an admin. Use an admin account.`);
+    process.exit(1);
+  }
   console.log(`Signed in as ${me.name} (admin)`);
 }
 const people = { andrew };
 for (const [name, email, role] of PEOPLE) {
-  await andrew('POST', '/users', { name, email, role, password: PW }).catch((e) => { if (e.status !== 409) throw e; });
+  await andrew('POST', '/users', { name, email, role, password: PW }).catch((e) => {
+    if (e.status !== 409) throw e;
+  });
   const c = client();
   try {
     await c('POST', '/auth/login', { email, password: PW });
   } catch {
-    console.error(`${email} already exists with a different password. Set DEMO_PASSWORD to its password, or reset it under People & Roles.`);
+    console.error(
+      `${email} already exists with a different password. Set DEMO_PASSWORD to its password, or reset it under People & Roles.`,
+    );
     process.exit(1);
   }
   people[{ lead: 'jordan', reviewer: 'riley', preparer: 'sam', viewer: 'dana' }[role]] = c;
@@ -81,8 +109,14 @@ const seededId = seeded?.id ?? null;
 let seededUsed = false;
 for (const s of scenarios) {
   if (!picked(s.file)) continue;
-  if (!s.engagement.useSeeded && existing.some((e) => e.client === s.engagement.client)) { console.log(`\n${s.engagement.client}: already on this site, skipped`); continue; }
-  if (s.engagement.useSeeded && !seeded) { console.log(`\n${s.engagement.client}: skipped (already built here, or its starting engagement is gone)`); continue; }
+  if (!s.engagement.useSeeded && existing.some((e) => e.client === s.engagement.client)) {
+    console.log(`\n${s.engagement.client}: already on this site, skipped`);
+    continue;
+  }
+  if (s.engagement.useSeeded && !seeded) {
+    console.log(`\n${s.engagement.client}: skipped (already built here, or its starting engagement is gone)`);
+    continue;
+  }
   const t0 = Date.now();
   let E;
   if (s.engagement.useSeeded) {
@@ -92,10 +126,18 @@ for (const s of scenarios) {
   } else {
     const e = s.engagement;
     const created = await people.jordan('POST', '/engagements', {
-      name: e.name, client: e.client, prefix: e.prefix, color: e.color ?? '#8b9dff', sector: e.sector ?? '', about: e.about ?? '',
-      frameworks: e.frameworks ?? ['nistAiRmf', 'iso42001'], startSoa: true,
+      name: e.name,
+      client: e.client,
+      prefix: e.prefix,
+      color: e.color ?? '#8b9dff',
+      sector: e.sector ?? '',
+      about: e.about ?? '',
+      frameworks: e.frameworks ?? ['nistAiRmf', 'iso42001'],
+      startSoa: true,
       appetite: e.appetite ?? { maxResidual: 8, statement: '', escalateTo: 'Board Risk Committee' },
-      gates: e.gates ?? { intake: true, classify: true, design: true }, agents: {}, useCases: [],
+      gates: e.gates ?? { intake: true, classify: true, design: true },
+      agents: {},
+      useCases: [],
     });
     E = created.id;
     // Everyone in the demo works on every engagement.
@@ -126,5 +168,7 @@ if (!seededUsed && seededId && args.includes('--alone')) {
 await andrew('PUT', '/settings', { allowActAs: true });
 const v = await andrew('GET', '/audit/verify');
 console.log(`\nDone. Audit chain: ${v.message}`);
-console.log(`Sign in as ${state.needsSetup ? 'andrew@example.com' : process.env.DEMO_ADMIN_EMAIL || 'andrew@example.com'} (admin) and use Act As from the account menu, or sign in as jordan@, riley@, sam@ or dana@ (all @example.com).`);
+console.log(
+  `Sign in as ${state.needsSetup ? 'andrew@example.com' : process.env.DEMO_ADMIN_EMAIL || 'andrew@example.com'} (admin) and use Act As from the account menu, or sign in as jordan@, riley@, sam@ or dana@ (all @example.com).`,
+);
 console.log(`Password for the demo people: ${process.env.DEMO_PASSWORD ? 'the DEMO_PASSWORD you set' : PW}`);

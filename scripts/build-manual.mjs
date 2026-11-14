@@ -17,7 +17,12 @@ const [first, ...rest] = md.split('\n---\n');
 const intro = marked.parse(first.split('\n').slice(3).join('\n'));
 
 // Headings get ids; the contents list Parts (h1) and numbered sections (h2).
-const slug = (s) => s.toLowerCase().replace(/<[^>]+>/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const slug = (s) =>
+  s
+    .toLowerCase()
+    .replace(/<[^>]+>/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 const toc = [];
 const renderer = new marked.Renderer();
 renderer.heading = (text, depth) => {
@@ -32,7 +37,8 @@ function pixelWidth(file) {
   const b = readFileSync(file);
   if (b.readUInt32BE(0) === 0x89504e47) return b.readUInt32BE(16);
   for (let i = 2; i < b.length - 9;) {
-    const marker = b[i + 1], len = b.readUInt16BE(i + 2);
+    const marker = b[i + 1],
+      len = b.readUInt16BE(i + 2);
     if (marker >= 0xc0 && marker <= 0xc3) return b.readUInt16BE(i + 7);
     i += 2 + len;
   }
@@ -90,18 +96,26 @@ strong { color: #141a26; }
 <section class="toc"><h1 style="page-break-before: avoid">Contents</h1><ol>${'__TOC__'}</ol></section>
 ${body}
 </body></html>`;
-const out = html.replace('__TOC__', toc.map((t) => `<li class="d${t.depth}"><a href="#${t.id}">${t.text}</a></li>`).join(''));
+const out = html.replace(
+  '__TOC__',
+  toc.map((t) => `<li class="d${t.depth}"><a href="#${t.id}">${t.text}</a></li>`).join(''),
+);
 const tmp = resolve(docs, '.manual.html');
 writeFileSync(tmp, out);
 // Playwright is optional for the project: use a local install, else a global one.
-const pw = await import('playwright').catch(() => import(pathToFileURL(resolve(execSync('npm root -g').toString().trim(), 'playwright/index.js')).href));
+const pw = await import('playwright').catch(
+  () => import(pathToFileURL(resolve(execSync('npm root -g').toString().trim(), 'playwright/index.js')).href),
+);
 const chromium = pw.chromium ?? pw.default.chromium;
 const browser = await chromium.launch();
 const page = await browser.newPage();
 await page.goto(pathToFileURL(tmp).href, { waitUntil: 'networkidle' });
 const pdfPath = resolve(docs, `ARGUS-Manual-v${edition}.pdf`);
 await page.pdf({
-  path: pdfPath, format: 'A4', printBackground: true, displayHeaderFooter: true,
+  path: pdfPath,
+  format: 'A4',
+  printBackground: true,
+  displayHeaderFooter: true,
   headerTemplate: '<div></div>',
   footerTemplate: `<div style="font-size:8px;color:#8a91a1;width:100%;padding:0 18mm;display:flex;justify-content:space-between"><span>ARGUS · User manual · v${edition}</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
   margin: { top: '18mm', bottom: '20mm', left: '18mm', right: '18mm' },

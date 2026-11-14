@@ -29,7 +29,10 @@ export async function extract(buf: Buffer, filename = '', mime = ''): Promise<Ex
   try {
     if (kind === 'text') {
       const text = buf.toString('utf8');
-      return { text: text.slice(0, MAX), note: `Text file, ${text.length.toLocaleString()} characters${text.length > MAX ? ' (read the first 200,000)' : ''}` };
+      return {
+        text: text.slice(0, MAX),
+        note: `Text file, ${text.length.toLocaleString()} characters${text.length > MAX ? ' (read the first 200,000)' : ''}`,
+      };
     }
     if (kind === 'pdf') {
       const pdf = await getDocumentProxy(new Uint8Array(buf));
@@ -37,7 +40,10 @@ export async function extract(buf: Buffer, filename = '', mime = ''): Promise<Ex
       const pages = (text as string[]).map((t, i) => `[Page ${i + 1}]\n${t.trim()}`).filter((t) => t.length > 12);
       const joined = pages.join('\n\n');
       if (joined.replace(/\[Page \d+\]/g, '').trim().length < 20) {
-        return { text: '', note: `PDF, ${totalPages} page${totalPages === 1 ? '' : 's'}, with no text layer (probably scanned). It needs OCR, which the harness can't do yet: add a note with what it shows.` };
+        return {
+          text: '',
+          note: `PDF, ${totalPages} page${totalPages === 1 ? '' : 's'}, with no text layer (probably scanned). It needs OCR, which the harness can't do yet: add a note with what it shows.`,
+        };
       }
       return { text: joined.slice(0, MAX), note: `PDF, ${totalPages} page${totalPages === 1 ? '' : 's'} read` };
     }
@@ -54,14 +60,22 @@ export async function extract(buf: Buffer, filename = '', mime = ''): Promise<Ex
           lines.push(vals.join(','));
         });
         rowsRead += lines.length;
-        parts.push(`[Sheet: ${ws.name}, ${ws.actualRowCount} rows${ws.actualRowCount > 2000 ? ', first 2,000 read' : ''}]\n${lines.join('\n')}`);
+        parts.push(
+          `[Sheet: ${ws.name}, ${ws.actualRowCount} rows${ws.actualRowCount > 2000 ? ', first 2,000 read' : ''}]\n${lines.join('\n')}`,
+        );
       });
-      return { text: parts.join('\n\n').slice(0, MAX), note: `Spreadsheet, ${parts.length} sheet${parts.length === 1 ? '' : 's'}, ${rowsRead.toLocaleString()} rows read` };
+      return {
+        text: parts.join('\n\n').slice(0, MAX),
+        note: `Spreadsheet, ${parts.length} sheet${parts.length === 1 ? '' : 's'}, ${rowsRead.toLocaleString()} rows read`,
+      };
     }
     const { value } = await mammoth.extractRawText({ buffer: buf });
     return { text: value.slice(0, MAX), note: `Word document, ${value.length.toLocaleString()} characters read` };
   } catch (e: any) {
-    return { text: '', note: `Couldn't read this ${kind.toUpperCase()} file: ${String(e?.message ?? e).slice(0, 160)}` };
+    return {
+      text: '',
+      note: `Couldn't read this ${kind.toUpperCase()} file: ${String(e?.message ?? e).slice(0, 160)}`,
+    };
   }
 }
 

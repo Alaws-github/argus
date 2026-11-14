@@ -9,12 +9,20 @@ import { readFileSync } from 'node:fs';
 // place it is set, by npm run release) and the git commit it was built from.
 const version = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version as string;
 let commit = '';
-try { commit = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { /* not a git checkout */ }
+try {
+  commit = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+    .toString()
+    .trim();
+} catch {
+  /* not a git checkout */
+}
 
 const API = process.env.API_URL || 'http://localhost:4300';
 
 export default defineConfig({
-  plugins: [vue()],
+  // Templates are formatted by Prettier, which may move a space between two tags onto a new line. Vue's default
+  // 'condense' mode would drop that line break and join the words; 'preserve' keeps it as one space, as HTML does.
+  plugins: [vue({ template: { compilerOptions: { whitespace: 'preserve' } } })],
   define: { __ARGUS_VERSION__: JSON.stringify(version), __ARGUS_COMMIT__: JSON.stringify(commit) },
   server: {
     port: 5173,

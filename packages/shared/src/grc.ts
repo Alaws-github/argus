@@ -38,7 +38,17 @@ export type Permission =
   | 'manage_users';
 
 const P: Record<Role, Permission[]> = {
-  admin: ['read', 'prepare', 'approve', 'accept_risk', 'sign_off_report', 'manage_engagement', 'manage_agents', 'manage_models', 'manage_users'],
+  admin: [
+    'read',
+    'prepare',
+    'approve',
+    'accept_risk',
+    'sign_off_report',
+    'manage_engagement',
+    'manage_agents',
+    'manage_models',
+    'manage_users',
+  ],
   lead: ['read', 'prepare', 'approve', 'accept_risk', 'sign_off_report', 'manage_engagement', 'manage_agents'],
   reviewer: ['read', 'prepare', 'approve'],
   preparer: ['read', 'prepare'],
@@ -63,7 +73,17 @@ export interface User {
 // ---------------------------------------------------------------------------
 // Control library and register
 // ---------------------------------------------------------------------------
-export const CONTROL_DOMAINS = ['governance', 'risk', 'data', 'model', 'security', 'oversight', 'transparency', 'third_party', 'monitoring'] as const;
+export const CONTROL_DOMAINS = [
+  'governance',
+  'risk',
+  'data',
+  'model',
+  'security',
+  'oversight',
+  'transparency',
+  'third_party',
+  'monitoring',
+] as const;
 export type ControlDomain = (typeof CONTROL_DOMAINS)[number];
 export const DOMAIN_LABELS: Record<ControlDomain, string> = {
   governance: 'Governance and accountability',
@@ -85,8 +105,8 @@ export interface FrameworkRefs {
   euAiAct?: string[];
   jdpa?: string[];
   owasp?: string[];
-  fdaGmlp?: string[];   // v1.7.3: FDA Good Machine Learning Practice principles and AI device guidance
-  hipaa?: string[];     // v1.7.3: HIPAA Privacy, Security and Breach rules, and HHS health AI rules (45 CFR)
+  fdaGmlp?: string[]; // v1.7.3: FDA Good Machine Learning Practice principles and AI device guidance
+  hipaa?: string[]; // v1.7.3: HIPAA Privacy, Security and Breach rules, and HHS health AI rules (45 CFR)
 }
 
 export const FRAMEWORK_LABELS: Record<keyof FrameworkRefs, string> = {
@@ -218,7 +238,20 @@ export interface InventoryItem extends InventoryInput {
 }
 
 // An agent is ready to act alone only when all of these hold.
-export function agentReadiness(i: Pick<InventoryInput, 'owner' | 'identity' | 'mandate' | 'limits' | 'approvalThreshold' | 'stepLimit' | 'killSwitchTestedAt' | 'lastReviewAt'>, now = Date.now()) {
+export function agentReadiness(
+  i: Pick<
+    InventoryInput,
+    | 'owner'
+    | 'identity'
+    | 'mandate'
+    | 'limits'
+    | 'approvalThreshold'
+    | 'stepLimit'
+    | 'killSwitchTestedAt'
+    | 'lastReviewAt'
+  >,
+  now = Date.now(),
+) {
   const days = (d: string | null) => (d ? (now - Date.parse(d)) / 864e5 : Infinity);
   const missing: string[] = [];
   if (!i.owner) missing.push('A named human owner');
@@ -484,21 +517,46 @@ export const MATURITY = ['', 'Initial', 'Repeatable', 'Defined', 'Managed', 'Opt
 // ---------------------------------------------------------------------------
 export const FRAMEWORK_CHOICES = [
   { id: 'nistAiRmf', label: 'NIST AI RMF 1.0', hint: 'The usual backbone for AI risk management' },
-  { id: 'iso42001', label: 'ISO/IEC 42001', hint: 'Certifiable AI management system; needs a Statement of Applicability' },
+  {
+    id: 'iso42001',
+    label: 'ISO/IEC 42001',
+    hint: 'Certifiable AI management system; needs a Statement of Applicability',
+  },
   { id: 'euAiAct', label: 'EU AI Act', hint: 'If the client serves people in the EU' },
   { id: 'jdpa', label: 'Jamaica Data Protection Act 2020', hint: 'Personal data of people in Jamaica' },
   { id: 'nistCsf', label: 'NIST CSF 2.0', hint: 'Security controls around the AI' },
   { id: 'coso', label: 'COSO Internal Control', hint: 'Financial reporting and internal audit' },
   { id: 'owasp', label: 'OWASP LLM and Agentic Top 10', hint: 'Red-team coverage for LLM apps and agents' },
-  { id: 'fdaGmlp', label: 'FDA Good Machine Learning Practice', hint: 'AI in medical devices: the 10 GMLP principles, change control plans and device AI guidance' },
-  { id: 'hipaa', label: 'HIPAA and HHS health AI rules', hint: 'Protected health information in AI, vendor agreements, and fair clinical decision support' },
+  {
+    id: 'fdaGmlp',
+    label: 'FDA Good Machine Learning Practice',
+    hint: 'AI in medical devices: the 10 GMLP principles, change control plans and device AI guidance',
+  },
+  {
+    id: 'hipaa',
+    label: 'HIPAA and HHS health AI rules',
+    hint: 'Protected health information in AI, vendor agreements, and fair clinical decision support',
+  },
 ] as const;
 export type FrameworkChoice = (typeof FRAMEWORK_CHOICES)[number]['id'];
 /** v1.7.3: which frameworks an engagement's framework text names ("NIST AI RMF 1.0 · ISO/IEC 42001", or older "NIST AI RMF, ISO/IEC 42001"). */
 export const frameworksIn = (text: string): FrameworkChoice[] =>
-  FRAMEWORK_CHOICES.filter((f) => [f.label, f.label.replace(/\s+[\d.]+$/, ''), FRAMEWORK_LABELS[f.id as keyof FrameworkRefs]].some((l) => l && text.includes(l))).map((f) => f.id);
+  FRAMEWORK_CHOICES.filter((f) =>
+    [f.label, f.label.replace(/\s+[\d.]+$/, ''), FRAMEWORK_LABELS[f.id as keyof FrameworkRefs]].some(
+      (l) => l && text.includes(l),
+    ),
+  ).map((f) => f.id);
 
-export const SECTORS = ['Banking and Credit', 'Insurance', 'Public Sector', 'Healthcare', 'Retail and Consumer', 'Telecoms', 'Professional Services', 'Other'] as const;
+export const SECTORS = [
+  'Banking and Credit',
+  'Insurance',
+  'Public Sector',
+  'Healthcare',
+  'Retail and Consumer',
+  'Telecoms',
+  'Professional Services',
+  'Other',
+] as const;
 
 export const AgentModelChoice = z.object({
   providerId: z.string().uuid(),
@@ -509,20 +567,36 @@ export const AgentModelChoice = z.object({
 export const NewEngagement = z.object({
   name: z.string().trim().min(2).max(80),
   client: z.string().trim().min(2).max(120),
-  prefix: z.string().trim().regex(/^[A-Z][A-Z0-9]{0,5}$/, 'Use 1 to 6 capital letters or digits, starting with a letter'),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#8b9dff'),
+  prefix: z
+    .string()
+    .trim()
+    .regex(/^[A-Z][A-Z0-9]{0,5}$/, 'Use 1 to 6 capital letters or digits, starting with a letter'),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .default('#8b9dff'),
   sector: z.string().max(60).default(''),
   about: z.string().max(4000).default(''),
   frameworks: z.array(z.string()).min(1, 'Pick at least one framework').max(10),
   // Mark library controls that map to the chosen frameworks as applicable.
   startSoa: z.boolean().default(true),
-  appetite: z.object({ maxResidual: z.number().int().min(1).max(25), statement: z.string().max(2000).default(''), escalateTo: z.string().max(120).default('Board Risk Committee') }),
+  appetite: z.object({
+    maxResidual: z.number().int().min(1).max(25),
+    statement: z.string().max(2000).default(''),
+    escalateTo: z.string().max(120).default('Board Risk Committee'),
+  }),
   gates: z.record(z.boolean()),
   agents: z.record(AgentModelChoice),
   useCases: z.array(z.string().trim().min(3).max(200)).max(100).default([]),
   // v1.7.2: the tools the client uses, and a starting client workflow (a draft) if wanted.
   clientTools: z.array(z.string().max(40)).max(40).default([]),
-  workflow: z.object({ template: z.enum(['standard', 'm365', 'servicenow', 'google', 'minimal']), name: z.string().trim().min(2).max(80).optional() }).nullable().default(null),
+  workflow: z
+    .object({
+      template: z.enum(['standard', 'm365', 'servicenow', 'google', 'minimal']),
+      name: z.string().trim().min(2).max(80).optional(),
+    })
+    .nullable()
+    .default(null),
   /** v1.7.4: switch on the Client tools and workflows module (client workflows, connected tools, client steps). */
   clientWorkflows: z.boolean().default(false),
 });
@@ -570,7 +644,13 @@ export const TestDrafts = z.object({
   summary: z.string().max(800),
 });
 export type TestDrafts = z.infer<typeof TestDrafts>;
-export type TestDraft = TestDrafts['results'][number] & { runId: string; model: string; at: string; used?: boolean; sourcePassages?: SourcePassage[] };
+export type TestDraft = TestDrafts['results'][number] & {
+  runId: string;
+  model: string;
+  at: string;
+  used?: boolean;
+  sourcePassages?: SourcePassage[];
+};
 
 export const ReviewChallenges = z.object({
   challenges: z
@@ -599,7 +679,10 @@ export type BoardSummary = z.infer<typeof BoardSummary>;
 
 export interface CardDrafts {
   evidence?: EvidencePlan & DraftMeta;
-  test?: Pick<TestDrafts, 'summary'> & { count: number; proposed: Record<'pass' | 'fail' | 'cannot_assess', number> } & DraftMeta;
+  test?: Pick<TestDrafts, 'summary'> & {
+    count: number;
+    proposed: Record<'pass' | 'fail' | 'cannot_assess', number>;
+  } & DraftMeta;
   validate?: ReviewChallenges & DraftMeta;
   report?: BoardSummary & DraftMeta & { approvedBy?: string; approvedAt?: string };
 }
@@ -624,19 +707,38 @@ export interface SourcePassage {
 // v1.7.4: say what a cited passage is in words a reviewer understands, not just its K-id:
 // what kind of source it is, its name, and the frameworks it draws on.
 export const SOURCE_KINDS: Record<string, string> = {
-  framework: 'Framework requirement', control: 'Library control', methodology: 'ARGUS method', client: 'About the client',
-  use_case: 'Another use case', evidence: 'Evidence', upload: 'Client document',
+  framework: 'Framework requirement',
+  control: 'Library control',
+  methodology: 'ARGUS method',
+  client: 'About the client',
+  use_case: 'Another use case',
+  evidence: 'Evidence',
+  upload: 'Client document',
 };
 const SOURCE_FRAMEWORKS: [RegExp, string][] = [
-  [/EU AI Act/i, 'EU AI Act'], [/ISO\/IEC 42001|ISO 42001/i, 'ISO/IEC 42001'], [/NIST AI RMF|\b(GOVERN|MAP|MEASURE|MANAGE) \d/, 'NIST AI RMF'],
-  [/NIST CSF/i, 'NIST CSF 2.0'], [/Jamaica (DPA|Data Protection Act)/i, 'Jamaica DPA 2020'], [/OWASP|\bLLM\d\d\b/i, 'OWASP LLM Top 10'],
-  [/HIPAA|45 CFR/i, 'HIPAA'], [/GMLP|Good Machine Learning/i, 'FDA GMLP'], [/COSO/i, 'COSO'],
+  [/EU AI Act/i, 'EU AI Act'],
+  [/ISO\/IEC 42001|ISO 42001/i, 'ISO/IEC 42001'],
+  [/NIST AI RMF|\b(GOVERN|MAP|MEASURE|MANAGE) \d/, 'NIST AI RMF'],
+  [/NIST CSF/i, 'NIST CSF 2.0'],
+  [/Jamaica (DPA|Data Protection Act)/i, 'Jamaica DPA 2020'],
+  [/OWASP|\bLLM\d\d\b/i, 'OWASP LLM Top 10'],
+  [/HIPAA|45 CFR/i, 'HIPAA'],
+  [/GMLP|Good Machine Learning/i, 'FDA GMLP'],
+  [/COSO/i, 'COSO'],
 ];
-export function describeSource(p: Pick<SourcePassage, 'kind' | 'title' | 'ref' | 'text'>): { kind: string; name: string; basedOn: string[] } {
+export function describeSource(p: Pick<SourcePassage, 'kind' | 'title' | 'ref' | 'text'>): {
+  kind: string;
+  name: string;
+  basedOn: string[];
+} {
   const all = SOURCE_FRAMEWORKS.filter(([re]) => re.test(`${p.title} ${p.ref} ${p.text}`)).map(([, n]) => n);
   // A framework passage *is* the framework; list what else it points to only for methods and controls.
   const own = p.kind === 'framework' ? SOURCE_FRAMEWORKS.find(([re]) => re.test(p.title))?.[1] : undefined;
-  return { kind: SOURCE_KINDS[p.kind] ?? p.kind, name: p.title, basedOn: p.kind === 'framework' ? [] : all.filter((n) => n !== own).slice(0, 4) };
+  return {
+    kind: SOURCE_KINDS[p.kind] ?? p.kind,
+    name: p.title,
+    basedOn: p.kind === 'framework' ? [] : all.filter((n) => n !== own).slice(0, 4),
+  };
 }
 
 // A person's decision on one item of an agent's draft. Edits keep the agent's
@@ -719,7 +821,12 @@ export const GoldenExpected = z.object({
 });
 export type GoldenExpected = z.infer<typeof GoldenExpected>;
 
-export const GoldenRisk = z.object({ title: z.string().min(3).max(200), category: z.string(), likelihood: z.number().int().min(1).max(5), impact: z.number().int().min(1).max(5) });
+export const GoldenRisk = z.object({
+  title: z.string().min(3).max(200),
+  category: z.string(),
+  likelihood: z.number().int().min(1).max(5),
+  impact: z.number().int().min(1).max(5),
+});
 
 export const NewGoldenCase = z.object({
   agent: z.enum(GOLDEN_AGENTS),
@@ -746,7 +853,11 @@ export interface GoldenCase extends NewGoldenCase {
   createdAt: string;
 }
 
-export interface GoldenCheck { label: string; pass: boolean; detail: string }
+export interface GoldenCheck {
+  label: string;
+  pass: boolean;
+  detail: string;
+}
 export interface GoldenResult {
   caseId: string;
   key: string;
@@ -785,7 +896,10 @@ export interface GoldenRun {
 export const NewJudgeLabel = z.object({
   kind: z.enum(['risk', 'control', 'tier']),
   claim: z.string().trim().min(5).max(2000),
-  sources: z.array(z.string().regex(/^K-\d+$/)).max(6).default([]),
+  sources: z
+    .array(z.string().regex(/^K-\d+$/))
+    .max(6)
+    .default([]),
   human: z.enum(['good', 'bad']),
   note: z.string().max(600).default(''),
 });
@@ -831,11 +945,49 @@ export const JUDGE_TRUST = { kappa: 0.6, falsePass: 0.1, minLabels: 10 } as cons
 const sBase = { title: z.string().trim().min(3).max(160), why: z.string().max(600).default('') };
 const level = z.number().int().min(1).max(5);
 export const AssistantSuggestion = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('decide_item'), ...sBase, cardId: z.string().uuid(), item: z.string().regex(/^(tier|summary|risk:\d+|control:\d+|challenge:\d+)$/), decision: z.enum(['accept', 'edit', 'reject']), edit: z.record(z.any()).optional(), reason: z.string().max(600).optional() }),
-  z.object({ kind: z.literal('update_risk'), ...sBase, riskId: z.string().uuid(), owner: z.string().max(120).optional(), treatment: z.enum(['mitigate', 'transfer', 'avoid', 'accept']).optional(), likelihood: level.optional(), impact: level.optional(), residual_likelihood: level.optional(), residual_impact: level.optional() }),
-  z.object({ kind: z.literal('update_control'), ...sBase, controlId: z.string().uuid(), newTitle: z.string().trim().min(3).max(200).optional(), owner: z.string().max(120).optional(), objective: z.string().max(2000).optional() }),
-  z.object({ kind: z.literal('raise_issue'), ...sBase, issueTitle: z.string().trim().min(3).max(200), description: z.string().max(4000).default(''), severity: z.enum(['critical', 'high', 'medium', 'low']).default('medium'), controlId: z.string().uuid().nullable().optional(), cardId: z.string().uuid().nullable().optional() }),
-  z.object({ kind: z.literal('rerun_agent'), ...sBase, cardId: z.string().uuid(), note: z.string().trim().min(3).max(2000) }),
+  z.object({
+    kind: z.literal('decide_item'),
+    ...sBase,
+    cardId: z.string().uuid(),
+    item: z.string().regex(/^(tier|summary|risk:\d+|control:\d+|challenge:\d+)$/),
+    decision: z.enum(['accept', 'edit', 'reject']),
+    edit: z.record(z.any()).optional(),
+    reason: z.string().max(600).optional(),
+  }),
+  z.object({
+    kind: z.literal('update_risk'),
+    ...sBase,
+    riskId: z.string().uuid(),
+    owner: z.string().max(120).optional(),
+    treatment: z.enum(['mitigate', 'transfer', 'avoid', 'accept']).optional(),
+    likelihood: level.optional(),
+    impact: level.optional(),
+    residual_likelihood: level.optional(),
+    residual_impact: level.optional(),
+  }),
+  z.object({
+    kind: z.literal('update_control'),
+    ...sBase,
+    controlId: z.string().uuid(),
+    newTitle: z.string().trim().min(3).max(200).optional(),
+    owner: z.string().max(120).optional(),
+    objective: z.string().max(2000).optional(),
+  }),
+  z.object({
+    kind: z.literal('raise_issue'),
+    ...sBase,
+    issueTitle: z.string().trim().min(3).max(200),
+    description: z.string().max(4000).default(''),
+    severity: z.enum(['critical', 'high', 'medium', 'low']).default('medium'),
+    controlId: z.string().uuid().nullable().optional(),
+    cardId: z.string().uuid().nullable().optional(),
+  }),
+  z.object({
+    kind: z.literal('rerun_agent'),
+    ...sBase,
+    cardId: z.string().uuid(),
+    note: z.string().trim().min(3).max(2000),
+  }),
 ]);
 export type AssistantSuggestion = z.infer<typeof AssistantSuggestion> & {
   id: string;
@@ -892,12 +1044,28 @@ export type IncidentStatus = (typeof INCIDENT_STATUSES)[number];
 // Notification clocks, counted from when the organisation became aware.
 // EU AI Act Art. 73 (serious incidents) and the Jamaica DPA 2020 (breaches).
 export const NOTIFY_CLOCKS = {
-  ai_act_serious: { label: 'EU AI Act serious incident: market surveillance authority', hours: 15 * 24, to: 'Market surveillance authority' },
-  ai_act_widespread: { label: 'EU AI Act widespread infringement or critical infrastructure', hours: 2 * 24, to: 'Market surveillance authority' },
+  ai_act_serious: {
+    label: 'EU AI Act serious incident: market surveillance authority',
+    hours: 15 * 24,
+    to: 'Market surveillance authority',
+  },
+  ai_act_widespread: {
+    label: 'EU AI Act widespread infringement or critical infrastructure',
+    hours: 2 * 24,
+    to: 'Market surveillance authority',
+  },
   ai_act_death: { label: 'EU AI Act incident involving a death', hours: 10 * 24, to: 'Market surveillance authority' },
-  jdpa_breach: { label: 'Jamaica DPA personal data breach: Information Commissioner', hours: 72, to: 'Information Commissioner' },
+  jdpa_breach: {
+    label: 'Jamaica DPA personal data breach: Information Commissioner',
+    hours: 72,
+    to: 'Information Commissioner',
+  },
   data_subjects: { label: 'People affected by a personal data breach', hours: 72, to: 'Affected people' },
-  hipaa_breach: { label: 'HIPAA breach of unsecured health information: affected people', hours: 60 * 24, to: 'Affected people (and HHS)' },
+  hipaa_breach: {
+    label: 'HIPAA breach of unsecured health information: affected people',
+    hours: 60 * 24,
+    to: 'Affected people (and HHS)',
+  },
   internal: { label: 'Internal escalation (your own policy)', hours: 24, to: 'Board Risk Committee' },
 } as const;
 export type NotifyClock = keyof typeof NOTIFY_CLOCKS;
@@ -915,8 +1083,19 @@ export const NewIncident = z.object({
 });
 export type NewIncident = z.infer<typeof NewIncident>;
 
-export interface IncidentNotice { clock: NotifyClock; to: string; due: string; sentAt: string | null; sentBy: string | null; reference: string }
-export interface IncidentEvent { at: string; by: string; text: string }
+export interface IncidentNotice {
+  clock: NotifyClock;
+  to: string;
+  due: string;
+  sentAt: string | null;
+  sentBy: string | null;
+  reference: string;
+}
+export interface IncidentEvent {
+  at: string;
+  by: string;
+  text: string;
+}
 export interface Incident {
   id: string;
   key: string; // INC-1
@@ -950,11 +1129,26 @@ export interface Incident {
 // or file over HTTPS and files it as fingerprinted evidence. It never writes
 // back. Credentials are encrypted and never shown again.
 // azure_ad: Microsoft Entra app (tenant, client, secret); google_sa: a Google service account JSON key (v1.7.1).
-export const CONNECTOR_AUTH = ['none', 'bearer', 'header', 'basic', 'azure_ad', 'google_sa', 'aws_sigv4', 'azure_sas'] as const;
+export const CONNECTOR_AUTH = [
+  'none',
+  'bearer',
+  'header',
+  'basic',
+  'azure_ad',
+  'google_sa',
+  'aws_sigv4',
+  'azure_sas',
+] as const;
 export const CONNECTOR_SCHEDULES = ['manual', 'daily', 'weekly'] as const;
 export const ConnectorInput = z.object({
   name: z.string().trim().min(3).max(120),
-  url: z.string().trim().url().max(2000).refine((u) => /^https?:\/\//i.test(u), 'Use an http or https address').refine((u) => !/[{}]|%7B|%7D/i.test(u), 'Replace the {…} parts of the example address with the real ids'),
+  url: z
+    .string()
+    .trim()
+    .url()
+    .max(2000)
+    .refine((u) => /^https?:\/\//i.test(u), 'Use an http or https address')
+    .refine((u) => !/[{}]|%7B|%7D/i.test(u), 'Replace the {…} parts of the example address with the real ids'),
   /** v1.7.1: which business tool this reads (BUSINESS_TOOLS id), or '' for a plain link. */
   tool: z.string().max(40).default(''),
   auth: z.enum(CONNECTOR_AUTH).default('none'),

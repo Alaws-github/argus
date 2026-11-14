@@ -42,7 +42,11 @@ export function toProvider(r: ProviderRow & { used_by?: number }): Provider {
     statusText: r.status_text,
     checkedAt: iso(r.checked_at),
     models,
-    key: { set: !!r.api_key_enc || fromEnv, masked: r.key_last4 ? `••••${r.key_last4}` : fromEnv ? 'from ANTHROPIC_API_KEY' : null, fromEnv },
+    key: {
+      set: !!r.api_key_enc || fromEnv,
+      masked: r.key_last4 ? `••••${r.key_last4}` : fromEnv ? 'from ANTHROPIC_API_KEY' : null,
+      fromEnv,
+    },
     billed: r.billed,
     maxConcurrent: r.max_concurrent,
     prices,
@@ -68,14 +72,21 @@ export function apiKeyOf(r: Pick<ProviderRow, 'type' | 'api_key_enc'>): string |
 const trimSlash = (u: string) => u.replace(/\/+$/, '');
 
 // Lists the models a provider serves. Used by "Test" and to fill model pickers.
-export async function discoverModels(type: ProviderType, baseUrl: string, apiKey: string | undefined): Promise<string[]> {
+export async function discoverModels(
+  type: ProviderType,
+  baseUrl: string,
+  apiKey: string | undefined,
+): Promise<string[]> {
   if (type === 'rules') return ['rules-v1'];
   const base = trimSlash(baseUrl);
   const signal = AbortSignal.timeout(15_000);
   let res: Response;
   if (type === 'anthropic') {
     if (!apiKey) throw new Error('No API key saved');
-    res = await fetch(`${base}/v1/models?limit=100`, { headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }, signal });
+    res = await fetch(`${base}/v1/models?limit=100`, {
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      signal,
+    });
   } else if (type === 'ollama') {
     if (!apiKey) throw new Error('No API key saved');
     res = await fetch(`${base}/api/tags`, { headers: { authorization: `Bearer ${apiKey}` }, signal });
@@ -86,17 +97,21 @@ export async function discoverModels(type: ProviderType, baseUrl: string, apiKey
   if (!res.ok) throw new Error(`The provider answered ${res.status} ${res.statusText}`);
   const body: any = await res.json();
   const ids: string[] =
-    type === 'ollama' ? (body.models ?? []).map((m: any) => m.name ?? m.model) : (body.data ?? []).map((m: any) => m.id);
+    type === 'ollama'
+      ? (body.models ?? []).map((m: any) => m.name ?? m.model)
+      : (body.data ?? []).map((m: any) => m.id);
   return keepChatModels(baseUrl, ids.filter(Boolean)).sort();
 }
 
 // Some services list every model they have, including speech, image, video and
 // embedding models the agents can't use. Keep the ones that write text.
-const NOT_TEXT = /(tts|image|imagen|veo|audio|embedding|embed|live|computer-use|native|aqa|whisper|dall-e|moderation|transcribe|realtime|vision-only|learnlm)/i;
+const NOT_TEXT =
+  /(tts|image|imagen|veo|audio|embedding|embed|live|computer-use|native|aqa|whisper|dall-e|moderation|transcribe|realtime|vision-only|learnlm)/i;
 export function keepChatModels(baseUrl: string, ids: string[]): string[] {
   if (/generativelanguage\.googleapis\.com/.test(baseUrl)) {
     return ids.filter((m) => /gemini|gemma/i.test(m) && !NOT_TEXT.test(m));
   }
-  if (/api\.openai\.com/.test(baseUrl)) return ids.filter((m) => !NOT_TEXT.test(m) && !/^(babbage|davinci|text-|tts|sora)/.test(m));
+  if (/api\.openai\.com/.test(baseUrl))
+    return ids.filter((m) => !NOT_TEXT.test(m) && !/^(babbage|davinci|text-|tts|sora)/.test(m));
   return ids;
 }

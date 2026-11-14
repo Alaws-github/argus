@@ -2,6 +2,18 @@
 
 What changed in each release of ARGUS, newest first. The version shown under Sign Out comes from package.json. Start a new release with `npm run release -- X.Y.Z`.
 
+## v1.7.5 (2026-11-13)
+
+Code standards, linting and formatting, so a developer can follow the code. No change to what the app does.
+
+- **`docs/CODING-STANDARDS.md`**: the rules the code follows, taken from the maintainers' own guides (TypeScript, typescript-eslint, the Vue style guide through eslint-plugin-vue, Express routing and error handling, PostgreSQL naming, Zod, Prettier), plus naming, comments and SQL rules.
+- **ESLint** (`eslint.config.mjs`) with the recommended sets for JavaScript, TypeScript and Vue, and **Prettier** (`.prettierrc.json`) for layout. New scripts: `npm run lint`, `lint:fix`, `format`, `format:check` and `check` (lint, format and typecheck together). A pre-commit hook (Husky and lint-staged) lints and formats the files being committed.
+- **All code formatted.** The densest code (819 lines over 200 characters) is unpacked one statement a line; about 22,600 lines became about 40,000 with no change in behaviour. `schema.sql` and the docs are left as they were.
+- **Lint fixes:** unused imports and leftovers removed (file-system imports from before `storage.ts`, an unused colour table, unused test variables), comma-chained statements written as blocks, the byte-order mark in the control import written as `\uFEFF`, `Icon.vue` renamed `AppIcon.vue` (Vue component names are multi-word), and the connector form's selected tool renamed `selectedTool` so it no longer shares a name with its `tool` prop.
+- **Vue templates compile with `whitespace: 'preserve'`**, so formatting can't join words where a space sat between two tags (found by comparing screenshots of every page before and after).
+- About 580 `any` types remain as warnings, to be replaced as code is touched.
+
+
 ## v1.7.4 (2026-11-11)
 
 Frameworks fully accounted for, clearer sources, and client steps that fit how each team works.

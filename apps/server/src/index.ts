@@ -64,7 +64,9 @@ if (existsSync(WEB_DIST)) {
 
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof ZodError) {
-    return res.status(400).json({ error: err.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`).join('; ') });
+    return res
+      .status(400)
+      .json({ error: err.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`).join('; ') });
   }
   // A malformed id in the URL (Postgres invalid_text_representation) is a miss, not a crash.
   const status = err.status || (err.code === '22P02' ? 404 : 500);

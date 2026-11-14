@@ -23,6 +23,8 @@ export class ArgusServer extends Container<Env> {
   // Sleeps after 30 minutes with no requests; the next visit wakes it in a few seconds.
   sleepAfter = '30m';
 
+  // The empty props type is the one Cloudflare's Container class declares.
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   constructor(ctx: DurableObjectState<{}>, env: Env) {
     super(ctx, env);
     this.envVars = {

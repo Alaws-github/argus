@@ -20,7 +20,7 @@
 export const engagement = {
   name: 'Engagement name',
   client: 'Client name (demo)',
-  prefix: 'ABC',                       // card keys become ABC-1, ABC-2...
+  prefix: 'ABC', // card keys become ABC-1, ABC-2...
   color: '#8b9dff',
   sector: 'Sector',
   frameworks: ['nistAiRmf', 'iso42001'], // also: euAiAct, jdpa, nistCsf, coso
@@ -31,11 +31,15 @@ export const engagement = {
 export async function build(ctx, { step }) {
   await ctx.configure({ modules: {} });
   const uc = await ctx.useCase({
-    title: 'Use case title', businessOwner: 'Role of the owner',
+    title: 'Use case title',
+    businessOwner: 'Role of the owner',
     description: 'What the AI does, who acts on its output, how often.',
     dataUsed: 'Every data source; say if any of it identifies a person.',
     affectedPeople: 'Who is affected, roughly how many.',
-    autonomy: 'human_in_loop', vendor: 'In-house', category: 'decision', priority: 'p2',
+    autonomy: 'human_in_loop',
+    vendor: 'In-house',
+    category: 'decision',
+    priority: 'p2',
   });
   await ctx.toClassification(uc.key);
   step(`${uc.key} drafted by the AI, waiting for decisions`);

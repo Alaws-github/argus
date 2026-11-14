@@ -1,0 +1,13 @@
+# Prettier formats code only. Docs, generated output, data and SQL are left as they are.
+# schema.sql is append-only (earlier statements are never edited), so it is not reformatted.
+node_modules
+dist
+data
+data-backups
+demos
+docs
+*.md
+*.sql
+package-lock.json
+deploy/cloudflare/.wrangler
+_to_delete

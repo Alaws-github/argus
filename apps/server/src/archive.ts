@@ -3,12 +3,9 @@
 // engagement is archived, so no route can be missed.
 import type { NextFunction, Request, Response } from 'express';
 import type { Db } from './db.js';
-import { existsSync, unlinkSync } from 'node:fs';
 import { deleteEvidence } from './storage.js';
-import { resolve } from 'node:path';
 import type { Router } from 'express';
 import { z } from 'zod';
-import { DATA_DIR } from './db.js';
 import { logAudit } from './audit.js';
 import { emit } from './realtime.js';
 import { toEngagement } from './store.js';
@@ -30,12 +27,21 @@ export const OWNERS: [RegExp, string][] = [
   [/^\/plans\/([^/]+)/, `SELECT engagement_id AS id FROM plans WHERE id::text = $1`],
   [/^\/agents\/([^/]+)/, `SELECT engagement_id AS id FROM agents WHERE id = $1`],
   [/^\/evals\/([^/]+)/, `SELECT engagement_id AS id FROM eval_suites WHERE id = $1`],
-  [/^\/eval-cases\/([^/]+)/, `SELECT s.engagement_id AS id FROM eval_cases c JOIN eval_suites s ON s.id = c.suite_id WHERE c.id = $1`],
+  [
+    /^\/eval-cases\/([^/]+)/,
+    `SELECT s.engagement_id AS id FROM eval_cases c JOIN eval_suites s ON s.id = c.suite_id WHERE c.id = $1`,
+  ],
   [/^\/knowledge\/([0-9a-f-]{36})$/, `SELECT engagement_id AS id FROM kb_sources WHERE id = $1`],
   [/^\/evidence\/([0-9a-f-]{36})/, `SELECT engagement_id AS id FROM evidence WHERE id = $1`],
-  [/^\/runs\/([^/]+)/, `SELECT c.engagement_id AS id FROM runs r JOIN cards c ON c.id = r.card_id WHERE r.id::text = $1 OR 'R-' || r.number = $1`],
+  [
+    /^\/runs\/([^/]+)/,
+    `SELECT c.engagement_id AS id FROM runs r JOIN cards c ON c.id = r.card_id WHERE r.id::text = $1 OR 'R-' || r.number = $1`,
+  ],
   [/^\/knowledge\/passages\/K-?(\d+)/, `SELECT engagement_id AS id FROM kb_chunks WHERE number = $1::int`],
-  [/^\/eval-runs\/([^/]+)/, `SELECT s.engagement_id AS id FROM eval_runs r JOIN eval_suites s ON s.id = r.suite_id WHERE r.id = $1`],
+  [
+    /^\/eval-runs\/([^/]+)/,
+    `SELECT s.engagement_id AS id FROM eval_runs r JOIN eval_suites s ON s.id = r.suite_id WHERE r.id = $1`,
+  ],
 ];
 
 // Routes that act on the archive itself, plus the engagement settings change
@@ -61,7 +67,10 @@ export function archiveGuard(db: Db) {
       }
       if (!id) return next();
       const { rows } = await db.query(`SELECT name, archived_at FROM engagements WHERE id::text = $1`, [id]);
-      if (rows[0]?.archived_at) return res.status(409).json({ error: `${rows[0].name} is archived, so it's read-only. A lead can restore it in Settings.` });
+      if (rows[0]?.archived_at)
+        return res
+          .status(409)
+          .json({ error: `${rows[0].name} is archived, so it's read-only. A lead can restore it in Settings.` });
       next();
     } catch (e) {
       next(e);
@@ -71,7 +80,9 @@ export function archiveGuard(db: Db) {
 
 // ---------------------------------------------------------------- routes
 
-type Wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => void;
+type Wrap = (
+  fn: (req: Request, res: Response) => Promise<unknown>,
+) => (req: Request, res: Response, next: NextFunction) => void;
 const httpError = (status: number, message: string) => Object.assign(new Error(message), { status });
 
 // Everything one engagement holds, for keeping a record outside the harness.
@@ -79,8 +90,14 @@ const TABLES: [string, string][] = [
   ['cards', `SELECT * FROM cards WHERE engagement_id = $1 ORDER BY number`],
   ['risks', `SELECT * FROM risks WHERE engagement_id = $1 ORDER BY number`],
   ['controls', `SELECT * FROM controls WHERE engagement_id = $1 ORDER BY number`],
-  ['controlRisks', `SELECT cr.* FROM control_risks cr JOIN controls c ON c.id = cr.control_id WHERE c.engagement_id = $1`],
-  ['statementOfApplicability', `SELECT l.code, s.applicable, s.justification, s.decided_by, s.decided_at FROM soa s JOIN control_library l ON l.id = s.library_id WHERE s.engagement_id = $1 ORDER BY l.code`],
+  [
+    'controlRisks',
+    `SELECT cr.* FROM control_risks cr JOIN controls c ON c.id = cr.control_id WHERE c.engagement_id = $1`,
+  ],
+  [
+    'statementOfApplicability',
+    `SELECT l.code, s.applicable, s.justification, s.decided_by, s.decided_at FROM soa s JOIN control_library l ON l.id = s.library_id WHERE s.engagement_id = $1 ORDER BY l.code`,
+  ],
   ['inventory', `SELECT * FROM inventory WHERE engagement_id = $1 ORDER BY number`],
   ['tests', `SELECT * FROM tests WHERE engagement_id = $1 ORDER BY number`],
   ['evidence', `SELECT * FROM evidence WHERE engagement_id = $1 ORDER BY number`],
@@ -89,17 +106,32 @@ const TABLES: [string, string][] = [
   ['evalCases', `SELECT c.* FROM eval_cases c JOIN eval_suites s ON s.id = c.suite_id WHERE s.engagement_id = $1`],
   ['evalRuns', `SELECT r.* FROM eval_runs r JOIN eval_suites s ON s.id = r.suite_id WHERE s.engagement_id = $1`],
   ['assessments', `SELECT * FROM assessments WHERE engagement_id = $1`],
-  ['agents', `SELECT id, role, name, stage, enabled, provider_id, model, effort, instructions, max_cost_usd, timeout_min, killed_at, kill_tested_at FROM agents WHERE engagement_id = $1`],
+  [
+    'agents',
+    `SELECT id, role, name, stage, enabled, provider_id, model, effort, instructions, max_cost_usd, timeout_min, killed_at, kill_tested_at FROM agents WHERE engagement_id = $1`,
+  ],
   ['runs', `SELECT r.* FROM runs r JOIN cards c ON c.id = r.card_id WHERE c.engagement_id = $1 ORDER BY r.started_at`],
-  ['runEvents', `SELECT ev.* FROM run_events ev JOIN runs r ON r.id = ev.run_id JOIN cards c ON c.id = r.card_id WHERE c.engagement_id = $1 ORDER BY ev.id`],
+  [
+    'runEvents',
+    `SELECT ev.* FROM run_events ev JOIN runs r ON r.id = ev.run_id JOIN cards c ON c.id = r.card_id WHERE c.engagement_id = $1 ORDER BY ev.id`,
+  ],
   ['agentQuestions', `SELECT * FROM agent_questions WHERE engagement_id = $1 ORDER BY asked_at`],
   ['workflows', `SELECT * FROM workflows WHERE engagement_id = $1 ORDER BY number`],
-  ['workflowVersions', `SELECT v.* FROM workflow_versions v JOIN workflows w ON w.id = v.workflow_id WHERE w.engagement_id = $1 ORDER BY v.published_at`],
+  [
+    'workflowVersions',
+    `SELECT v.* FROM workflow_versions v JOIN workflows w ON w.id = v.workflow_id WHERE w.engagement_id = $1 ORDER BY v.published_at`,
+  ],
   ['incidents', `SELECT * FROM incidents WHERE engagement_id = $1 ORDER BY number`],
   ['frameworkScoping', `SELECT * FROM framework_scoping WHERE engagement_id = $1 ORDER BY framework, ref`],
   ['cardStepChecks', `SELECT s.* FROM card_step_checks s JOIN cards c ON c.id = s.card_id WHERE c.engagement_id = $1`],
-  ['ingestTokens', `SELECT id, number, name, hint, control_id, created_by, created_at, last_used_at, uses, revoked_at FROM ingest_tokens WHERE engagement_id = $1 ORDER BY number`],
-  ['outboundTargets', `SELECT id, number, name, kind, project, events, enabled, sends, last_at, last_status, last_message, created_by, created_at FROM outbound_targets WHERE engagement_id = $1 ORDER BY number`],
+  [
+    'ingestTokens',
+    `SELECT id, number, name, hint, control_id, created_by, created_at, last_used_at, uses, revoked_at FROM ingest_tokens WHERE engagement_id = $1 ORDER BY number`,
+  ],
+  [
+    'outboundTargets',
+    `SELECT id, number, name, kind, project, events, enabled, sends, last_at, last_status, last_message, created_by, created_at FROM outbound_targets WHERE engagement_id = $1 ORDER BY number`,
+  ],
   ['assistantConversations', `SELECT * FROM assistant_conversations WHERE engagement_id = $1 ORDER BY created_at`],
   ['assistantMessages', `SELECT * FROM assistant_messages WHERE engagement_id = $1 ORDER BY created_at`],
 ];
@@ -111,78 +143,134 @@ export function archiveRoutes(r: Router, db: Db, actorOf: (req: Request) => stri
     return rows[0];
   };
 
-  r.post('/engagements/:id/archive', wrap(async (req, res) => {
-    const b = z.object({ reason: z.string().trim().max(500).default('') }).parse(req.body ?? {});
-    const e = await load(req.params.id);
-    if (e.archived_at) throw httpError(409, 'Already archived');
-    const { rows: active } = await db.query(`SELECT count(*)::int AS n FROM engagements WHERE archived_at IS NULL`);
-    if (active[0].n <= 1) throw httpError(409, "This is the only active engagement. Add another before archiving it.");
-    const { rows: running } = await db.query(`SELECT count(*)::int AS n FROM cards WHERE engagement_id = $1 AND status = 'running'`, [e.id]);
-    if (running[0].n) throw httpError(409, `${running[0].n} agent run${running[0].n === 1 ? ' is' : 's are'} in progress. Wait for ${running[0].n === 1 ? 'it' : 'them'} to finish, or stop the agent, then archive.`);
-    await db.tx(async (q) => {
-      // Queued work would never run while archived, so hand it back to a person.
-      await q.query(`UPDATE cards SET status = 'idle', status_note = 'Engagement archived' WHERE engagement_id = $1 AND status = 'queued'`, [e.id]);
-      await q.query(`UPDATE engagements SET archived_at = now(), archived_by = $2, archive_reason = $3 WHERE id = $1`, [e.id, actorOf(req), b.reason || null]);
-      await logAudit(q, actorOf(req), 'engagement.archived', `engagement:${e.slug}`, { name: e.name, ...(b.reason ? { reason: b.reason } : {}) });
-    });
-    const out = toEngagement(await load(e.id));
-    emit('engagement', out);
-    res.json(out);
-  }));
+  r.post(
+    '/engagements/:id/archive',
+    wrap(async (req, res) => {
+      const b = z.object({ reason: z.string().trim().max(500).default('') }).parse(req.body ?? {});
+      const e = await load(req.params.id);
+      if (e.archived_at) throw httpError(409, 'Already archived');
+      const { rows: active } = await db.query(`SELECT count(*)::int AS n FROM engagements WHERE archived_at IS NULL`);
+      if (active[0].n <= 1)
+        throw httpError(409, 'This is the only active engagement. Add another before archiving it.');
+      const { rows: running } = await db.query(
+        `SELECT count(*)::int AS n FROM cards WHERE engagement_id = $1 AND status = 'running'`,
+        [e.id],
+      );
+      if (running[0].n)
+        throw httpError(
+          409,
+          `${running[0].n} agent run${running[0].n === 1 ? ' is' : 's are'} in progress. Wait for ${running[0].n === 1 ? 'it' : 'them'} to finish, or stop the agent, then archive.`,
+        );
+      await db.tx(async (q) => {
+        // Queued work would never run while archived, so hand it back to a person.
+        await q.query(
+          `UPDATE cards SET status = 'idle', status_note = 'Engagement archived' WHERE engagement_id = $1 AND status = 'queued'`,
+          [e.id],
+        );
+        await q.query(
+          `UPDATE engagements SET archived_at = now(), archived_by = $2, archive_reason = $3 WHERE id = $1`,
+          [e.id, actorOf(req), b.reason || null],
+        );
+        await logAudit(q, actorOf(req), 'engagement.archived', `engagement:${e.slug}`, {
+          name: e.name,
+          ...(b.reason ? { reason: b.reason } : {}),
+        });
+      });
+      const out = toEngagement(await load(e.id));
+      emit('engagement', out);
+      res.json(out);
+    }),
+  );
 
-  r.post('/engagements/:id/restore', wrap(async (req, res) => {
-    const e = await load(req.params.id);
-    if (!e.archived_at) throw httpError(409, "It isn't archived");
-    await db.tx(async (q) => {
-      await q.query(`UPDATE engagements SET archived_at = NULL, archived_by = NULL, archive_reason = NULL WHERE id = $1`, [e.id]);
-      await logAudit(q, actorOf(req), 'engagement.restored', `engagement:${e.slug}`, { name: e.name, archivedBy: e.archived_by });
-    });
-    const out = toEngagement(await load(e.id));
-    emit('engagement', out);
-    res.json(out);
-  }));
+  r.post(
+    '/engagements/:id/restore',
+    wrap(async (req, res) => {
+      const e = await load(req.params.id);
+      if (!e.archived_at) throw httpError(409, "It isn't archived");
+      await db.tx(async (q) => {
+        await q.query(
+          `UPDATE engagements SET archived_at = NULL, archived_by = NULL, archive_reason = NULL WHERE id = $1`,
+          [e.id],
+        );
+        await logAudit(q, actorOf(req), 'engagement.restored', `engagement:${e.slug}`, {
+          name: e.name,
+          archivedBy: e.archived_by,
+        });
+      });
+      const out = toEngagement(await load(e.id));
+      emit('engagement', out);
+      res.json(out);
+    }),
+  );
 
   // A full JSON record: every table plus the engagement's audit entries.
   // Evidence files are listed by hash; download them from the vault first if needed.
-  r.get('/engagements/:id/export', wrap(async (req, res) => {
-    const e = await load(req.params.id);
-    const out: Record<string, unknown> = { exportedAt: new Date().toISOString(), exportedBy: actorOf(req), engagement: toEngagement(e) };
-    for (const [k, sql] of TABLES) out[k] = (await db.query(sql, [e.id])).rows;
-    out.audit = (await db.query(
-      `SELECT a.* FROM audit_log a WHERE a.entity = $1 OR a.entity LIKE 'card:' || $2 || '-%' ORDER BY a.id`,
-      [`engagement:${e.slug}`, e.prefix],
-    )).rows;
-    await logAudit(db, actorOf(req), 'engagement.exported', `engagement:${e.slug}`, {});
-    res.setHeader('content-disposition', `attachment; filename="${e.slug}-record-${new Date().toISOString().slice(0, 10)}.json"`);
-    res.json(out);
-  }));
+  r.get(
+    '/engagements/:id/export',
+    wrap(async (req, res) => {
+      const e = await load(req.params.id);
+      const out: Record<string, unknown> = {
+        exportedAt: new Date().toISOString(),
+        exportedBy: actorOf(req),
+        engagement: toEngagement(e),
+      };
+      for (const [k, sql] of TABLES) out[k] = (await db.query(sql, [e.id])).rows;
+      out.audit = (
+        await db.query(
+          `SELECT a.* FROM audit_log a WHERE a.entity = $1 OR a.entity LIKE 'card:' || $2 || '-%' ORDER BY a.id`,
+          [`engagement:${e.slug}`, e.prefix],
+        )
+      ).rows;
+      await logAudit(db, actorOf(req), 'engagement.exported', `engagement:${e.slug}`, {});
+      res.setHeader(
+        'content-disposition',
+        `attachment; filename="${e.slug}-record-${new Date().toISOString().slice(0, 10)}.json"`,
+      );
+      res.json(out);
+    }),
+  );
 
   // Admin only, after archiving, with the name typed to confirm. The audit log
   // keeps every entry about it, plus who deleted it and what went.
-  r.delete('/engagements/:id', wrap(async (req, res) => {
-    const b = z.object({ confirm: z.string() }).parse(req.body ?? {});
-    const e = await load(req.params.id);
-    if (!e.archived_at) throw httpError(409, 'Archive it first. Deleting is only for archived engagements.');
-    if (b.confirm.trim() !== e.name) throw httpError(400, `Type the engagement's name, ${e.name}, to confirm`);
-    const counts: Record<string, number> = {};
-    for (const [k, sql] of TABLES.slice(0, 13)) counts[k] = (await db.query(`SELECT count(*)::int AS n FROM (${sql}) x`, [e.id])).rows[0].n;
-    const { rows: files } = await db.query(`SELECT DISTINCT sha256 FROM evidence WHERE engagement_id = $1 AND kind IN ('file','run')`, [e.id]);
-    await db.tx(async (q) => {
-      // Rows that point at the engagement's cards without cascading.
-      await q.query(`DELETE FROM run_events WHERE run_id IN (SELECT r.id FROM runs r JOIN cards c ON c.id = r.card_id WHERE c.engagement_id = $1)`, [e.id]);
-      await q.query(`DELETE FROM runs WHERE card_id IN (SELECT id FROM cards WHERE engagement_id = $1)`, [e.id]);
-      await q.query(`DELETE FROM engagements WHERE id = $1`, [e.id]);
-      await logAudit(q, actorOf(req), 'engagement.deleted', `engagement:${e.slug}`, {
-        name: e.name, client: e.client, prefix: e.prefix, archivedBy: e.archived_by, archivedAt: e.archived_at instanceof Date ? e.archived_at.toISOString() : e.archived_at, removed: counts,
+  r.delete(
+    '/engagements/:id',
+    wrap(async (req, res) => {
+      const b = z.object({ confirm: z.string() }).parse(req.body ?? {});
+      const e = await load(req.params.id);
+      if (!e.archived_at) throw httpError(409, 'Archive it first. Deleting is only for archived engagements.');
+      if (b.confirm.trim() !== e.name) throw httpError(400, `Type the engagement's name, ${e.name}, to confirm`);
+      const counts: Record<string, number> = {};
+      for (const [k, sql] of TABLES.slice(0, 13))
+        counts[k] = (await db.query(`SELECT count(*)::int AS n FROM (${sql}) x`, [e.id])).rows[0].n;
+      const { rows: files } = await db.query(
+        `SELECT DISTINCT sha256 FROM evidence WHERE engagement_id = $1 AND kind IN ('file','run')`,
+        [e.id],
+      );
+      await db.tx(async (q) => {
+        // Rows that point at the engagement's cards without cascading.
+        await q.query(
+          `DELETE FROM run_events WHERE run_id IN (SELECT r.id FROM runs r JOIN cards c ON c.id = r.card_id WHERE c.engagement_id = $1)`,
+          [e.id],
+        );
+        await q.query(`DELETE FROM runs WHERE card_id IN (SELECT id FROM cards WHERE engagement_id = $1)`, [e.id]);
+        await q.query(`DELETE FROM engagements WHERE id = $1`, [e.id]);
+        await logAudit(q, actorOf(req), 'engagement.deleted', `engagement:${e.slug}`, {
+          name: e.name,
+          client: e.client,
+          prefix: e.prefix,
+          archivedBy: e.archived_by,
+          archivedAt: e.archived_at instanceof Date ? e.archived_at.toISOString() : e.archived_at,
+          removed: counts,
+        });
       });
-    });
-    // Remove stored files no other engagement still uses.
-    let removed = 0;
-    for (const f of files) {
-      const { rows } = await db.query(`SELECT 1 FROM evidence WHERE sha256 = $1 LIMIT 1`, [f.sha256]);
-      if (!rows.length && (await deleteEvidence(f.sha256))) removed++;
-    }
-    emit('engagement:deleted', { id: e.id });
-    res.json({ ok: true, removed: counts, filesRemoved: removed });
-  }));
+      // Remove stored files no other engagement still uses.
+      let removed = 0;
+      for (const f of files) {
+        const { rows } = await db.query(`SELECT 1 FROM evidence WHERE sha256 = $1 LIMIT 1`, [f.sha256]);
+        if (!rows.length && (await deleteEvidence(f.sha256))) removed++;
+      }
+      emit('engagement:deleted', { id: e.id });
+      res.json({ ok: true, removed: counts, filesRemoved: removed });
+    }),
+  );
 }

@@ -5,14 +5,14 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ControlDesign, riskRating } from '@gh/shared';
-import type { Queryable } from '../db.js';
-import { zodProblems } from '../llm.js';
-import { loopFor } from '../agent-loop.js';
+import type { Queryable } from '../core/db.js';
+import { zodProblems } from '../ai/llm.js';
+import { loopFor } from './agent-loop.js';
 import { readFileSync as readRubric } from 'node:fs';
 
 // What the agent checks its own draft against before handing it in (v1.6).
 const CRITIQUE = readRubric(new URL('./prompts/control-designer.critique.md', import.meta.url), 'utf8');
-import { mergePassages, pinned, search, snapshot, sourcesBlock, strayCitations } from '../kb.js';
+import { mergePassages, pinned, search, snapshot, sourcesBlock, strayCitations } from '../knowledge/kb.js';
 import type { SourcePassage } from '@gh/shared';
 import type { AgentContext, AgentResult, Log } from './types.js';
 

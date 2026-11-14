@@ -1,4 +1,4 @@
-import './env.js';
+import './core/env.js';
 // Server entry point: opens the database, upgrades it, adds the demo data,
 // starts the web API, live updates (Socket.IO) and the agent engine, and in
 // production serves the built web app too.
@@ -9,19 +9,19 @@ import { fileURLToPath } from 'node:url';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { Server } from 'socket.io';
 import { ZodError } from 'zod';
-import { getDb, migrate } from './db.js';
-import { ensureBaseline, seed } from './seed.js';
-import { routes } from './routes.js';
-import { attach } from './realtime.js';
-import { startEngine } from './engine.js';
-import { accessGuard } from './access.js';
-import { startMonitoring } from './monitoring.js';
-import { startSuiteRun } from './routes-grc.js';
-import { setInternalToken, withRequestContext } from './context.js';
-import { INTERNAL_TOKEN } from './assistant.js';
-import { archiveGuard } from './archive.js';
-import { authMiddleware, readCookie, userFromToken } from './auth.js';
-import { ingestRouter } from './ingest.js';
+import { getDb, migrate } from './core/db.js';
+import { ensureBaseline, seed } from './setup/seed.js';
+import { apiRouter } from './api-router.js';
+import { attach } from './core/realtime.js';
+import { startEngine } from './board/engine.js';
+import { accessGuard } from './auth/access.js';
+import { startMonitoring } from './monitoring/monitoring.js';
+import { startSuiteRun } from './evals/eval-runner.js';
+import { setInternalToken, withRequestContext } from './core/context.js';
+import { INTERNAL_TOKEN } from './assistant/assistant.js';
+import { archiveGuard } from './engagements/archive.js';
+import { authMiddleware, readCookie, userFromToken } from './auth/auth.js';
+import { ingestRouter } from './integrations/ingest.js';
 
 const PORT = Number(process.env.PORT || 4300);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -54,7 +54,7 @@ app.use(express.json({ limit: '256kb' }));
 app.use('/api', authMiddleware(db));
 app.use('/api', accessGuard(db));
 app.use('/api', archiveGuard(db));
-app.use('/api', routes(db));
+app.use('/api', apiRouter(db));
 
 // In production the server also serves the built web app.
 if (existsSync(WEB_DIST)) {

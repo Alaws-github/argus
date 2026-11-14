@@ -452,7 +452,7 @@ ok(
 );
 const toolsSrc = await (
   await import('node:fs/promises')
-).readFile(fileURLToPath(new URL('../apps/server/src/tools.ts', import.meta.url)), 'utf8');
+).readFile(fileURLToPath(new URL('../apps/server/src/agents/tools.ts', import.meta.url)), 'utf8');
 ok(!/outbound|writeback|write-back/i.test(toolsSrc), 'agents have no tool that writes back');
 
 const v = await admin('GET', '/audit/verify');

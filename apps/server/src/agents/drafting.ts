@@ -4,18 +4,18 @@
 // reference and figure they return before anyone sees it.
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { getEvidence } from '../storage.js';
+import { getEvidence } from '../core/storage.js';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { z } from 'zod';
 import { BoardSummary, EvidencePlan, ReviewChallenges, TestDrafts, riskRating, type SourcePassage } from '@gh/shared';
-import { DATA_DIR, type Queryable } from '../db.js';
-import { zodProblems } from '../llm.js';
-import { loopFor } from '../agent-loop.js';
+import { DATA_DIR, type Queryable } from '../core/db.js';
+import { zodProblems } from '../ai/llm.js';
+import { loopFor } from './agent-loop.js';
 import { readFileSync as readRubric } from 'node:fs';
 
 const CRITIQUE = readRubric(new URL('./prompts/drafting.critique.md', import.meta.url), 'utf8');
-import { mergePassages, pinned, search, snapshot, sourcesBlock, strayCitations } from '../kb.js';
+import { mergePassages, pinned, search, snapshot, sourcesBlock, strayCitations } from '../knowledge/kb.js';
 import type { AgentContext, AgentResult, Log } from './types.js';
 
 const here = dirname(fileURLToPath(import.meta.url));

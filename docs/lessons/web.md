@@ -73,7 +73,7 @@ A segmented choice with a mark or icon (Plan with AI / Fill it in myself) keeps 
 ## The dashboard look (v1.7)
 
 ### every-page-opens-with-kpis `design`
-Each working page opens with a KPI strip (`components/KpiStrip.vue`): three to five tiles with a big number, an icon, one line of context, the first as the accent tile, each linking to where the number comes from. Numbers come from one read, `GET /engagements/:id/kpis`; add a page's tiles there and in `KpiStrip`, not with a new endpoint per page. Tabs and segmented choices are pill selectors. **Why:** the owner asked for the dashboard look on all pages.
+Each working page opens with a KPI strip (`components/KpiStrip.vue`, shared by every feature): three to five tiles with a big number, an icon, one line of context, the first as the accent tile, each linking to where the number comes from. Numbers come from one read, `GET /engagements/:id/kpis`; add a page's tiles there and in `KpiStrip`, not with a new endpoint per page. Tabs and segmented choices are pill selectors. **Why:** the owner asked for the dashboard look on all pages.
 **Enforced by:** none - visual check at 1440 and 390
 
 ### pages-wait-for-the-engagement `bug`

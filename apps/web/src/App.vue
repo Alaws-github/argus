@@ -6,10 +6,10 @@ import { useRoute, useRouter } from 'vue-router';
 import { focusRow } from './lib/links';
 import { useApp } from './stores/app';
 import { api } from './api';
-import SignIn from './components/SignIn.vue';
+import SignIn from './features/auth/SignIn.vue';
 import ArgusLogo from './components/ArgusLogo.vue';
 import AppIcon from './components/AppIcon.vue';
-import AssistantPanel from './components/AssistantPanel.vue';
+import AssistantPanel from './features/assistant/AssistantPanel.vue';
 
 const app = useApp();
 const route = useRoute();

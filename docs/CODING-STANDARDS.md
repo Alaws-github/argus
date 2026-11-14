@@ -39,6 +39,22 @@ ESLint errors block a commit. Warnings don't, but don't add new ones. The curren
 - Prettier formats code only. Markdown docs and `schema.sql` are left alone (see [SQL](#sql)).
 - **Vue templates and whitespace.** Prettier may move the space between two tags onto a new line. Vue's default compiler mode (`condense`) drops whitespace that contains a line break, which would join words ("IncidentsRecord"). The web app compiles templates with `whitespace: 'preserve'` (`apps/web/vite.config.ts`) so a line break between tags renders as one space, as in plain HTML. Keep that setting; if you want no space between two inline tags, put them on the same line with nothing between them.
 
+## Folder structure
+
+Code is organised by feature, with the same feature names in all three packages, so everything about one feature is in one place:
+
+- **Server:** `apps/server/src/<feature>/` holds that feature's logic and its `*-routes.ts` files. `core/` holds what every feature uses (database, paths, HTTP helpers, formatters, storage). `api-router.ts` registers each feature's routes.
+- **Web:** `apps/web/src/features/<feature>/` holds that feature's pages and components. `components/` holds building blocks used everywhere; `lib/` holds helpers.
+- **Shared:** `packages/shared/src/<domain>.ts`, one file per domain, all re-exported from `index.ts`. Import from `@gh/shared`, never from a file inside it.
+
+Before adding a helper, look in `core/` (server) or `lib/` (web): don't define `httpError`, `Wrap`, `toIso` or similar again in a feature file.
+
+## Functions
+
+- One function, one job. A function that needs a comment to separate its parts should be split into named functions (see `runCard` in `board/engine.ts`: each step is a function named after what it does).
+- Route handlers stay short: parse the input, call a function that does the work, send the result. Logic that grows past a screen goes into a named function in the feature folder (see `engagements/create-engagement.ts`).
+- Functions over about 100 lines are candidates to split. The list still to do is in `docs/plans/code-structure-backlog.md`.
+
 ## Naming
 
 Names say what a thing is for, in the words the app uses (use case, control, evidence, gate). Avoid abbreviations a new reader wouldn't know.
@@ -46,7 +62,9 @@ Names say what a thing is for, in the words the app uses (use case, control, evi
 | What | Style | Example |
 |---|---|---|
 | Server and shared files | kebab-case, named after the feature | `client-steps.ts`, `exit-criteria.ts` |
-| Route files | `routes-<feature>.ts` | `routes-workflows.ts` |
+| Feature folders | kebab-case, the same name on server and web | `apps/server/src/controls/`, `apps/web/src/features/controls/` |
+| Route files | `<thing>-routes.ts` in the feature folder, exporting `thingRoutes` | `integrations/workflow-routes.ts` |
+| Row-to-record mappers | `<thing>-records.ts` in the feature folder | `issues/issue-records.ts` |
 | Vue components and pages | PascalCase, at least two words (Vue style guide, priority A) | `AppIcon.vue`, `CardDrawer.vue`, `BoardPage.vue` |
 | Base components used everywhere | `App` prefix (Vue style guide, priority B) | `AppIcon.vue` |
 | Functions | camelCase verb phrase | `checkDueSteps`, `requirementCoverage` |

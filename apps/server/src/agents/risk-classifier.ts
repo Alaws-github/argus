@@ -6,10 +6,10 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { z } from 'zod';
 import { Classification, type Card, type RiskCategory } from '@gh/shared';
-import type { Db } from '../db.js';
-import { mergePassages, pinned, search, snapshot, sourcesBlock, strayCitations } from '../kb.js';
-import { zodProblems } from '../llm.js';
-import { loopFor } from '../agent-loop.js';
+import type { Db } from '../core/db.js';
+import { mergePassages, pinned, search, snapshot, sourcesBlock, strayCitations } from '../knowledge/kb.js';
+import { zodProblems } from '../ai/llm.js';
+import { loopFor } from './agent-loop.js';
 import { readFileSync as readRubric } from 'node:fs';
 import type { AgentContext, AgentResult, Log } from './types.js';
 

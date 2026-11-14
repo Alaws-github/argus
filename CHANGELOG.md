@@ -2,6 +2,18 @@
 
 What changed in each release of ARGUS, newest first. The version shown under Sign Out comes from package.json. Start a new release with `npm run release -- X.Y.Z`.
 
+## v1.7.6 (2026-11-14)
+
+Code organised by feature, so a developer can find everything about one feature in one place. No change to what the app does.
+
+- **Feature folders.** The 59 server files that sat side by side are now in feature folders (`apps/server/src/controls/`, `board/`, `integrations/` and so on), with what every feature uses in `core/`. The web app's pages and components are in `apps/web/src/features/<feature>/` with the same names; shared building blocks stay in `components/` and helpers in `lib/`. The shared package is one file per domain (`cards.ts`, `controls.ts`, `testing.ts` ...), all still imported from `@gh/shared`.
+- **The big route files are split by feature.** `routes-grc.ts` (about 1,900 lines), `routes.ts` and `routes-config.ts` became 22 route files of one feature each (`issues/issue-routes.ts`, `controls/soa-routes.ts` ...), plus shared record mappers (`*-records.ts`) and the evaluation runner (`evals/eval-runner.ts`). Every route path is unchanged, and none that could match the same request changed order (checked by a script).
+- **No copied helpers.** `httpError` and the route wrapper type were defined in 18 files, and the timestamp formatter in 12. They now live once in `core/http.ts` and `core/format.ts`. File paths (data folder, `.env`, agent rules) are in `core/paths.ts`, so files can move without breaking them. `ControlStatus` was defined twice in the shared package and is now defined once.
+- **Smaller functions.** The gate engine's `runCard` (291 lines) is now a short sequence of named steps (choose models, start the run, run the agent, save the draft or proposal, pause for a question, fail the run). Creating an engagement moved out of its route into `engagements/create-engagement.ts`, one function per starting point. A dead check in engagement creation (it tested for PATCH inside a POST route) was removed.
+- **Renamed for clarity:** `routes.ts` is `api-router.ts`, `store.ts` is `settings/settings-store.ts`, and route files are `<thing>-routes.ts` (`routes-workflows.ts` is `integrations/workflow-routes.ts`). `schema.sql` is in `core/`. `npm run db:reset` runs `setup/reset.ts`.
+- `docs/CODING-STANDARDS.md` has the folder structure and function rules; long functions still to split are listed in `docs/plans/code-structure-backlog.md`.
+
+
 ## v1.7.5 (2026-11-13)
 
 Code standards, linting and formatting, so a developer can follow the code. No change to what the app does.

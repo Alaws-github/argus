@@ -125,3 +125,12 @@ Coverage measured against ARGUS's own references (2 NIST obligations, 26 library
 ### deleting-a-chat-keeps-the-audit-record `design`
 The owner asked to edit and delete assistant chats. A person can delete their own conversation and its messages, or edit one of their questions (which replaces it and every answer after it), but the audit log is never changed: each `assistant.answered` entry stays, and the delete or edit is itself audited. Suggestions already applied stay applied. Only the person who started a conversation can rename, edit or delete it (404 for anyone else).
 **Enforced by:** test scripts/v174-test.mjs (edit replaces, answers can't be edited, others get 404, delete removes, audit kept)
+
+### one-home-for-shared-helpers `design`
+Since v1.7.6 the code is organised by feature folder, and what every feature uses lives once in `core/`: `httpError`, `Wrap`, `ActorOf`, `actorOf` and `wrap` in `core/http.ts`; `toIso`, `toDay` and `sha256` in `core/format.ts`; the data folder, `.env` and agent rules paths in `core/paths.ts`. Before v1.7.6 `httpError` was copied into 18 files. Import these; never define them again in a feature file. A new route file is `<feature>/<thing>-routes.ts`, registered in `api-router.ts`. **Why:** copies drift apart (one `Wrap` returned `unknown`, the others `void`) and a developer can't tell which is the real one.
+**Enforced by:** check no-copied-core-helpers
+
+### split-route-files-keep-their-order `design`
+Express matches routes in the order they are registered, so splitting a route file can change which handler answers a request when two paths could match it (`/a/:id` before `/a/new`). When v1.7.6 split the route files, a script listed every route before and after and checked that no pair that could match the same request changed order. Do the same check whenever routes move between files. **Why:** a reordered route fails silently, with the wrong handler answering.
+**Enforced by:** none - run the route-order comparison when moving routes (see the v1.7.6 notes in CHANGELOG.md)
+

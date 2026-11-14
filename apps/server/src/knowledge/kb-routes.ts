@@ -1,17 +1,27 @@
 // The knowledge base API: browse what the agents can draw on, search it the
 // way an agent does, upload the client's own documents, and set up or test
 // meaning-based search.
-import type { Request, Router } from 'express';
+import type { Router } from 'express';
 import { z } from 'zod';
 import { vectorAvailable, type Db } from '../core/db.js';
 import { logAudit } from '../audit/audit.js';
 import { embedPending, getEmbedder, scheduleEmbedding, search, upsertSource } from './kb.js';
 import { apiKeyOf, getProviderRow } from '../ai/providers.js';
 import { extract, kindOf } from '../core/extract.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 import { toIso } from '../core/format.js';
 
-export function kbRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 7 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/knowledge
+ * - GET /engagements/:id/knowledge/search
+ * - GET /knowledge/passages/:kid
+ * - POST /engagements/:id/knowledge
+ * - DELETE /knowledge/:id
+ * - POST /knowledge/reindex
+ * - POST /knowledge/embeddings/test
+ */
+export function kbRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   r.get(
     '/engagements/:id/knowledge',
     wrap(async (req, res) => {

@@ -3,7 +3,7 @@
 // be removed) and the full rules before a publish (no way round a gate, gates
 // in order, a person decides after every agent step). Every save, publish,
 // restore and retirement is in the audit log; each publish keeps a version.
-import type { Request, Router } from 'express';
+import type { Router } from 'express';
 import { z } from 'zod';
 import {
   NewWorkflow,
@@ -17,9 +17,10 @@ import {
 } from '@gh/shared';
 import type { Db } from '../core/db.js';
 import { logAudit } from '../audit/audit.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 import { toIso } from '../core/format.js';
 
+/** A workflow row as an API record. */
 export const toWorkflow = (r: any): Workflow => ({
   id: r.id,
   key: `WF-${r.number}`,
@@ -42,7 +43,18 @@ function lockedMissing(g: WfGraph): string[] {
   return [...WF_LOCKED].filter((id) => !ids.has(id));
 }
 
-export function workflowRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 8 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/workflows
+ * - POST /engagements/:id/workflows
+ * - GET /workflows/:wid
+ * - GET /workflows/:wid/versions/:v
+ * - PATCH /workflows/:wid
+ * - POST /workflows/:wid/publish
+ * - POST /workflows/:wid/restore
+ * - POST /workflows/:wid/retire
+ */
+export function workflowRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   const load = async (id: string) => {
     const { rows } = await db.query(`SELECT * FROM workflows WHERE id::text = $1`, [id]);
     if (!rows[0]) throw httpError(404, 'Workflow not found');

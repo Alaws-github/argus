@@ -22,6 +22,7 @@ export async function visibleIds(
   return rows.map((r: any) => r.id);
 }
 
+/** Whether a person can see an engagement (members-only engagements, rule 16). */
 export async function canSee(
   q: Queryable,
   user: { id: string; role: string } | undefined | null,
@@ -31,6 +32,7 @@ export async function canSee(
   return ids === null || ids.includes(engagementId);
 }
 
+/** The engagement a request belongs to, through OWNERS for routes that don't start with /engagements/:id. */
 export async function engagementOf(db: Db, req: Request): Promise<string | null> {
   if (req.path === '/evidence' && req.body?.engagementId) return String(req.body.engagementId);
   const own = /^\/engagements\/([0-9a-f-]{36})(?:\/|$)/.exec(req.path);
@@ -44,6 +46,10 @@ export async function engagementOf(db: Db, req: Request): Promise<string | null>
   return null;
 }
 
+/**
+ * Middleware: non-members of a members-only engagement get 404 for every request, reads included (rule
+ * 16).
+ */
 export function accessGuard(db: Db) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {

@@ -4,6 +4,7 @@
 // change and then undoing it disables Save again.
 import { computed, ref, type Ref } from 'vue';
 
+/** Tracks whether a form has unsaved changes, so Save stays off until there is one. */
 export function useUnsaved<T>(form: Ref<T> | (() => T)) {
   const read = () => (typeof form === 'function' ? (form as () => T)() : form.value);
   const saved = ref(JSON.stringify(read()));

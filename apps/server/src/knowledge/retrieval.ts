@@ -8,11 +8,13 @@
 import type { Db } from '../core/db.js';
 import { getEmbedder, search } from './kb.js';
 
+/** One retrieval question and the passages it should find. */
 export interface RetrievalCase {
   query: string;
   expect: string[];
   kind: 'framework' | 'control' | 'methodology';
 }
+/** The fixed set of retrieval questions. */
 export const RETRIEVAL_SET: RetrievalCase[] = [
   {
     query: 'a person must be able to override or stop a high-risk system',
@@ -79,6 +81,7 @@ export const RETRIEVAL_SET: RetrievalCase[] = [
   { query: 'what should a new use case brief contain', expect: ['M-INTAKE'], kind: 'methodology' },
 ];
 
+/** Recall at 5 and 10 and MRR for one search mode. */
 export interface RetrievalScore {
   mode: 'keyword' | 'hybrid';
   recall5: number;
@@ -87,6 +90,7 @@ export interface RetrievalScore {
   perKind: Record<string, { recall5: number; n: number }>;
   misses: { query: string; expect: string[]; got: string[] }[];
 }
+/** The retrieval check: scores per mode, by kind, and the misses. */
 export interface RetrievalReport {
   cases: number;
   embedModel: string | null;
@@ -133,6 +137,7 @@ async function score(db: Db, mode: 'keyword' | 'hybrid'): Promise<RetrievalScore
   };
 }
 
+/** Runs the retrieval questions by keyword and, when set up, by meaning. */
 export async function evalRetrieval(db: Db): Promise<RetrievalReport> {
   const e = await getEmbedder(db).catch(() => null);
   const scores = [await score(db, 'keyword')];

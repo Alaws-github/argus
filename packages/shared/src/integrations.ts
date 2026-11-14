@@ -12,6 +12,7 @@
 //    never an agent; every send is audited.
 import { z } from 'zod';
 
+/** How a client step is proved: a record mentions the use case, a status, all done, or a person confirms. */
 export const PROOF_KINDS = {
   '': 'Not checked',
   mentions: 'A record mentions the use case key',
@@ -19,6 +20,7 @@ export const PROOF_KINDS = {
   all_done: 'Every record for the use case is done',
   manual: 'A person confirms it, with a link',
 } as const;
+/** One kind of client step proof. */
 export type ProofKind = keyof typeof PROOF_KINDS;
 /** Status words that count as done for all_done (case does not matter). */
 export const DONE_WORDS = [
@@ -35,6 +37,7 @@ export const DONE_WORDS = [
   '7',
 ];
 
+/** A client workflow step on one use case and whether its proof has been seen (rule 32). */
 export interface ClientStep {
   nodeId: string;
   label: string;
@@ -58,6 +61,7 @@ export const IngestTokenInput = z.object({
   name: z.string().trim().min(3).max(80),
   controlId: z.string().uuid().nullable().default(null),
 });
+/** A pipeline ingest token as the API returns it (never the token itself after creation). */
 export interface IngestToken {
   id: string;
   key: string;
@@ -71,7 +75,9 @@ export interface IngestToken {
   uses: number;
   revokedAt: string | null;
 }
+/** What a pipeline can push: eval results, fairness, drift, SBOM, test report, model card or other. */
 export const INGEST_KINDS = ['eval', 'fairness', 'drift', 'sbom', 'test_report', 'model_card', 'other'] as const;
+/** Each ingest kind in words. */
 export const INGEST_KIND_LABELS: Record<(typeof INGEST_KINDS)[number], string> = {
   eval: 'Evaluation results',
   fairness: 'Fairness metrics',
@@ -81,6 +87,7 @@ export const INGEST_KIND_LABELS: Record<(typeof INGEST_KINDS)[number], string> =
   model_card: 'Model card',
   other: 'Other',
 };
+/** What a pipeline posts to /api/ingest/evidence (rule 31). */
 export const IngestEvidence = z
   .object({
     title: z.string().trim().min(3).max(200),
@@ -143,7 +150,9 @@ export const OUTBOUND_KINDS = {
     help: 'Any address that accepts a JSON POST, for example a Power Automate or Zapier flow. Optional bearer token.',
   },
 } as const;
+/** Where write-back sends: Teams, Slack, Jira, ServiceNow or a webhook. */
 export type OutboundKind = keyof typeof OUTBOUND_KINDS;
+/** The events write-back can send, in words (rule 30). */
 export const OUTBOUND_EVENTS = {
   'card.waiting': 'A use case is waiting for a person (approval or review)',
   'card.question': 'An agent asked a question',
@@ -153,7 +162,9 @@ export const OUTBOUND_EVENTS = {
   'incident.raised': 'An incident was raised',
   'step.failed': 'A client step check failed',
 } as const;
+/** One write-back event. */
 export type OutboundEvent = keyof typeof OUTBOUND_EVENTS;
+/** A write-back target as a lead sets it up. */
 export const OutboundInput = z.object({
   name: z.string().trim().min(3).max(80),
   kind: z.enum(Object.keys(OUTBOUND_KINDS) as [OutboundKind, ...OutboundKind[]]),
@@ -172,6 +183,7 @@ export const OutboundInput = z.object({
   enabled: z.boolean().default(true),
 });
 export type OutboundInput = z.infer<typeof OutboundInput>;
+/** A write-back target as the API returns it (never its secret or webhook address). */
 export interface OutboundTarget {
   id: string;
   key: string;

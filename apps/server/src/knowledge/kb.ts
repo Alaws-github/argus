@@ -79,10 +79,12 @@ const STOP = new Set(
 // still found in context.
 const HEADING =
   /^(#{1,4}\s+.{2,120}|(?:article|art\.|section|clause|annex|appendix|chapter|part)\s+[\dA-Z][\w.]*\b.{0,100}|\d{1,2}(?:\.\d{1,2}){0,3}\.?\s+[A-Z][^.!?]{2,100}|[A-Z][A-Z0-9 ,&/()-]{3,80})$/i;
+/** A part of a document under one heading. */
 export interface Section {
   heading: string;
   text: string;
 }
+/** A document split at its headings. */
 export function sections(text: string): Section[] {
   const out: Section[] = [];
   let heading = '';
@@ -114,6 +116,7 @@ const sentences = (p: string) =>
     .match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g)
     ?.map((s) => s.trim())
     .filter(Boolean) ?? [p];
+/** Sections split into passages of at most max characters, at paragraph and sentence breaks. */
 export function chunkSections(text: string, max = 900): Section[] {
   const out: Section[] = [];
   for (const s of sections(text)) {
@@ -344,6 +347,7 @@ export async function indexEvidence(q: Queryable, e: any) {
   });
 }
 
+/** Indexes a use case for search (kind use_case). */
 export async function indexUseCase(q: Queryable, card: any) {
   const u = card.use_case ?? card.useCase;
   const text = [
@@ -365,6 +369,7 @@ export async function indexUseCase(q: Queryable, card: any) {
   });
 }
 
+/** Indexes the engagement description for search. */
 export async function indexEngagement(q: Queryable, e: { id: string; name: string; client: string; about: string }) {
   if (!e.about?.trim()) return;
   await upsertSource(q, {
@@ -526,6 +531,7 @@ export async function ensureEngagementKnowledge(q: Queryable, engagementId: stri
 // Embedding runs in the background after changes, a few seconds after the
 // last one, so a burst of uploads is embedded in one pass.
 let embedTimer: ReturnType<typeof setTimeout> | null = null;
+/** Embeds new passages in the background, when meaning search is set up. */
 export function scheduleEmbedding(db: Db) {
   if (embedTimer) clearTimeout(embedTimer);
   embedTimer = setTimeout(() => {

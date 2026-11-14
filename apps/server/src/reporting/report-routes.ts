@@ -12,6 +12,11 @@ import { ISSUE_SELECT, toIssue } from '../issues/issue-records.js';
 import { getEngagement } from '../settings/settings-store.js';
 import { suggestScores } from './assessment-scores.js';
 
+/**
+ * Registers these 2 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/report
+ * - POST /engagements/:id/report/sign
+ */
 export function reportRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   r.get(
     '/engagements/:id/report',

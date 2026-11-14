@@ -12,6 +12,12 @@ import { emit } from '../core/realtime.js';
 import '../setup/seed.js';
 import { getEngagement, toEngagement } from '../settings/settings-store.js';
 
+/**
+ * Registers these 3 routes on the API router (each path is under /api):
+ * - GET /engagements
+ * - POST /engagements
+ * - PATCH /engagements/:id
+ */
 export function engagementRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   r.get(
     '/engagements',

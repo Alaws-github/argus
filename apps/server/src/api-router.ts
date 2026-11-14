@@ -43,10 +43,10 @@ import { testingRoutes } from './agent-testing/agent-testing-routes.js';
 import { workflowRoutes } from './integrations/workflow-routes.js';
 import { ssoRoutes } from './auth/sso.js';
 
-// No sign-in yet: the web app sends the reviewer's name. Add real auth before
-// this leaves a laptop (see README, "Before you put it on a server").
-// The signed-in person's name is what approvals and the audit trail record.
-
+/**
+ * The API router: every feature's routes, mounted under /api by index.ts after sign-in, access and the
+ * archive guard. The signed-in person's name is what approvals and the audit trail record.
+ */
 export function apiRouter(db: Db) {
   const r = Router();
 

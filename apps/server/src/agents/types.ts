@@ -3,6 +3,7 @@
 import type { AgentRole, AgentTool, Card, Effort } from '@gh/shared';
 import type { ProviderRow } from '../ai/providers.js';
 
+/** Writes one line to the run's log (rule 24). */
 export type Log = (kind: 'step' | 'output' | 'error', text: string) => Promise<void>;
 
 // Everything an agent needs for one run, resolved by the engine from the
@@ -30,6 +31,7 @@ export interface AgentContext {
   onLoop?: (r: { mode: 'agentic' | 'single'; steps: number }) => void;
 }
 
+/** What an agent returns: its output and the tokens it used. */
 export interface AgentResult<T> {
   output: T;
   tokensIn: number;

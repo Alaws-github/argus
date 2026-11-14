@@ -26,6 +26,15 @@ import {
   toRun,
 } from '../settings/settings-store.js';
 
+/**
+ * Registers these 6 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/board
+ * - POST /engagements/:id/cards
+ * - GET /cards/:idOrKey
+ * - POST /cards/:id/questions/:qid/:verb(answer|skip)
+ * - POST /cards/:id/decisions
+ * - POST /cards/:id/actions
+ */
 export function boardRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   r.get(
     '/engagements/:id/board',

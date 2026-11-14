@@ -6,7 +6,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const read = (p) => readFileSync(resolve(root, p), 'utf8');
+const read = (p) => readFileSync(resolve(root, p), 'utf8').replace(/\r\n/g, '\n'); // Windows checkouts may have CRLF
 const walk = (d) =>
   readdirSync(resolve(root, d)).flatMap((f) => {
     const p = join(d, f);
@@ -71,6 +71,45 @@ for (const f of walk('apps/server/src').filter((p) => p.endsWith('.ts') && !p.in
       if (/^(export )?(const (httpError|toIso|wrap)\b|type (Wrap|ActorOf)\b)/.test(l))
         fail('no-copied-core-helpers', `${f}:${i + 1} redefines a helper from core/; import it instead`);
     });
+}
+
+// exports-are-documented: every exported declaration has a comment just above it, a JSDoc or a
+// line comment, so a developer can tell what it is for (lesson document-every-export-and-generate-the-api-docs).
+// A type that is only z.infer of the schema above it is skipped: the schema's comment covers both.
+const DOCUMENTED = ['packages/shared/src', 'apps/server/src', 'apps/web/src'];
+for (const f of DOCUMENTED.flatMap((d) => walk(d)).filter((p) => p.endsWith('.ts') && !p.endsWith('.d.ts'))) {
+  const lines = read(f).split('\n');
+  lines.forEach((l, i) => {
+    if (!/^export (default )?(async )?(function|const|let|class|interface|type|enum)\b/.test(l)) return;
+    if (/^export type \w+ = z\.infer<typeof \w+>;/.test(l) || /^export (type )?\{/.test(l)) return;
+    const above = (lines[i - 1] ?? '').trim();
+    if (!(above.endsWith('*/') || above.startsWith('//')))
+      fail(
+        'exports-are-documented',
+        `${f.replace(/\\/g, '/')}:${i + 1} an export without a comment saying what it is for`,
+      );
+  });
+}
+
+// route-docs-match-routes: a route function's JSDoc lists exactly the routes it registers
+// (lesson document-every-export-and-generate-the-api-docs).
+for (const f of walk('apps/server/src').filter((p) => p.endsWith('.ts'))) {
+  const t = read(f);
+  const m = /\/\*\*([\s\S]*?)\*\/\s*export function \w+Routes\(/.exec(t);
+  if (!m) continue;
+  const doc = m[1].slice(m[1].lastIndexOf('/**') + 1); // the JSDoc right above the function, not an earlier one
+  const listed = [...doc.matchAll(/- (GET|POST|PUT|PATCH|DELETE) (\S+)/g)].map((x) => `${x[1]} ${x[2]}`).sort();
+  const start = m.index + m[0].length;
+  const end = t.indexOf('\n}\n', start);
+  const body = t.slice(start, end < 0 ? undefined : end);
+  const real = [...body.matchAll(/\br\.(get|post|put|patch|delete)\(\s*(['`])([^'`]+)\2/g)]
+    .map((x) => `${x[1].toUpperCase()} ${x[3]}`)
+    .sort();
+  if (listed.join('|') !== real.join('|'))
+    fail(
+      'route-docs-match-routes',
+      `${f.replace(/\\/g, '/')} the route list in its JSDoc doesn't match its r.get/post/... calls`,
+    );
 }
 
 if (fails.length) {

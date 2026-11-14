@@ -5,6 +5,7 @@ import type { Card, Stage } from '@gh/shared';
 import type { Queryable } from '../core/db.js';
 import { stepsBlockingSignOff } from '../integrations/client-steps.js';
 
+/** What each stage needs before a card can leave it, in words. */
 export const EXIT_CRITERIA: Partial<Record<Stage, string[]>> = {
   classify: ['A classification has been produced'],
   design: ['Every risk scoring 12 or more is treated by at least one control (applies once controls exist)'],
@@ -18,6 +19,7 @@ export const EXIT_CRITERIA: Partial<Record<Stage, string[]>> = {
   report: ['If its client workflow requires it, every tracked client step is done'],
 };
 
+/** What a card still lacks to leave its stage. advance() refuses while anything is listed (rule 4). */
 export async function exitCriteria(q: Queryable, card: Card): Promise<string[]> {
   const unmet: string[] = [];
   const controls = `SELECT id FROM controls WHERE card_id = $1`;

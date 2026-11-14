@@ -2,6 +2,27 @@
 
 What changed in each release of ARGUS, newest first. The version shown under Sign Out comes from package.json. Start a new release with `npm run release -- X.Y.Z`.
 
+## v1.7.8 (2026-11-14)
+
+The large screens split into smaller components. No change to what the app shows or does: every page, the card drawer on all 18 demo cards, the workflow builder and the assistant were compared with the old version, text and layout, and match.
+
+- **Settings** (1,144 lines): the page now holds the engagement list, header and tabs (125 lines), with one component per tab: `SettingsGeneralTab`, `SettingsGatesTab`, `SettingsAgentsTab` and `SettingsToolsTab`. `KeepAlive` keeps unsaved edits when you move between tabs, as before.
+- **Agent testing** (947 lines): one component per tab (`AgentGoldenTab`, `AgentVerifierTab`, `AgentRetrievalTab`, `AgentHistoryTab`), with what they share in `agent-testing-data.ts`. History still opens a run on the Golden Dataset tab.
+- **The use case drawer** (887 lines): its state and actions are in one composable, `use-card-drawer.ts`, and each panel is its own component: triage, classification review, draft review, design review, an agent's question, status and the record below. The drawer itself is 77 lines.
+- **The workflow builder** (963 lines): its state and actions are in `use-workflow-builder.ts`; the inspector on the right is `WorkflowInspector.vue`; the page keeps the icon rail and canvas.
+- **The assistant panel**: its starting questions and labels moved to `assistant-labels.ts` and the @ tag picker to `use-tag-picker.ts`. Its markup stays in one file because its styles are scoped to it.
+- **KPI tiles**: one small tile builder per page in `components/kpi-tiles.ts`, instead of one 280-line computed. Only the shown page's tiles are built.
+- Found while checking: a generated drawer template had an extra `<template>` tag that hid the drawer. The page-by-page comparison caught it before delivery (lesson added).
+
+Comments and developer docs (coding standards phase 4):
+
+- **A comment on every export.** Every exported function, constant, type and schema in the server, web and shared packages (about 420) has a JSDoc comment saying what it is for. Each route function's comment lists the routes it registers. Two lesson checks keep it that way: `exports-are-documented` and `route-docs-match-routes`.
+- **API reference, generated.** `docs/API.md` and `docs/api/openapi.json` list all 170 routes with their permission, the file that registers them and the request fields, built from the real router, `permissionFor` in `auth.ts` and the Zod schemas, so they can't drift from the code.
+- **A README in every feature folder** (22 on the server, 18 in the web app): what the feature is for, each file with its purpose, and its routes or pages. Generated too.
+- `npm run docs` rebuilds all of these; `npm run check:docs` fails if any is out of date and is now part of `npm run check`.
+- `permissionFor(method, path)` in `auth.ts` now holds the permission lookup the sign-in middleware uses, so the docs show the real rule. The 15 route files that spelled out the `actorOf` type now use `ActorOf` from `core/http.ts`. Several out-of-date comments were corrected (for example the API router's "no sign-in yet").
+
+
 ## v1.7.7 (2026-11-14)
 
 Every long server function split into named, single-purpose steps. No change to what the app does.

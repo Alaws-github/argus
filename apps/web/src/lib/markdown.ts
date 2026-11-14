@@ -40,6 +40,10 @@ function inline(s: string): string {
   );
 }
 
+/**
+ * Safe Markdown for model text: escaped first, then formatting; links only to pages inside ARGUS (rule
+ * 29).
+ */
 export function renderMarkdown(text: string, keyLinker?: KeyLinker): string {
   linker = keyLinker ?? null;
   const lines = (text ?? '').replace(/\r/g, '').split('\n');

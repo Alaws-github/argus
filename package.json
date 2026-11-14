@@ -1,7 +1,7 @@
 {
   "name": "governance-harness",
   "private": true,
-  "version": "1.7.7",
+  "version": "1.7.8",
   "description": "AI governance, risk and assurance harness: a gated board where agents draft and people decide.",
   "workspaces": [
     "packages/*",
@@ -42,7 +42,9 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"apps/*/src/**/*.{ts,vue}\" \"apps/*/*.ts\" \"packages/*/src/**/*.ts\" \"scripts/**/*.{js,mjs,cjs}\" \"deploy/**/*.{ts,js,mjs}\" \"*.mjs\"",
     "format:check": "prettier --check \"apps/*/src/**/*.{ts,vue}\" \"apps/*/*.ts\" \"packages/*/src/**/*.ts\" \"scripts/**/*.{js,mjs,cjs}\" \"deploy/**/*.{ts,js,mjs}\" \"*.mjs\"",
-    "check": "eslint . --quiet && npm run format:check && npm run typecheck",
+    "check": "eslint . --quiet && npm run format:check && npm run typecheck && npm run check:docs",
+    "docs": "tsx scripts/docs/build-docs.mjs",
+    "check:docs": "tsx scripts/docs/build-docs.mjs --check",
     "prepare": "husky || true"
   },
   "devDependencies": {

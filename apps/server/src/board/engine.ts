@@ -46,10 +46,12 @@ import { verifyCard } from '../agent-testing/verifier.js';
 import { QuestionPause } from '../agents/agent-loop.js';
 import { friendlyError } from '../ai/llm.js';
 
+/** The most agent runs at once. */
 export const MAX_PARALLEL = 4;
 const TICK_MS = 1500;
 let ticking = false;
 
+/** Sends a card's latest state to the browsers that can see it. */
 export async function emitCard(q: Queryable, id: string) {
   const card = await getCard(q, id);
   if (card) emit('card', card);
@@ -60,6 +62,7 @@ async function emitRun(q: Queryable, id: string) {
   if (rows[0]) emit('run', toRun(rows[0]));
 }
 
+/** Starts the gate engine: it picks up queued cards every few seconds. */
 export function startEngine(db: Db) {
   // Close runs left "running" by a crash (Anser lesson: reconcile on startup).
   void db

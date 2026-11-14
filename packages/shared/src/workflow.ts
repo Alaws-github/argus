@@ -7,9 +7,12 @@
 import { z } from 'zod';
 import { toolById } from './tools-catalog.js';
 
+/** The kinds of step in a client workflow. */
 export const WF_NODE_TYPES = ['start', 'gate', 'agent', 'person', 'task', 'condition', 'notify', 'end'] as const;
+/** One kind of workflow step. */
 export type WfNodeType = (typeof WF_NODE_TYPES)[number];
 
+/** Each step kind's name, hint and icon. */
 export const WF_NODE_INFO: Record<WfNodeType, { label: string; hint: string; icon: string }> = {
   start: {
     label: 'Trigger',
@@ -49,8 +52,10 @@ export const WF_GATES = [
   { id: 'g-test', stage: 'test', label: 'Controls tested and reviewed' },
   { id: 'g-signoff', stage: 'validate', label: 'Signed off by a named person' },
 ] as const;
+/** The steps that can be moved but never deleted: the trigger and the five gates (rule 28). */
 export const WF_LOCKED = new Set<string>(['start', ...WF_GATES.map((g) => g.id)]);
 
+/** One step in a workflow drawing. */
 export const WfNode = z.object({
   id: z.string().regex(/^[a-z0-9-]{1,40}$/),
   type: z.enum(WF_NODE_TYPES),
@@ -76,6 +81,7 @@ export const WfNode = z.object({
     .default({}),
 });
 export type WfNode = z.infer<typeof WfNode>;
+/** One arrow between two steps. */
 export const WfEdge = z.object({
   id: z.string().regex(/^[a-z0-9-]{1,40}$/),
   from: z.string(),
@@ -85,9 +91,11 @@ export const WfEdge = z.object({
   rework: z.boolean().optional(),
 });
 export type WfEdge = z.infer<typeof WfEdge>;
+/** A workflow drawing: its steps and arrows. */
 export const WfGraph = z.object({ nodes: z.array(WfNode).max(80), edges: z.array(WfEdge).max(200) });
 export type WfGraph = z.infer<typeof WfGraph>;
 
+/** A client workflow with its drawing, status and versions. */
 export interface Workflow {
   id: string;
   key: string; // WF-1
@@ -103,6 +111,7 @@ export interface Workflow {
   publishedAt: string | null;
   requireSteps: boolean;
 }
+/** A published version of a workflow, kept for restore. */
 export interface WorkflowVersion {
   version: number;
   name: string;
@@ -112,7 +121,9 @@ export interface WorkflowVersion {
   nodes: number;
 }
 
+/** The ready-made workflows to start from. */
 export const WF_TEMPLATES = ['standard', 'm365', 'servicenow', 'google', 'minimal'] as const;
+/** Each template's name and what it is for. */
 export const WF_TEMPLATE_INFO: Record<(typeof WF_TEMPLATES)[number], { label: string; hint: string }> = {
   standard: {
     label: 'Standard',
@@ -132,11 +143,13 @@ export const WF_TEMPLATE_INFO: Record<(typeof WF_TEMPLATES)[number], { label: st
   },
   minimal: { label: 'Gates only', hint: 'Just the five governance gates in a line, to build around' },
 };
+/** A new workflow: its name, description and template. */
 export const NewWorkflow = z.object({
   name: z.string().trim().min(2).max(80),
   description: z.string().trim().max(400).default(''),
   template: z.enum(WF_TEMPLATES).default('standard'),
 });
+/** A workflow saved from the builder (the gates must still be there). */
 export const SaveWorkflow = z.object({
   name: z.string().trim().min(2).max(80).optional(),
   description: z.string().trim().max(400).optional(),

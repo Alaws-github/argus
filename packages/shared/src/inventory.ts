@@ -5,9 +5,11 @@ import { z } from 'zod';
 // AI inventory and agent register
 // ---------------------------------------------------------------------------
 export const INVENTORY_KINDS = ['system', 'model', 'agent', 'dataset', 'vendor'] as const;
+/** What an inventory item is: a system, model, agent, dataset or vendor. */
 export const InventoryKind = z.enum(INVENTORY_KINDS);
 export type InventoryKind = z.infer<typeof InventoryKind>;
 
+/** An AI inventory item as a person adds or edits it. */
 export const InventoryInput = z.object({
   kind: InventoryKind,
   name: z.string().trim().min(2).max(160),
@@ -27,6 +29,7 @@ export const InventoryInput = z.object({
 });
 export type InventoryInput = z.infer<typeof InventoryInput>;
 
+/** An inventory item with its linked use cases and agent register checks. */
 export interface InventoryItem extends InventoryInput {
   id: string;
   key: string;

@@ -25,6 +25,7 @@ function getKey(): Buffer {
   return key;
 }
 
+/** Encrypts a secret with AES-256-GCM and the key in data/secret.key. */
 export function encrypt(plain: string): string {
   const iv = randomBytes(12);
   const c = createCipheriv('aes-256-gcm', getKey(), iv);
@@ -32,6 +33,7 @@ export function encrypt(plain: string): string {
   return ['v1', iv.toString('base64'), c.getAuthTag().toString('base64'), body.toString('base64')].join(':');
 }
 
+/** Decrypts a secret encrypted by encrypt(). */
 export function decrypt(token: string): string {
   const [v, iv, tag, body] = token.split(':');
   if (v !== 'v1') throw new Error('Unknown key format');

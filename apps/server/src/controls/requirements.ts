@@ -8,7 +8,7 @@
 // control it is based on. Gaps can be closed by mapping one of the
 // engagement's controls to the requirement, or by adding the library control
 // that meets it. Scoping a requirement out needs a reason, and is audited.
-import type { Request, Router } from 'express';
+import type { Router } from 'express';
 import { z } from 'zod';
 import {
   FRAMEWORK_CATALOG,
@@ -22,11 +22,13 @@ import type { Db } from '../core/db.js';
 import { logAudit } from '../audit/audit.js';
 import { emit } from '../core/realtime.js';
 import { mergeRefs } from './harmonize.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 const KEYS = Object.keys(FRAMEWORK_CATALOG) as FrameworkKey[];
 
+/** Where a requirement is: proven, in progress, a gap or not applicable. */
 export type ReqStatus = 'proven' | 'in_progress' | 'gap' | 'not_applicable';
 
+/** Every requirement of each framework in scope and its status (rule 33). */
 export async function requirementCoverage(db: Db, eid: string, only?: FrameworkKey) {
   const fw: string =
     (await db.query(`SELECT framework FROM engagements WHERE id = $1`, [eid])).rows[0]?.framework ?? '';
@@ -116,7 +118,13 @@ export async function requirementCoverage(db: Db, eid: string, only?: FrameworkK
   return { frameworks, inScope, controls: ctl.map((c: any) => ({ id: c.id, key: `C-${c.number}`, title: c.title })) };
 }
 
-export function requirementRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 3 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/requirements
+ * - PUT /engagements/:id/requirements/:fw
+ * - POST /controls/:id/refs
+ */
+export function requirementRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   r.get(
     '/engagements/:id/requirements',
     wrap(async (req, res) => {

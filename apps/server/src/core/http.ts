@@ -13,6 +13,7 @@ export type ActorOf = (req: Request) => string;
 /** The signed-in person's name is what approvals and the audit trail record. */
 export const actorOf: ActorOf = (req) => req.user?.name ?? 'unknown';
 
+/** Wraps an async route handler so a rejected promise reaches Express's error handler. */
 export const wrap: Wrap = (fn) => (req, res, next) => {
   fn(req, res).catch(next);
 };

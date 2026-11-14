@@ -1,6 +1,6 @@
 // Agent testing API: the golden dataset and its runs, the Verifier's settings,
 // labelled examples and calibration, and the Verifier check on one card.
-import type { Request, Router } from 'express';
+import type { Router } from 'express';
 import { z } from 'zod';
 import { GOLDEN_AGENTS, JUDGE_TRUST, NewGoldenCase, NewJudgeLabel } from '@gh/shared';
 import type { Db } from '../core/db.js';
@@ -11,9 +11,23 @@ import { getSettings } from '../settings/settings-store.js';
 import { calibrate, importDecisionLabels, startGoldenRun, toCalibration, toCase, toLabel, toRunRow } from './golden.js';
 import { evalRetrieval, RETRIEVAL_SET } from '../knowledge/retrieval.js';
 import { checkCap, verifierTarget, verifyCard, VERIFIER_RULES_VERSION } from './verifier.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 
-export function testingRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 11 routes on the API router (each path is under /api):
+ * - GET /agent-testing
+ * - GET /agent-testing/runs/:id
+ * - POST /agent-testing/runs
+ * - GET /agent-testing/retrieval
+ * - POST /agent-testing/cases
+ * - DELETE /agent-testing/cases/:id
+ * - POST /agent-testing/labels
+ * - DELETE /agent-testing/labels/:id
+ * - POST /agent-testing/labels/import
+ * - POST /agent-testing/calibrate
+ * - POST /cards/:id/verify
+ */
+export function testingRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   r.get(
     '/agent-testing',
     wrap(async (req, res) => {

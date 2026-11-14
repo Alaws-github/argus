@@ -21,6 +21,7 @@ export const CardStatus = z.enum([
 ]);
 export type CardStatus = z.infer<typeof CardStatus>;
 
+/** Each card status in words, as the board shows it. */
 export const STATUS_LABELS: Record<CardStatus, string> = {
   idle: 'Waiting',
   queued: 'Queued',
@@ -31,6 +32,7 @@ export const STATUS_LABELS: Record<CardStatus, string> = {
   question: 'Question for You',
 };
 
+/** How much the AI system acts on its own, as declared in the use case profile. */
 export const Autonomy = z.enum(['assistive', 'human_in_loop', 'human_on_loop', 'autonomous']);
 export type Autonomy = z.infer<typeof Autonomy>;
 
@@ -38,6 +40,7 @@ export type Autonomy = z.infer<typeof Autonomy>;
 // board card; the Planner suggests both, a person can change them.
 export const UseCaseCategory = z.enum(['decision', 'chatbot', 'agent', 'generative', 'analytics', 'other']);
 export type UseCaseCategory = z.infer<typeof UseCaseCategory>;
+/** Each use case category in words. */
 export const CATEGORY_LABELS: Record<UseCaseCategory, string> = {
   decision: 'Decision',
   chatbot: 'Chatbot',
@@ -46,10 +49,13 @@ export const CATEGORY_LABELS: Record<UseCaseCategory, string> = {
   analytics: 'Analytics',
   other: 'Other',
 };
+/** A use case's priority (P1 urgent to P3 later). */
 export const Priority = z.enum(['p1', 'p2', 'p3']);
 export type Priority = z.infer<typeof Priority>;
+/** Each priority in words. */
 export const PRIORITY_LABELS: Record<Priority, string> = { p1: 'P1 Urgent', p2: 'P2 Normal', p3: 'P3 Later' };
 
+/** The use case profile a person fills in at intake. */
 export const UseCaseInput = z.object({
   title: z.string().min(3).max(160),
   businessOwner: z.string().max(120).default(''),
@@ -63,6 +69,7 @@ export const UseCaseInput = z.object({
 });
 export type UseCaseInput = z.infer<typeof UseCaseInput>;
 
+/** A use case on the board: its stage, status, profile, drafts, decisions and Verifier verdicts. */
 export interface Card {
   id: string;
   engagementId: string;

@@ -7,9 +7,11 @@ import { Module, Modules, MODULES, Stage } from './stages.js';
 // Agents: one per stage, configured per engagement (Settings > Agents).
 // ---------------------------------------------------------------------------
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+/** How much room the model has to answer (low to max output tokens). */
 export const Effort = z.enum(EFFORTS);
 export type Effort = z.infer<typeof Effort>;
 
+/** The jobs an agent can do: one per stage, plus the Use Case Planner. */
 export const AgentRole = z.enum([
   'use_case_planner',
   'risk_classifier',
@@ -21,6 +23,7 @@ export const AgentRole = z.enum([
 ]);
 export type AgentRole = z.infer<typeof AgentRole>;
 
+/** Each agent role: its name, stage, whether it is built yet, a summary and the tools it may use. */
 export const AGENT_ROLES: Record<
   AgentRole,
   { name: string; stage: Stage; built: boolean; summary: string; tools: AgentTool[] }
@@ -76,10 +79,14 @@ export const AGENT_ROLES: Record<
   },
 };
 
+/** The groups of read-only tools an agent can be allowed (rule 23). */
 export const AGENT_TOOLS = ['read_profile', 'read_register', 'read_evidence', 'ask'] as const;
+/** How an agent works: agentic (looks things up, may ask, checks itself) or a single call. */
 export const AgentMode = z.enum(['agentic', 'single']);
 export type AgentMode = z.infer<typeof AgentMode>;
+/** The default number of model steps per agentic run. */
 export const DEFAULT_MAX_STEPS = 8;
+/** The most model steps a run may take (rule 26). */
 export const MAX_STEPS_LIMIT = 20;
 /** Most questions an agent may ask a person about one card at one stage. */
 export const MAX_QUESTIONS = 2;
@@ -100,9 +107,12 @@ export interface AgentQuestion {
   askedAt: string;
   answeredAt: string | null;
 }
+/** A person's answer to an agent's question (rule 27). */
 export const AnswerQuestion = z.object({ answer: z.string().trim().min(1).max(4000) });
+/** One group of read-only tools. */
 export type AgentTool = (typeof AGENT_TOOLS)[number];
 
+/** What each tool group lets an agent read, in words for Settings > AI Agents. */
 export const AGENT_TOOL_INFO: Record<AgentTool, { label: string; hint: string }> = {
   read_profile: {
     label: 'Read use cases and the engagement',
@@ -135,6 +145,7 @@ export const AgentRoute = z.enum([
   'cat_other',
 ]);
 export type AgentRoute = z.infer<typeof AgentRoute>;
+/** Which cards an agent takes, in words (all, high tier only and so on). */
 export const ROUTE_LABELS: Record<AgentRoute, string> = {
   all: 'All cards',
   high_only: 'High and prohibited tier only',
@@ -147,7 +158,9 @@ export const ROUTE_LABELS: Record<AgentRoute, string> = {
   cat_analytics: 'Analytics only',
   cat_other: 'Other kinds only',
 };
+/** How specific a route is: the engine picks the most specific enabled agent that takes a card (rule 20). */
 export const routeSpecificity = (r: AgentRoute) => (r === 'all' ? 0 : r === 'high_only' || r === 'not_minimal' ? 1 : 2);
+/** Whether an agent with this route takes this card (by kind, priority or tier). */
 export function routeTakes(
   route: AgentRoute,
   card: { tier: RiskTier | null; useCase: { category?: string; priority?: string } },
@@ -180,11 +193,13 @@ export const NewAgent = z.object({
   concurrency: z.number().int().min(1).max(8).optional(),
 });
 export type NewAgent = z.infer<typeof NewAgent>;
+/** The built-in agent role for a stage; added agents take their stage's role. */
 export const roleForStage = (stage: string): AgentRole | null =>
   (Object.entries(AGENT_ROLES) as [AgentRole, (typeof AGENT_ROLES)[AgentRole]][]).find(
     ([, m]) => m.stage === stage && m.built,
   )?.[0] ?? null;
 
+/** An engagement's agent: its role, model, fallback, instructions, tools, limits and kill switch state. */
 export interface AgentConfig {
   id: string;
   engagementId: string;
@@ -220,6 +235,7 @@ export interface AgentConfig {
   rulesVersion: string | null;
 }
 
+/** A change to an agent's settings. */
 export const AgentPatch = z.object({
   name: z.string().trim().min(2).max(60).optional(),
   enabled: z.boolean().optional(),
@@ -241,6 +257,7 @@ export const AgentPatch = z.object({
 });
 export type AgentPatch = z.infer<typeof AgentPatch>;
 
+/** Workspace-wide settings: spend cap, time zone, Verifier, assistant, connectors and act as. */
 export const WorkspaceSettings = z.object({
   autoStart: z.boolean(),
   spendCapUsd: z.number().min(0).max(100000).nullable(),
@@ -275,6 +292,7 @@ export const WorkspaceSettings = z.object({
 });
 export type WorkspaceSettings = z.infer<typeof WorkspaceSettings>;
 
+/** A client engagement: its details, gates, modules, appetite, client tools and archive state. */
 export interface Engagement {
   id: string;
   slug: string;
@@ -316,6 +334,7 @@ export const RiskAppetite = z.object({
 });
 export type RiskAppetite = z.infer<typeof RiskAppetite>;
 
+/** A change to an engagement's details, gates, modules or client tools. */
 export const EngagementPatch = z.object({
   name: z.string().trim().min(2).max(80).optional(),
   client: z.string().trim().max(120).optional(),

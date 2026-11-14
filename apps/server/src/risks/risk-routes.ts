@@ -8,6 +8,11 @@ import { type Db } from '../core/db.js';
 import { emit } from '../core/realtime.js';
 import { RISK_SELECT, toRisk } from '../settings/settings-store.js';
 
+/**
+ * Registers these 2 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/risks
+ * - PATCH /risks/:id
+ */
 export function riskRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   r.get(
     '/engagements/:id/risks',

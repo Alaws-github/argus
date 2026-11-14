@@ -9,7 +9,7 @@
 // anything, and it can't approve, test or change a record. Only the SHA-256 of
 // the token is stored; the token itself is shown once, when it is created.
 import { randomBytes } from 'node:crypto';
-import express, { type Request, type Router } from 'express';
+import express, { type Router } from 'express';
 import { IngestEvidence, IngestTokenInput, type IngestToken } from '@gh/shared';
 import type { Db } from '../core/db.js';
 import { logAudit } from '../audit/audit.js';
@@ -18,7 +18,7 @@ import { putEvidence } from '../core/storage.js';
 import { indexEvidence, scheduleEmbedding } from '../knowledge/kb.js';
 import { emit } from '../core/realtime.js';
 import { requestContext } from '../core/context.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 import { sha256, toIso } from '../core/format.js';
 
 /** Only the token's SHA-256 is stored; the token itself is shown once. */
@@ -41,7 +41,13 @@ const toToken = (r: any): IngestToken => ({
 });
 
 // Managing tokens: under /engagements/:id, so access, archive and permission rules apply as usual.
-export function ingestTokenRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 3 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/ingest-tokens
+ * - POST /engagements/:id/ingest-tokens
+ * - DELETE /ingest-tokens/:id
+ */
+export function ingestTokenRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   r.get(
     '/engagements/:id/ingest-tokens',
     wrap(async (req, res) => {

@@ -18,6 +18,7 @@ import { toIso } from '../core/format.js';
 
 const num = (v: any) => (v == null ? 0 : Number(v));
 
+/** An engagement row as an API record. */
 export function toEngagement(r: any): Engagement {
   return {
     id: r.id,
@@ -46,6 +47,7 @@ export function toEngagement(r: any): Engagement {
   };
 }
 
+/** A card row as an API record. */
 export function toCard(r: any): Card {
   return {
     id: r.id,
@@ -73,6 +75,7 @@ export function toCard(r: any): Card {
   };
 }
 
+/** A run row as an API record. */
 export function toRun(r: any): Run {
   return {
     id: r.id,
@@ -95,6 +98,7 @@ export function toRun(r: any): Run {
   };
 }
 
+/** An agent question row as an API record. */
 export function toQuestion(r: any): AgentQuestion {
   return {
     id: r.id,
@@ -113,10 +117,12 @@ export function toQuestion(r: any): AgentQuestion {
   };
 }
 
+/** A run event row as an API record. */
 export function toEvent(r: any): RunEvent {
   return { id: Number(r.id), runId: r.run_id, at: toIso(r.at)!, kind: r.kind, text: r.text };
 }
 
+/** A risk row as an API record. */
 export function toRisk(r: any): Risk {
   return {
     id: r.id,
@@ -141,6 +147,7 @@ export function toRisk(r: any): Risk {
   };
 }
 
+/** An audit row as an API record. */
 export function toAudit(r: any): AuditEntry {
   return {
     id: Number(r.id),
@@ -153,17 +160,20 @@ export function toAudit(r: any): AuditEntry {
   };
 }
 
+/** A card by id or key, or null. */
 export async function getCard(q: Queryable, idOrKey: string): Promise<Card | null> {
   const isUuid = /^[0-9a-f-]{36}$/i.test(idOrKey);
   const { rows } = await q.query(`SELECT * FROM cards WHERE ${isUuid ? 'id' : 'key'} = $1`, [idOrKey]);
   return rows[0] ? toCard(rows[0]) : null;
 }
 
+/** An engagement by id, or null. */
 export async function getEngagement(q: Queryable, id: string): Promise<Engagement | null> {
   const { rows } = await q.query(`SELECT * FROM engagements WHERE id = $1`, [id]);
   return rows[0] ? toEngagement(rows[0]) : null;
 }
 
+/** One workspace setting, or the fallback. */
 export async function getSetting<T>(q: Queryable, key: string, fallback: T): Promise<T> {
   const { rows } = await q.query(`SELECT value FROM settings WHERE key = $1`, [key]);
   return rows[0] ? (rows[0].value as T) : fallback;
@@ -181,6 +191,7 @@ export async function monthSpend(q: Queryable, timeZone = 'UTC'): Promise<number
   return num(rows[0].usd);
 }
 
+/** The workspace settings before anyone changes them. */
 export const SETTING_DEFAULTS: WorkspaceSettings = {
   autoStart: true,
   spendCapUsd: 50,
@@ -203,6 +214,7 @@ export const SETTING_DEFAULTS: WorkspaceSettings = {
   allowActAs: false,
 };
 
+/** Every workspace setting, with the defaults filled in. */
 export async function getSettings(q: Queryable): Promise<WorkspaceSettings> {
   const { rows } = await q.query(`SELECT key, value FROM settings`);
   const out: any = { ...SETTING_DEFAULTS };
@@ -210,6 +222,7 @@ export async function getSettings(q: Queryable): Promise<WorkspaceSettings> {
   return out;
 }
 
+/** An agent row as an API record. */
 export function toAgent(r: any): AgentConfig {
   const meta = AGENT_ROLES[r.role as AgentRole];
   return {
@@ -243,6 +256,7 @@ export function toAgent(r: any): AgentConfig {
   };
 }
 
+/** The query for agents with their rules version and active runs. */
 export const AGENT_SELECT = `
   SELECT a.*, (SELECT count(*)::int FROM runs r WHERE r.agent_id = a.id AND r.status = 'running') AS active_runs
   FROM agents a`;
@@ -255,5 +269,7 @@ export async function agentStages(q: Queryable, engagementId: string): Promise<S
     .map((r: any) => r.stage);
 }
 
+/** The query for runs with their card's key. */
 export const RUN_SELECT = `SELECT r.*, c.key AS card_key FROM runs r JOIN cards c ON c.id = r.card_id`;
+/** The query for risks with their card's key and the number of controls that treat them. */
 export const RISK_SELECT = `SELECT k.*, c.key AS card_key, (SELECT count(*) FROM control_risks cr WHERE cr.risk_id = k.id)::int AS control_count FROM risks k JOIN cards c ON c.id = k.card_id`;

@@ -26,9 +26,11 @@ const r2 =
 // R2_ENDPOINT overrides the address, for testing against another S3-compatible store.
 if (r2 && env.R2_ENDPOINT) r2.base = `${env.R2_ENDPOINT.replace(/\/+$/, '')}/${env.R2_BUCKET}/evidence/`;
 
+/** Where evidence files are kept: disk, or Cloudflare R2. */
 export const storageKind = () => (r2 ? 'r2' : 'disk');
 const local = (hash: string) => resolve(DIR, hash.replace(/[^a-f0-9]/gi, ''));
 
+/** Stores an evidence file by its SHA-256 (on disk, and in R2 when set up). */
 export async function putEvidence(hash: string, body: Buffer | string) {
   mkdirSync(DIR, { recursive: true });
   const buf = Buffer.isBuffer(body) ? body : Buffer.from(body);
@@ -52,6 +54,7 @@ export async function getEvidence(hash: string): Promise<Buffer | null> {
   return buf;
 }
 
+/** Deletes an evidence file. */
 export async function deleteEvidence(hash: string) {
   let removed = false;
   if (existsSync(local(hash))) {

@@ -9,6 +9,7 @@ import type { Queryable } from '../core/db.js';
 import { mergePassages, search } from '../knowledge/kb.js';
 import type { ToolSpec } from '../ai/llm.js';
 
+/** What a tool can see: the engagement, the card, the role, the run's ledger and questions left. */
 export interface ToolScope {
   q: Queryable;
   engagementId: string;
@@ -20,11 +21,13 @@ export interface ToolScope {
   /** Every tool result in this run, so the Report Writer's figures can be checked against what it read. */
   seen?: string[];
 }
+/** What a tool returns: a summary for the run log, the text for the model, and any question for a person. */
 export interface ToolOutcome {
   text: string;
   summary: string;
   question?: { question: string; to: string; why: string };
 }
+/** A read-only tool an agent may call, with the roles allowed to use it (rule 23). */
 interface Tool extends ToolSpec {
   roles: (AgentRole | 'assistant')[] | 'all';
   run: (args: any, s: ToolScope) => Promise<ToolOutcome>;
@@ -575,5 +578,6 @@ export function toolsFor(
       (t.name !== 'ask_person' || opts.canAsk !== false),
   );
 }
+/** Every tool's name. */
 export const TOOL_NAMES = TOOLS.map((t) => t.name);
 export type { Tool };

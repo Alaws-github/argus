@@ -10,6 +10,12 @@ import { httpError, type ActorOf, type Wrap } from '../core/http.js';
 import { type Db } from '../core/db.js';
 import { emit } from '../core/realtime.js';
 
+/**
+ * Registers these 3 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/issues
+ * - POST /engagements/:id/issues
+ * - PATCH /issues/:id
+ */
 export function issueRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // ------------------------------------------------------------------ issues
   r.get(

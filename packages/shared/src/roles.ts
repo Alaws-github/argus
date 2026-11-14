@@ -5,9 +5,11 @@ import { z } from 'zod';
 // People, roles, segregation of duties
 // ---------------------------------------------------------------------------
 export const ROLES = ['admin', 'lead', 'reviewer', 'preparer', 'viewer'] as const;
+/** A person's role: admin, lead, reviewer, preparer or viewer. */
 export const Role = z.enum(ROLES);
 export type Role = z.infer<typeof Role>;
 
+/** Each role in words. */
 export const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin',
   lead: 'Engagement lead',
@@ -16,6 +18,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   viewer: 'Viewer',
 };
 
+/** What each role can do, in one line. */
 export const ROLE_HINTS: Record<Role, string> = {
   admin: 'Everything, including users, models and workspace settings',
   lead: 'Runs engagements: settings, gates, risk acceptance, report sign-off',
@@ -24,6 +27,7 @@ export const ROLE_HINTS: Record<Role, string> = {
   viewer: 'Reads everything, changes nothing',
 };
 
+/** Something a role may do (prepare, approve, manage the engagement and so on). */
 export type Permission =
   | 'read'
   | 'prepare' // create and edit working items
@@ -52,8 +56,10 @@ const P: Record<Role, Permission[]> = {
   preparer: ['read', 'prepare'],
   viewer: ['read'],
 };
+/** Whether a role has a permission. */
 export const can = (role: Role | undefined, p: Permission) => !!role && P[role].includes(p);
 
+/** A person with an account, as the API returns them. */
 export interface User {
   id: string;
   email: string;

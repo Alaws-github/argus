@@ -277,6 +277,7 @@ async function startingModel(q: Queryable) {
 // Drafting agents ship switched off; a lead turns them on per engagement.
 const ON_BY_DEFAULT: AgentRole[] = ['use_case_planner', 'risk_classifier', 'control_designer'];
 
+/** Adds the built-in agents to an engagement (new agents switched off, rule 10). */
 export async function ensureAgents(q: Queryable, engagementId: string) {
   const { rows } = await q.query(`SELECT role FROM agents WHERE engagement_id = $1`, [engagementId]);
   const have = new Set(rows.map((r: any) => r.role));
@@ -308,6 +309,10 @@ export async function ensureAgents(q: Queryable, engagementId: string) {
   }
 }
 
+/**
+ * Seeds what every workspace needs, on each start: providers, the control library, each engagement's
+ * agents, the knowledge base and the golden set.
+ */
 export async function ensureBaseline(db: Db) {
   await db.tx(async (q) => {
     await ensureProviders(q);
@@ -323,6 +328,7 @@ export async function ensureBaseline(db: Db) {
   scheduleEmbedding(db);
 }
 
+/** Seeds the demo engagement (Client Zero) on a new database. */
 export async function seed(db: Db) {
   const { rows } = await db.query(`SELECT count(*)::int AS n FROM engagements`);
   if (rows[0].n > 0) return false;

@@ -22,7 +22,9 @@ import { getSettings } from '../settings/settings-store.js';
 import { toIso } from '../core/format.js';
 
 const MAX_BYTES = 10 * 1024 * 1024;
+/** The query for connectors with their control. */
 export const CONNECTOR_SELECT = `SELECT n.*, c.number AS control_number FROM connectors n LEFT JOIN controls c ON c.id = n.control_id`;
+/** A connector row as an API record (never its credentials). */
 export const toConnector = (r: any): Connector => ({
   id: r.id,
   key: `CN-${r.number}`,
@@ -82,6 +84,7 @@ async function checkAddress(url: URL, allowPrivate: boolean) {
 // The token endpoints can be pointed elsewhere for tests (ARGUS_MS_TOKEN_URL,
 // ARGUS_GOOGLE_TOKEN_URL).
 const tokens = new Map<string, { token: string; until: number }>();
+/** Checks a connector's sign-in secret has the parts its sign-in method needs. */
 export function parseToolSecret(auth: string, secret: string): string | null {
   try {
     const j = JSON.parse(secret);
@@ -163,6 +166,7 @@ const hmac = (key: Buffer | string, data: string) => createHmac('sha256', key).u
 const sha = (data: string) => createHash('sha256').update(data).digest('hex');
 const rfc3986 = (v: string) =>
   encodeURIComponent(v).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+/** Signs an S3 GET with AWS Signature Version 4. */
 export function sigV4(
   url: URL,
   k: { accessKeyId: string; secretAccessKey: string; region: string; sessionToken?: string },
@@ -280,6 +284,7 @@ export async function readConnector(r: any, allowPrivate: boolean) {
   return fetchChecked(target, await authHeaders(r, new URL(target)), allowPrivate);
 }
 
+/** Reads a connector once and files what it returns as evidence (rule 17), audited. */
 export async function pull(db: Db, connectorId: string, actor: string): Promise<Connector> {
   const { rows } = await db.query(`SELECT * FROM connectors WHERE id = $1`, [connectorId]);
   const r = rows[0];

@@ -14,6 +14,8 @@ import { useApp } from '../../stores/app';
 import AppIcon from '../../components/AppIcon.vue';
 import ArgusLogo from '../../components/ArgusLogo.vue';
 import { renderMarkdown } from '../../lib/markdown';
+import { BASIS, KIND, SOURCE_KIND, STARTERS, STATUS, detail, secs } from './assistant-labels';
+import { useTagPicker } from './use-tag-picker';
 
 const app = useApp();
 const route = useRoute();
@@ -32,94 +34,6 @@ const openSource = ref('');
 const list = ref<HTMLElement | null>(null);
 const a = computed(() => app.assistant);
 
-// Starting points for an empty conversation, by what the person is looking at.
-type Starter = { icon: string; title: string; sub: string; q: string };
-const PAGE: Starter = {
-  icon: 'overview',
-  title: 'Explain this page',
-  sub: "What's on it and what I can do here",
-  q: "What's on this page, and what can I do here?",
-};
-const STARTERS: Record<string, Starter[]> = {
-  card: [
-    {
-      icon: 'usecases',
-      title: 'Explain this draft',
-      sub: 'In plain English',
-      q: 'Explain this draft in plain English',
-    },
-    {
-      icon: 'controls',
-      title: 'Before I approve',
-      sub: 'What should I check first?',
-      q: 'What should I check before approving?',
-    },
-    {
-      icon: 'risks',
-      title: 'Weakest items',
-      sub: 'Which look weakest, and why',
-      q: 'Which items look weakest, and why?',
-    },
-  ],
-  risks: [
-    PAGE,
-    {
-      icon: 'risks',
-      title: 'Needs attention',
-      sub: 'Which risks to look at first',
-      q: 'Which risks need attention first?',
-    },
-    {
-      icon: 'controls',
-      title: 'Uncovered risks',
-      sub: 'High risks with no control',
-      q: 'Which high risks have no control?',
-    },
-    { icon: 'people', title: 'Missing owners', sub: 'Risks nobody owns yet', q: 'Which risks have no owner?' },
-  ],
-  controls: [
-    PAGE,
-    {
-      icon: 'tests',
-      title: 'Untested controls',
-      sub: 'Controls with no test yet',
-      q: 'Which controls have no test yet?',
-    },
-    { icon: 'people', title: 'Missing owners', sub: 'Controls nobody owns yet', q: 'Which controls have no owner?' },
-    {
-      icon: 'report',
-      title: 'Summary for a director',
-      sub: 'The control register in brief',
-      q: 'Summarise the control register for a director',
-    },
-  ],
-  issues: [
-    PAGE,
-    {
-      icon: 'issues',
-      title: 'Overdue or severe',
-      sub: 'Issues to chase first',
-      q: 'Which issues are overdue or high severity?',
-    },
-    { icon: 'report', title: 'Board summary', sub: 'Open issues in brief', q: 'Summarise open issues for the board' },
-  ],
-  engagement: [
-    PAGE,
-    {
-      icon: 'engagement',
-      title: 'Where we stand',
-      sub: 'This engagement at a glance',
-      q: 'Where does this engagement stand?',
-    },
-    { icon: 'runs', title: 'Next steps', sub: 'What the team should do next', q: 'What should the team do next?' },
-    {
-      icon: 'knowledge',
-      title: 'EU AI Act tiers',
-      sub: 'Explained in plain English',
-      q: 'Explain the EU AI Act risk tiers in plain English',
-    },
-  ],
-};
 const greeting = computed(() => {
   const h = new Date().getHours();
   const first = (app.user?.name ?? '').split(' ')[0];
@@ -248,8 +162,6 @@ onBeforeUnmount(() => {
   if (ticker) clearInterval(ticker);
 });
 const liveSteps = computed(() => live.value?.steps.filter((s) => s.kind === 'step').length ?? 0);
-const secs = (ms?: number | null) =>
-  ms == null ? '' : ms < 10_000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms / 1000)}s`;
 const lookups = (m: AssistantMessage) => m.trail.filter((t) => !t.startsWith('Thinking: '));
 const openTrail = ref('');
 
@@ -285,100 +197,7 @@ async function copy(m: AssistantMessage) {
   }
 }
 
-// @ to tag a record: use cases on the board, plus risks, controls and issues.
-type Tag = { key: string; title: string; kind: string };
-const tags = ref<Tag[]>([]);
-const tagQuery = ref<string | null>(null);
-const tagIndex = ref(0);
-async function loadTags() {
-  if (tags.value.length) return;
-  const out: Tag[] = app.cards.map((c) => ({ key: c.key, title: c.title, kind: 'Use case' }));
-  const get = async (path: string, kind: string, key: (x: any) => string) => {
-    try {
-      const rows = await api<any[]>(path);
-      for (const x of Array.isArray(rows) ? rows : ((rows as any).rows ?? []))
-        out.push({ key: key(x), title: x.title, kind });
-    } catch {
-      /* module off or no access: skip */
-    }
-  };
-  await Promise.all([
-    get(`/engagements/${app.engagementId}/risks`, 'Risk', (x) => x.key ?? `R-${x.number}`),
-    get(`/engagements/${app.engagementId}/controls`, 'Control', (x) => x.key ?? `C-${x.number}`),
-    get(`/engagements/${app.engagementId}/issues`, 'Issue', (x) => x.key ?? `I-${x.number}`),
-  ]);
-  tags.value = out;
-}
-const tagMatches = computed(() => {
-  if (tagQuery.value === null) return [];
-  const q = tagQuery.value.toLowerCase();
-  return tags.value
-    .filter((t) => !q || t.key.toLowerCase().includes(q) || t.title.toLowerCase().includes(q))
-    .slice(0, 8);
-});
-function onInput() {
-  const el = box.value;
-  if (!el) return;
-  const before = question.value.slice(0, el.selectionStart ?? question.value.length);
-  const m = before.match(/(?:^|\s)@([\w-]{0,20})$/);
-  if (m) {
-    tagQuery.value = m[1];
-    tagIndex.value = 0;
-    void loadTags();
-  } else tagQuery.value = null;
-}
-function pickTag(t: Tag) {
-  const el = box.value!;
-  const pos = el.selectionStart ?? question.value.length;
-  const before = question.value.slice(0, pos).replace(/@([\w-]{0,20})$/, `@${t.key} `);
-  question.value = before + question.value.slice(pos);
-  tagQuery.value = null;
-  void nextTick(() => {
-    el.focus();
-    el.setSelectionRange(before.length, before.length);
-  });
-}
-function onKey(ev: KeyboardEvent) {
-  if (tagQuery.value !== null && tagMatches.value.length) {
-    if (ev.key === 'ArrowDown') {
-      ev.preventDefault();
-      tagIndex.value = (tagIndex.value + 1) % tagMatches.value.length;
-      return;
-    }
-    if (ev.key === 'ArrowUp') {
-      ev.preventDefault();
-      tagIndex.value = (tagIndex.value + tagMatches.value.length - 1) % tagMatches.value.length;
-      return;
-    }
-    if (ev.key === 'Enter' || ev.key === 'Tab') {
-      ev.preventDefault();
-      pickTag(tagMatches.value[tagIndex.value]);
-      return;
-    }
-    if (ev.key === 'Escape') {
-      ev.preventDefault();
-      ev.stopPropagation();
-      tagQuery.value = null;
-      return;
-    }
-  }
-  if (ev.key === 'Enter' && !ev.shiftKey) {
-    ev.preventDefault();
-    void send();
-  }
-}
-
-// v1.6: what an answer drew on, and its sources grouped by kind.
-const BASIS: Record<string, string> = { page: 'This page', records: 'ARGUS records', knowledge: 'Knowledge base' };
-const SOURCE_KIND: Record<string, string> = {
-  framework: 'Frameworks',
-  control: 'Control library',
-  methodology: 'Method guidance',
-  upload: 'Client documents',
-  client: 'Client documents',
-  use_case: 'Use cases',
-  evidence: 'Evidence',
-};
+// v1.6: an answer's sources grouped by kind.
 function sourceGroups(m: AssistantMessage) {
   const groups: Record<string, AssistantMessage['passages']> = {};
   for (const p of m.passages) (groups[SOURCE_KIND[p.kind] ?? 'Other'] ??= []).push(p);
@@ -510,44 +329,8 @@ async function act(m: AssistantMessage, s: AssistantSuggestion, what: 'apply' | 
   else await load();
 }
 
-const KIND: Record<string, string> = {
-  decide_item: 'Decision on a draft item',
-  update_risk: 'Change a risk',
-  update_control: 'Change a control',
-  raise_issue: 'Raise an issue',
-  rerun_agent: 'Send back to the agent',
-};
-function detail(s: any): string {
-  switch (s.kind) {
-    case 'decide_item':
-      return `${s.decision} ${s.item}${
-        s.edit
-          ? `: ${Object.entries(s.edit)
-              .map(([k, v]) => `${k} → ${v}`)
-              .join(', ')}`
-          : ''
-      }${s.reason ? `. Reason: ${s.reason}` : ''}`;
-    case 'update_risk':
-      return ['owner', 'treatment', 'likelihood', 'impact', 'residual_likelihood', 'residual_impact']
-        .filter((k) => s[k] !== undefined)
-        .map((k) => `${k.replace('_', ' ')} → ${s[k]}`)
-        .join(', ');
-    case 'update_control':
-      return [
-        s.newTitle && `title → ${s.newTitle}`,
-        s.owner && `owner → ${s.owner}`,
-        s.objective && `objective → ${s.objective}`,
-      ]
-        .filter(Boolean)
-        .join(', ');
-    case 'raise_issue':
-      return `${s.severity}: ${s.issueTitle}${s.description ? `. ${s.description}` : ''}`;
-    case 'rerun_agent':
-      return `Note to the agent: ${s.note}`;
-  }
-  return '';
-}
-const STATUS: Record<string, string> = { applied: 'Applied', discarded: 'Discarded', failed: 'Refused' };
+// @ to tag a record (use-tag-picker.ts).
+const { tagQuery, tagIndex, tagMatches, onInput, pickTag, onKey } = useTagPicker(question, box, () => send());
 </script>
 
 <template>

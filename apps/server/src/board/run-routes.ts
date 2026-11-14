@@ -5,6 +5,11 @@ import { type ActorOf, type Wrap } from '../core/http.js';
 import { type Db } from '../core/db.js';
 import { RUN_SELECT, getCard, toEvent, toRun } from '../settings/settings-store.js';
 
+/**
+ * Registers these 2 routes on the API router (each path is under /api):
+ * - GET /runs
+ * - GET /runs/:id
+ */
 export function runRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   r.get(
     '/runs',

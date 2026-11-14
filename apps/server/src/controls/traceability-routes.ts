@@ -6,6 +6,10 @@ import { type ActorOf, type Wrap } from '../core/http.js';
 import { type Db } from '../core/db.js';
 import { OPTIONAL_SOURCES } from './library-health.js';
 
+/**
+ * Registers this route on the API router (each path is under /api):
+ * - GET /engagements/:id/traceability
+ */
 export function traceabilityRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // ------------------------------------------------------------ traceability
   // Obligation → library control → engagement control → test → evidence → issue.

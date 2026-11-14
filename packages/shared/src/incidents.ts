@@ -8,6 +8,7 @@ import { Severity } from './testing.js';
 // Something that went wrong with a live AI system: a harmful output, a data
 // leak, an outage. Each one tracks who must be told and by when.
 export const INCIDENT_STATUSES = ['open', 'contained', 'resolved', 'closed'] as const;
+/** Where an incident is: open, contained, resolved or closed. */
 export type IncidentStatus = (typeof INCIDENT_STATUSES)[number];
 
 // Notification clocks, counted from when the organisation became aware.
@@ -37,8 +38,10 @@ export const NOTIFY_CLOCKS = {
   },
   internal: { label: 'Internal escalation (your own policy)', hours: 24, to: 'Board Risk Committee' },
 } as const;
+/** One regulatory notification clock. */
 export type NotifyClock = keyof typeof NOTIFY_CLOCKS;
 
+/** An incident as a person raises it. */
 export const NewIncident = z.object({
   title: z.string().trim().min(3).max(200),
   description: z.string().max(4000).default(''),
@@ -52,6 +55,7 @@ export const NewIncident = z.object({
 });
 export type NewIncident = z.infer<typeof NewIncident>;
 
+/** A notice sent to a regulator or the people affected, and when. */
 export interface IncidentNotice {
   clock: NotifyClock;
   to: string;
@@ -60,11 +64,13 @@ export interface IncidentNotice {
   sentBy: string | null;
   reference: string;
 }
+/** One line on an incident's timeline. */
 export interface IncidentEvent {
   at: string;
   by: string;
   text: string;
 }
+/** An incident with its notification clocks, notices and timeline. */
 export interface Incident {
   id: string;
   key: string; // INC-1

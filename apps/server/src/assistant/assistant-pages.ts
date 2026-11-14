@@ -379,6 +379,7 @@ const G: [RegExp, PageGuide][] = [
   ],
 ];
 
+/** What a page is for and what you can do there, for the assistant's page questions. */
 export function pageGuide(path: string): PageGuide | null {
   const p = path.split(/[?#]/)[0] || '/';
   return G.find(([re]) => re.test(p))?.[1] ?? null;

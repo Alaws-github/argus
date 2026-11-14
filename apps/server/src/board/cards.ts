@@ -6,6 +6,7 @@ import { logAudit } from '../audit/audit.js';
 import { indexUseCase } from '../knowledge/kb.js';
 import { toCard } from '../settings/settings-store.js';
 
+/** Adds a use case at intake as the person, audited. Used by the board and the Planner's "add" (rule 19). */
 export async function createCard(
   q: Queryable,
   engagementId: string,

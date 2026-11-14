@@ -6,6 +6,12 @@ import { logAudit } from '../audit/audit.js';
 import { type ActorOf, type Wrap } from '../core/http.js';
 import { type Db } from '../core/db.js';
 
+/**
+ * Registers these 3 routes on the API router (each path is under /api):
+ * - GET /library
+ * - POST /library
+ * - GET /obligations
+ */
 export function libraryRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // ----------------------------------------------------- library, obligations
   r.get(

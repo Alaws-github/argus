@@ -80,6 +80,7 @@ Before handing over, go through this list and update what the change touches, in
 - [ ] Root `package.json` version, for a new release: `npm run release -- X.Y.Z`.
 - [ ] `docs/manual.md` and its screenshots (`docs/images/manual/`) if anything a user sees changed; then `npm run manual`.
 - [ ] `CLAUDE.md` (rules, layout, commands) and `README.md` (endpoints, scripts).
+- [ ] A JSDoc comment on every new export, and a header comment on every new file; then `npm run docs` to rebuild `docs/API.md`, the OpenAPI file and the feature READMEs (also after `npm run release`, since the OpenAPI file carries the version).
 - [ ] `apps/server/src/assistant-pages.ts` if a page or tab was added, renamed or removed.
 - [ ] `docs/lessons/`: a lesson for every bug fixed, correction made or design decision; then `npm run lessons`.
 - [ ] `docs/context/project-history.md` when a release ships or a decision changes.

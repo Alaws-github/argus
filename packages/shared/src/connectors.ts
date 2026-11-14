@@ -18,7 +18,9 @@ export const CONNECTOR_AUTH = [
   'aws_sigv4',
   'azure_sas',
 ] as const;
+/** How often a connector pulls by itself. */
 export const CONNECTOR_SCHEDULES = ['manual', 'daily', 'weekly'] as const;
+/** A connector as a person sets it up: the tool, address, sign-in and schedule. */
 export const ConnectorInput = z.object({
   name: z.string().trim().min(3).max(120),
   url: z
@@ -39,6 +41,7 @@ export const ConnectorInput = z.object({
 });
 export type ConnectorInput = z.infer<typeof ConnectorInput>;
 
+/** A read-only link to a client system, as the API returns it (never with its credentials). */
 export interface Connector {
   id: string;
   key: string; // CN-1

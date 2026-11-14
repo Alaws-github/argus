@@ -32,6 +32,7 @@ export const HEALTH_REFS: Record<string, FrameworkRefs> = {
   'MON-03': { hipaa: ['164.312(b)'] },
 };
 
+/** The healthcare library controls (FDA GMLP, HIPAA), shown only where chosen. */
 export const HEALTH_CONTROLS: SeedControl[] = [
   {
     code: 'HLT-01',
@@ -116,6 +117,7 @@ export const HEALTH_CONTROLS: SeedControl[] = [
   },
 ];
 
+/** The healthcare obligations and the library controls that meet them. */
 export const HEALTH_OBLIGATIONS: { source: string; ref: string; title: string; summary: string; codes: string[] }[] = [
   {
     source: 'FDA GMLP',

@@ -9,7 +9,9 @@ import { SourcePassage } from './grounding.js';
 // those passages back it up. It is advisory: it never accepts, rejects or
 // approves anything, and its verdict never counts as a person's decision.
 export const VERDICTS = ['supported', 'partly', 'unsupported', 'contradicted'] as const;
+/** The Verifier's verdict on one claim: supported, partly, not supported or no source. */
 export type Verdict = (typeof VERDICTS)[number];
+/** Each verdict in plain words for the drafts. */
 export const VERDICT_LABELS: Record<Verdict, string> = {
   supported: 'Backed by what it cites',
   partly: 'Only partly backed by what it cites',
@@ -24,6 +26,7 @@ export const VERDICT_ADVICE: Record<Verdict, string> = {
   contradicted: 'The passages it cites say something different. Look closely before accepting.',
 };
 
+/** The Verifier's verdict on one draft item, with the quote that backs it (rule 14). */
 export interface ItemVerdict {
   item: string; // 'tier', 'risk:0', 'control:1'
   verdict: Verdict;
@@ -34,6 +37,7 @@ export interface ItemVerdict {
   quoteFound: boolean;
 }
 
+/** The Verifier's check of one stage's draft. */
 export interface Verification {
   stage: string;
   items: ItemVerdict[];
@@ -47,14 +51,17 @@ export interface Verification {
   at: string;
 }
 
+/** A card's Verifier checks, per stage. Advisory only. */
 export type CardVerification = Partial<Record<string, Verification>>;
 
 // A golden case: an input with a known right answer, written and checked by a
 // person. Running an agent over the whole set shows whether a new model, rules
 // change or prompt change made it better or worse.
 export const GOLDEN_AGENTS = ['risk_classifier', 'control_designer'] as const;
+/** An agent that has a golden set. */
 export type GoldenAgent = (typeof GOLDEN_AGENTS)[number];
 
+/** What a golden case expects the agent to answer. */
 export const GoldenExpected = z.object({
   tier: z.enum(['prohibited', 'high', 'limited', 'minimal']).optional(),
   oversight: z.enum(['human_in_command', 'human_in_loop', 'human_on_loop']).optional(),
@@ -67,6 +74,7 @@ export const GoldenExpected = z.object({
 });
 export type GoldenExpected = z.infer<typeof GoldenExpected>;
 
+/** An approved risk given to the Control Designer in a golden case. */
 export const GoldenRisk = z.object({
   title: z.string().min(3).max(200),
   category: z.string(),
@@ -74,6 +82,7 @@ export const GoldenRisk = z.object({
   impact: z.number().int().min(1).max(5),
 });
 
+/** A golden case as a person adds it. */
 export const NewGoldenCase = z.object({
   agent: z.enum(GOLDEN_AGENTS),
   title: z.string().trim().min(3).max(160),
@@ -91,6 +100,7 @@ export const NewGoldenCase = z.object({
 });
 export type NewGoldenCase = z.infer<typeof NewGoldenCase>;
 
+/** A golden case as stored. */
 export interface GoldenCase extends NewGoldenCase {
   id: string;
   key: string; // G-1
@@ -99,11 +109,13 @@ export interface GoldenCase extends NewGoldenCase {
   createdAt: string;
 }
 
+/** One check of an agent's answer against a golden case. */
 export interface GoldenCheck {
   label: string;
   pass: boolean;
   detail: string;
 }
+/** One golden case's result in a run. */
 export interface GoldenResult {
   caseId: string;
   key: string;
@@ -115,6 +127,7 @@ export interface GoldenResult {
   verdicts?: { supported: number; total: number };
 }
 
+/** A golden run: the model, mode, results, summary and regressions. */
 export interface GoldenRun {
   id: string;
   key: string; // GR-1
@@ -149,6 +162,7 @@ export const NewJudgeLabel = z.object({
   human: z.enum(['good', 'bad']),
   note: z.string().max(600).default(''),
 });
+/** A person's judgement of a claim, used to measure the Verifier. */
 export interface JudgeLabel {
   id: string;
   key: string; // L-1
@@ -162,6 +176,7 @@ export interface JudgeLabel {
   createdAt: string;
 }
 
+/** How far the Verifier agrees with people's labels (kappa, false passes). */
 export interface Calibration {
   id: string;
   key: string; // JC-1

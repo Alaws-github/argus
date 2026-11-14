@@ -16,13 +16,16 @@ import { checkCap, recordSpend } from '../agent-testing/verifier.js';
 import { getEngagement, getSettings, monthSpend } from '../settings/settings-store.js';
 
 const RULES = readPrompt('use-case-planner.md');
+/** The Use Case Planner's rules file version (rule 8). */
 export const PLANNER_RULES_VERSION = createHash('sha256').update(RULES).digest('hex').slice(0, 12);
 
 const iso = (v: any) => (v instanceof Date ? v.toISOString() : String(v));
 
+/** The required brief fields still empty. */
 export const missingFields = (b: PlanBrief) =>
   PLAN_FIELDS.filter((f) => f.required && !String(b[f.key] ?? '').trim()).map((f) => f.label);
 
+/** A plan row as an API record. */
 export const toPlan = (r: any): Plan => {
   const brief = PlanBrief.parse(r.brief ?? {});
   return {
@@ -41,6 +44,7 @@ export const toPlan = (r: any): Plan => {
   };
 };
 
+/** The Planner's first message in a new plan. */
 export const OPENING =
   "What AI use case do you want to put through governance? Describe what it does and who it affects in a sentence or two. I'll ask a few questions, then draft a brief you can edit.";
 
@@ -128,6 +132,7 @@ const SCHEMA = {
   required: ['reply', 'brief', 'ready'],
 };
 
+/** One turn of the Planner: its reply, the updated brief, suggestions and what it cost. */
 export interface Turn {
   reply: string;
   brief: PlanBrief;
@@ -156,6 +161,7 @@ export interface PlannerContext {
   existing: { key: string; title: string; category: string }[];
   passages: Awaited<ReturnType<typeof search>>;
 }
+/** What the Planner is given: the engagement, its existing use cases and matching knowledge base passages. */
 export async function plannerContext(db: Db, engagementId: string, plan: Plan, text: string): Promise<PlannerContext> {
   const e = await getEngagement(db, engagementId);
   const engagement = e
@@ -195,6 +201,7 @@ export async function plannerContext(db: Db, engagementId: string, plan: Plan, t
   return { engagement, existing, passages };
 }
 
+/** Runs one Planner turn on what the person wrote. It never overwrites a field the person edited. */
 export async function plannerTurn(db: Db, engagementId: string, plan: Plan, text: string): Promise<Turn> {
   const target = await plannerTarget(db, engagementId);
   if (target === 'off')

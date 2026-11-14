@@ -2,6 +2,7 @@
 // decisions.ts, so the board and the side panel can show progress.
 import type { Card } from '@gh/shared';
 
+/** The ids of the items in a card's draft at its stage, each decided by a person (rule 12). */
 export function draftItems(card: Card): string[] {
   if (card.status !== 'needs_approval') return [];
   switch (card.stage) {
@@ -17,6 +18,7 @@ export function draftItems(card: Card): string[] {
   return [];
 }
 
+/** How many of a card's draft items have a decision, out of how many. */
 export function draftProgress(card: Card) {
   const items = draftItems(card);
   const d = card.decisions?.[card.stage] ?? {};

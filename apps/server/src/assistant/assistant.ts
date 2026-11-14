@@ -20,13 +20,16 @@ import { checkCap } from '../agent-testing/verifier.js';
 import { asksAboutPage, pageGuide, type PageGuide } from './assistant-pages.js';
 
 const RULES = readPrompt('assistant.md');
+/** The assistant's rules file version (rule 8). */
 export const ASSISTANT_RULES_VERSION = createHash('sha256').update(RULES).digest('hex').slice(0, 12);
 
 // Lets the apply step call the API as the person while keeping their client
 // address in the audit log. Only honoured from this process (see context.ts).
 export const INTERNAL_TOKEN = randomBytes(24).toString('hex');
 
+/** What the assistant can be asked about: a use case, a register or the engagement. */
 export const CONTEXT_KINDS = ['card', 'risks', 'controls', 'issues', 'engagement'] as const;
+/** One kind of assistant context. */
 export type ContextKind = (typeof CONTEXT_KINDS)[number];
 
 // ---------------------------------------------------------------------------
@@ -46,6 +49,7 @@ export interface PageInfo {
   guide: PageGuide | null;
   snapshot: string;
 }
+/** The most characters of on-screen text sent with a question. */
 export const MAX_SNAPSHOT = 6000;
 
 const line = (o: Record<string, unknown>) =>
@@ -54,6 +58,7 @@ const line = (o: Record<string, unknown>) =>
     .map(([k, v]) => `${k}: ${v}`)
     .join(' | ');
 
+/** The records the assistant is shown for a question, and the ids it may suggest changes to. */
 export async function buildContext(
   db: Db,
   engagementId: string,
@@ -318,6 +323,7 @@ export function checkSuggestion(
   return { ok: true, s };
 }
 
+/** Replays a suggestion as an API request, so it runs under the person's own role and checks (rule 15). */
 export function toRequest(
   engagementId: string,
   s: z.infer<typeof AssistantSuggestion>,
@@ -428,9 +434,14 @@ interface Target {
   provider: ProviderRow;
   model: string;
 }
+/** The workspace's instructions for the assistant, added after its rules. */
 export async function assistantInstructions(db: Db): Promise<string> {
   return (await getSettings(db)).assistantInstructions?.trim() ?? '';
 }
+/**
+ * The provider and model the assistant uses (the workspace default unless one is picked), or null for the
+ * offline rules.
+ */
 export async function assistantTarget(db: Db): Promise<Target | null> {
   const s = await getSettings(db);
   // The assistant's own model if one is picked, otherwise the workspace default,
@@ -447,6 +458,7 @@ export async function assistantTarget(db: Db): Promise<Target | null> {
   return { provider, model: pick.model };
 }
 
+/** The assistant's answer: text, citations, passages, suggestions and the steps it took. */
 export interface Reply {
   text: string;
   citations: string[];
@@ -463,6 +475,10 @@ export interface Reply {
 /** A live step while the assistant works: a phase ("Reading the page"), a look-up, or its own words. */
 export type StepFn = (s: { kind: 'phase' | 'step' | 'thought'; text: string }) => void;
 
+/**
+ * Answers a question with a model, or with the offline rules. Dropped citations and suggestions are
+ * reported, never shown.
+ */
 export async function answer(
   db: Db,
   engagementId: string,
@@ -730,6 +746,7 @@ function rulesAnswer(ctx: Context, question: string, passages: SourcePassage[]):
   };
 }
 
+/** A message row as an API record. */
 export const toMessage = (r: any): AssistantMessage => ({
   id: r.id,
   conversationId: r.conversation_id ?? null,

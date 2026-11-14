@@ -7,6 +7,7 @@ import { z } from 'zod';
 export const ProviderType = z.enum(['anthropic', 'openai', 'ollama', 'rules']);
 export type ProviderType = z.infer<typeof ProviderType>;
 
+/** Each provider type in words. */
 export const PROVIDER_TYPE_LABELS: Record<ProviderType, string> = {
   anthropic: 'Anthropic format',
   openai: 'OpenAI-compatible format',
@@ -14,6 +15,7 @@ export const PROVIDER_TYPE_LABELS: Record<ProviderType, string> = {
   rules: 'Built-in rules (offline)',
 };
 
+/** The usual address for each provider type. */
 export const PROVIDER_DEFAULT_URLS: Record<ProviderType, string> = {
   anthropic: 'https://api.anthropic.com',
   openai: 'http://localhost:1234/v1',
@@ -36,6 +38,7 @@ export interface ProviderPreset {
   hint: string;
   examples: string[];
 }
+/** Ready-made provider set-ups to pick from on Models & keys. */
 export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: 'anthropic',
@@ -239,6 +242,7 @@ const SERVICE_HOSTS: [RegExp, string][] = [
   [/(localhost|127\.0\.0\.1):11434/, 'Ollama (this computer)'],
   [/(localhost|127\.0\.0\.1):1234/, 'LM Studio (this computer)'],
 ];
+/** The service a provider really is (OpenAI, Gemini, a local Ollama...) from its type and address. */
 export function serviceOf(type: ProviderType, baseUrl: string): string {
   if (type === 'rules') return 'Built-in rules';
   const hit = SERVICE_HOSTS.find(([re]) => re.test(baseUrl ?? ''));
@@ -254,6 +258,7 @@ export const ModelPrice = z.object({
 });
 export type ModelPrice = z.infer<typeof ModelPrice>;
 
+/** An AI model provider as the API returns it (never its key). */
 export interface Provider {
   id: string;
   type: ProviderType;
@@ -275,6 +280,7 @@ export interface Provider {
   usedBy: number;
 }
 
+/** A provider as an admin adds or edits it. */
 export const ProviderInput = z.object({
   type: ProviderType.exclude(['rules']),
   name: z.string().trim().min(2).max(60),

@@ -18,6 +18,7 @@ import {
 } from './drafting.js';
 import type { AgentContext, AgentResult, Log } from './types.js';
 
+/** The Control Tester's drafts with the passages they cite and each test's id. */
 export interface TesterOutput extends TestDrafts {
   sourcePassages: SourcePassage[];
   byTest: Record<string, string>; // test key -> test id, for applying drafts

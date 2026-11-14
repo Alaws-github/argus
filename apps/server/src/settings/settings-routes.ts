@@ -8,6 +8,11 @@ import { getProviderRow } from '../ai/providers.js';
 import { emit } from '../core/realtime.js';
 import { getSettings, monthSpend } from './settings-store.js';
 
+/**
+ * Registers these 2 routes on the API router (each path is under /api):
+ * - GET /settings
+ * - PUT /settings
+ */
 export function settingsRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // ---------------------------------------------------------------- settings
   r.get(

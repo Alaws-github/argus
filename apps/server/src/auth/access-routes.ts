@@ -1,15 +1,22 @@
 // Engagement access API: open or members-only, and who the members are.
 // Leads and admins manage it. Switching to members-only adds the person who
 // switched, so nobody locks themselves out.
-import type { Request, Router } from 'express';
+import type { Router } from 'express';
 import { z } from 'zod';
 import type { Db } from '../core/db.js';
 import { logAudit } from '../audit/audit.js';
 import { can } from '@gh/shared';
 import { forgetAccess, emit } from '../core/realtime.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 
-export function accessRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 4 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/members
+ * - PUT /engagements/:id/access
+ * - POST /engagements/:id/members
+ * - DELETE /engagements/:id/members/:userId
+ */
+export function accessRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   r.get(
     '/engagements/:id/members',
     wrap(async (req, res) => {

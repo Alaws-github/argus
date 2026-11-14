@@ -9,8 +9,9 @@ import { z } from 'zod';
 import { logAudit } from '../audit/audit.js';
 import { emit } from '../core/realtime.js';
 import { toEngagement } from '../settings/settings-store.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 
+/** For each route that doesn't start with /engagements/:id, how to find its engagement (rules 9 and 16). */
 export const OWNERS: [RegExp, string][] = [
   [/^\/engagements\/([^/]+)\//, `SELECT $1::uuid AS id`],
   [/^\/cards\/([^/]+)/, `SELECT engagement_id AS id FROM cards WHERE id::text = $1 OR key = $1`],
@@ -49,6 +50,7 @@ export const OWNERS: [RegExp, string][] = [
 // (refused separately below so the message is clearer).
 const EXEMPT = /^\/engagements\/[^/]+\/(archive|restore|export)$/;
 
+/** Middleware: archived engagements are read-only (rule 9). */
 export function archiveGuard(db: Db) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -131,7 +133,14 @@ const TABLES: [string, string][] = [
   ['assistantMessages', `SELECT * FROM assistant_messages WHERE engagement_id = $1 ORDER BY created_at`],
 ];
 
-export function archiveRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 4 routes on the API router (each path is under /api):
+ * - POST /engagements/:id/archive
+ * - POST /engagements/:id/restore
+ * - GET /engagements/:id/export
+ * - DELETE /engagements/:id
+ */
+export function archiveRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   const load = async (id: string) => {
     const { rows } = await db.query(`SELECT * FROM engagements WHERE id::text = $1`, [id]);
     if (!rows[0]) throw httpError(404, 'Engagement not found');

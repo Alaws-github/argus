@@ -1,6 +1,7 @@
 // Turns evaluation suite and case rows into API records.
 import { toIso } from '../core/format.js';
 
+/** The query for evaluation suites with their last run and pass trend. */
 export const SUITE_SELECT = `
     SELECT s.*, i.name AS inventory_name, p.name AS provider_name,
       (SELECT count(*)::int FROM eval_cases c WHERE c.suite_id = s.id) AS cases,
@@ -8,6 +9,7 @@ export const SUITE_SELECT = `
       (SELECT json_agg(t.p ORDER BY t.st) FROM (SELECT round(r.passed * 100.0 / r.total)::int AS p, r.started_at AS st FROM eval_runs r WHERE r.suite_id = s.id AND r.status = 'completed' AND r.total > 0 ORDER BY r.started_at DESC LIMIT 10) t) AS trend
     FROM eval_suites s LEFT JOIN inventory i ON i.id = s.inventory_id LEFT JOIN providers p ON p.id = s.provider_id`;
 
+/** An evaluation suite row as an API record. */
 export const toSuite = (r: any) => ({
   id: r.id,
   key: `EV-${r.number}`,
@@ -40,6 +42,7 @@ export const toSuite = (r: any) => ({
   trend: r.trend ?? [],
 });
 
+/** An evaluation case row as an API record. */
 export const toCase = (c: any) => ({
   id: c.id,
   suiteId: c.suite_id,

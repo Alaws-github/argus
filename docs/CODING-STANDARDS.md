@@ -25,7 +25,8 @@ npm run lint          # ESLint on the whole repository
 npm run lint:fix      # ESLint, fixing what it safely can
 npm run format        # Prettier rewrites code files in place
 npm run format:check  # Prettier lists files that aren't formatted
-npm run check         # lint + format check + typecheck: run before handing over
+npm run check         # lint + format check + typecheck + docs check: run before handing over
+npm run docs          # rebuild the API reference and feature READMEs from the code
 ```
 
 A pre-commit hook (Husky and lint-staged) runs ESLint and Prettier on the files being committed, so unformatted or failing code doesn't reach a commit. It is installed by `npm install` in a git checkout. Skip it only in an emergency (`git commit --no-verify`) and fix the code straight after.
@@ -94,6 +95,8 @@ Short names (`q`, `c`, `r`) are fine inside a few lines where the meaning is obv
 - Keep logic out of templates: anything longer than a short expression becomes a `computed` or a function.
 - Shared state goes in the Pinia store (`stores/app.ts`); page state stays in the page.
 - `v-html` is only for text that has been through `markdown.ts` (escaped first). ESLint warns on every other use.
+- **Splitting a big screen** (v1.7.8): a page with tabs gets one component per tab (`SettingsGeneralTab.vue`), wrapped in `<KeepAlive>` so unsaved edits survive a tab switch. Where several panels share one set of state and actions, put them in a composable (`use-card-drawer.ts`, `use-workflow-builder.ts`) and pass its result to each panel as one prop. Lookup tables go in a plain `.ts` file beside the component.
+- After moving markup between components, compare the rendered text of every affected page with the old version (it catches a tag or condition lost in the move), not only screenshots.
 - Every UI change is checked in the browser, dark mode first, at 1440 and 390 pixels wide (AGENTS.md).
 
 ## Express
@@ -114,10 +117,21 @@ Short names (`q`, `c`, `r`) are fine inside a few lines where the meaning is obv
 
 ## Comments
 
-- Each file starts with a short comment saying what it is for and which version added it.
+- Each file starts with a short comment saying what it is for and which version added it. Its first sentence is the file's line in the feature folder's README, so make it say what the file does.
+- Every export (function, constant, class, type, Zod schema) has a JSDoc comment (`/** ... */`) right above it saying what it is for, in one or two sentences: what a function returns or does, what a constant holds, what a type describes. Add `@param` only where a parameter's meaning isn't clear from its name and type. A type that is only `z.infer<typeof X>` of the schema above it shares that schema's comment. Checked by `exports-are-documented`.
+- A route function's JSDoc lists the routes it registers (`- GET /engagements/:id/issues`). Checked by `route-docs-match-routes`.
 - Comment the why: a rule, a guardrail, a gotcha, a decision. Don't restate what the code says.
 - When code enforces one of the rules in CLAUDE.md, name the rule or the lesson.
 - Don't leave commented-out code; git keeps the history.
+
+## Generated docs
+
+`npm run docs` (`scripts/docs/build-docs.mjs`) builds these from the code; never edit them by hand:
+
+- `docs/API.md` and `docs/api/openapi.json`: every route, from the real router, with its permission (`permissionFor` in `auth/auth.ts`), the file that registers it and its request fields (from the Zod schema the handler parses; a schema written inline in the handler is shown as code). Prefer a named schema in `@gh/shared` for a request body: it becomes typed fields in the reference.
+- `README.md` in each feature folder: the feature's purpose (from `FEATURES` in the build script), each file's header comment, and its routes (server) or pages (web, from `main.ts`).
+
+`npm run check:docs`, part of `npm run check`, fails when any of them is out of date. A new feature folder needs a line in `FEATURES`, or the build fails.
 
 ## Keeping it this way
 

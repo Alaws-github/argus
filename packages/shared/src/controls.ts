@@ -15,7 +15,9 @@ export const CONTROL_DOMAINS = [
   'third_party',
   'monitoring',
 ] as const;
+/** One control library domain (governance, data, security and so on). */
 export type ControlDomain = (typeof CONTROL_DOMAINS)[number];
+/** Each control domain in words. */
 export const DOMAIN_LABELS: Record<ControlDomain, string> = {
   governance: 'Governance and accountability',
   risk: 'Risk and impact assessment',
@@ -28,6 +30,7 @@ export const DOMAIN_LABELS: Record<ControlDomain, string> = {
   monitoring: 'Monitoring and incidents',
 };
 
+/** The references a control meets, per framework (by official number). */
 export interface FrameworkRefs {
   nistAiRmf?: string[];
   iso42001?: string[];
@@ -40,6 +43,7 @@ export interface FrameworkRefs {
   hipaa?: string[]; // v1.7.3: HIPAA Privacy, Security and Breach rules, and HHS health AI rules (45 CFR)
 }
 
+/** Each framework's name in words. */
 export const FRAMEWORK_LABELS: Record<keyof FrameworkRefs, string> = {
   nistAiRmf: 'NIST AI RMF',
   iso42001: 'ISO/IEC 42001',
@@ -52,6 +56,7 @@ export const FRAMEWORK_LABELS: Record<keyof FrameworkRefs, string> = {
   hipaa: 'HIPAA',
 };
 
+/** A control in the library, with its framework references and test procedure. */
 export interface LibraryControl {
   id: string;
   code: string;
@@ -69,9 +74,11 @@ export interface LibraryControl {
 
 // How a control works: stops a problem, spots it, or fixes it after.
 export const ControlType = z.enum(['preventive', 'detective', 'corrective']);
+/** Where a control is: proposed, designed, operating or failed. */
 export const ControlStatus = z.enum(['proposed', 'designed', 'operating', 'failed']);
 export type ControlStatus = z.infer<typeof ControlStatus>;
 
+/** A control in an engagement's register, with its library control, tests and evidence counts. */
 export interface EngagementControl {
   id: string;
   key: string;
@@ -94,6 +101,7 @@ export interface EngagementControl {
   openIssues: number;
 }
 
+/** A control as a person adds or edits it. */
 export const ControlInput = z.object({
   title: z.string().trim().min(3).max(200),
   objective: z.string().max(2000).default(''),
@@ -106,6 +114,7 @@ export const ControlInput = z.object({
   riskIds: z.array(z.string().uuid()).default([]),
 });
 
+/** An obligation from a framework or law, and the library controls that meet it. */
 export interface Obligation {
   id: string;
   source: string;

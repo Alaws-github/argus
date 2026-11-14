@@ -6,6 +6,7 @@ import ExcelJS from 'exceljs';
 import mammoth from 'mammoth';
 import { extractText, getDocumentProxy } from 'unpdf';
 
+/** Text read out of a file, and a note when only part could be read. */
 export interface Extracted {
   text: string;
   // One line for the evidence list and the agent: what was read.
@@ -15,6 +16,7 @@ export interface Extracted {
 const MAX = 200_000;
 const TEXT_EXT = /\.(txt|md|markdown|csv|tsv|json|log|xml|html?)$/i;
 
+/** What kind of file this is, by name and type. */
 export function kindOf(filename = '', mime = ''): 'pdf' | 'xlsx' | 'docx' | 'text' | null {
   if (/\.pdf$/i.test(filename) || mime === 'application/pdf') return 'pdf';
   if (/\.xlsx$/i.test(filename) || mime.includes('spreadsheetml')) return 'xlsx';
@@ -23,6 +25,7 @@ export function kindOf(filename = '', mime = ''): 'pdf' | 'xlsx' | 'docx' | 'tex
   return null;
 }
 
+/** Reads the text out of a PDF, Excel, Word or text file, or null if it can't. */
 export async function extract(buf: Buffer, filename = '', mime = ''): Promise<Extracted | null> {
   const kind = kindOf(filename, mime);
   if (!kind) return null;

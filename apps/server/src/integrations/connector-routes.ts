@@ -1,15 +1,23 @@
 // Evidence connector API: set up read-only pulls from client systems, pull
 // now, and see what each pull brought back. Credentials are write-only.
-import type { Request, Router } from 'express';
+import type { Router } from 'express';
 import { ConnectorInput } from '@gh/shared';
 import type { Db } from '../core/db.js';
 import { logAudit } from '../audit/audit.js';
 import { encrypt } from '../core/crypto.js';
 import { CONNECTOR_SELECT, parseToolSecret, pull, toConnector } from './connectors.js';
-import { type Wrap, httpError } from '../core/http.js';
+import { type Wrap, httpError, type ActorOf } from '../core/http.js';
 const firstPull = (schedule: string) => (schedule === 'manual' ? null : new Date().toISOString());
 
-export function connectorRoutes(r: Router, db: Db, actorOf: (req: Request) => string, wrap: Wrap) {
+/**
+ * Registers these 5 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/connectors
+ * - POST /engagements/:id/connectors
+ * - PATCH /connectors/:id
+ * - DELETE /connectors/:id
+ * - POST /connectors/:id/pull
+ */
+export function connectorRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   r.get(
     '/engagements/:id/connectors',
     wrap(async (req, res) => {

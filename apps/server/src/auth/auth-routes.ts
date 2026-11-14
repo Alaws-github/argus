@@ -25,6 +25,24 @@ import {
 import { type Wrap, httpError } from '../core/http.js';
 const Password = z.string().min(10, 'Use at least 10 characters').max(200);
 
+/**
+ * Registers these 15 routes on the API router (each path is under /api):
+ * - GET /auth/state
+ * - POST /auth/setup
+ * - POST /auth/login
+ * - POST /auth/logout
+ * - GET /auth/me
+ * - GET /auth/act-as
+ * - POST /auth/act-as
+ * - PATCH /auth/me
+ * - GET /auth/sessions
+ * - DELETE /auth/sessions/:id
+ * - POST /auth/sessions/end-all
+ * - POST /auth/password
+ * - GET /users
+ * - POST /users
+ * - PATCH /users/:id
+ */
 export function authRoutes(r: Router, db: Db, wrap: Wrap) {
   const userCount = async () => (await db.query(`SELECT count(*)::int AS n FROM users`)).rows[0].n as number;
 

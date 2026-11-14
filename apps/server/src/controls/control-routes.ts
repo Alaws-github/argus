@@ -9,6 +9,13 @@ import { httpError, type ActorOf, type Wrap } from '../core/http.js';
 import { type Db } from '../core/db.js';
 import { emit } from '../core/realtime.js';
 
+/**
+ * Registers these 4 routes on the API router (each path is under /api):
+ * - GET /engagements/:id/controls
+ * - POST /engagements/:id/controls
+ * - POST /engagements/:id/controls/import
+ * - PATCH /controls/:id
+ */
 export function controlRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // ---------------------------------------------------------------- controls
   r.get(

@@ -22,6 +22,7 @@ export const REFUSAL = new RegExp(
   ].join('|'),
   'i',
 );
+/** An LLM judge's verdict on one output against its expectation. */
 export async function judge(
   q: Queryable,
   providerId: string,
@@ -52,6 +53,7 @@ export async function judge(
   const g = r.input as { pass: boolean; reason: string };
   return { passed: !!g.pass, reason: String(g.reason ?? '').slice(0, 400) };
 }
+/** Whether one case's output passes its check. */
 export async function check(q: Queryable, suite: any, c: any, output: string) {
   switch (c.check) {
     case 'contains':
@@ -84,6 +86,7 @@ export async function check(q: Queryable, suite: any, c: any, output: string) {
   }
   return { passed: false, reason: `Unknown check ${c.check}` };
 }
+/** Runs every case in a suite, records the results and checks the run for alerts. */
 export async function runSuite(db: Db, suiteId: string, runId: string, actor: string) {
   const { rows: s } = await db.query(`SELECT * FROM eval_suites WHERE id = $1`, [suiteId]);
   const suite = s[0];

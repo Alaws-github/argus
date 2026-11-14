@@ -9,6 +9,7 @@ let db: Db | null = null;
 // Engagement access, cached briefly so every event doesn't hit the database.
 const cache = new Map<string, { at: number; members: Set<string> | null }>();
 
+/** Starts Socket.IO on the server, signed in by the session cookie. */
 export function attach(server: Server, database: Db) {
   io = server;
   db = database;
@@ -42,6 +43,7 @@ async function membersOf(engagementId: string): Promise<Set<string> | null> {
   cache.set(engagementId, { at: Date.now(), members });
   return members;
 }
+/** Forgets who can see an engagement, after its members change. */
 export const forgetAccess = (engagementId: string) => cache.delete(engagementId);
 
 // Events: card, card:deleted, run, run:event, risk, audit, usage, eval, alert, incident, golden, assistant

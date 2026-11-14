@@ -16,9 +16,11 @@ export const STAGES = [
   'report',
   'closed',
 ] as const;
+/** One of the eight stages a use case moves through. */
 export const Stage = z.enum(STAGES);
 export type Stage = z.infer<typeof Stage>;
 
+/** Each stage in words. */
 export const STAGE_LABELS: Record<Stage, string> = {
   intake: 'Intake',
   classify: 'Classify Risk',
@@ -36,7 +38,9 @@ export const STAGE_LABELS: Record<Stage, string> = {
 // report group them like this. Remediate is part of Test; Validate and the
 // board report are one sign-off.
 export const PHASES = ['intake', 'assess', 'controls', 'test', 'signoff', 'closed'] as const;
+/** One of the five steps people see (each covers one or more stages). */
 export type Phase = (typeof PHASES)[number];
+/** Each step in words. */
 export const PHASE_LABELS: Record<Phase, string> = {
   intake: 'Intake',
   assess: 'Assess Risk',
@@ -45,6 +49,7 @@ export const PHASE_LABELS: Record<Phase, string> = {
   signoff: 'Sign-off & Report',
   closed: 'Done',
 };
+/** Which step each stage belongs to. */
 export const PHASE_OF: Record<Stage, Phase> = {
   intake: 'intake',
   classify: 'assess',
@@ -56,6 +61,7 @@ export const PHASE_OF: Record<Stage, Phase> = {
   report: 'signoff',
   closed: 'closed',
 };
+/** What happens in each step, in one line. */
 export const PHASE_HINTS: Record<Phase, string> = {
   intake: 'New AI use cases. The AI helps write the brief; you decide which go forward.',
   assess: 'The AI drafts the risk tier and starting risks; you decide each one.',
@@ -77,7 +83,9 @@ export const STEP_LABELS: Partial<Record<Stage, string>> = {
 // switched on per engagement under Engagement settings > General, so a new
 // engagement starts simple. They are hidden when off, not removed.
 export const MODULES = ['evals', 'incidents', 'inventory', 'connectors', 'soa', 'advanced_ai'] as const;
+/** An optional part of the app an engagement can switch on (rule 22). */
 export type Module = (typeof MODULES)[number];
+/** Each module's name and what it shows. */
 export const MODULE_INFO: Record<Module, { label: string; hint: string }> = {
   evals: {
     label: 'AI testing and monitoring',
@@ -101,7 +109,9 @@ export const MODULE_INFO: Record<Module, { label: string; hint: string }> = {
     hint: 'More than one agent per stage with routing, and testing the agents on the golden dataset',
   },
 };
+/** Which modules an engagement has on. */
 export type Modules = Record<Module, boolean>;
+/** Every module off: how a new engagement starts. */
 export const NO_MODULES: Modules = {
   evals: false,
   incidents: false,
@@ -110,6 +120,7 @@ export const NO_MODULES: Modules = {
   soa: false,
   advanced_ai: false,
 };
+/** Every module on: how engagements from before v1.2 were migrated. */
 export const ALL_MODULES: Modules = {
   evals: true,
   incidents: true,
@@ -119,6 +130,7 @@ export const ALL_MODULES: Modules = {
   advanced_ai: true,
 };
 
+/** What happens at each stage, in one line. */
 export const STAGE_HINTS: Record<Stage, string> = {
   intake: 'New AI use cases. You decide which go forward.',
   classify: 'Risk Classifier · tier, oversight, starting risks',
@@ -149,6 +161,7 @@ export const DEFAULT_GATES: Record<Stage, boolean> = {
   closed: false,
 };
 
+/** The stage after this one, or null after the last. */
 export function nextStage(s: Stage): Stage | null {
   const i = STAGES.indexOf(s);
   return i >= 0 && i < STAGES.length - 1 ? STAGES[i + 1] : null;

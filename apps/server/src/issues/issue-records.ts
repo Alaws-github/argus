@@ -1,8 +1,10 @@
 // Turns issue rows into API records (keys, status, severity, linked records).
 import { toDay, toIso } from '../core/format.js';
+/** The query for issues with their control, test and use case. */
 export const ISSUE_SELECT = `
   SELECT i.*, c.number AS control_number, t.number AS test_number, k.key AS card_key
   FROM issues i LEFT JOIN controls c ON c.id = i.control_id LEFT JOIN tests t ON t.id = i.test_id LEFT JOIN cards k ON k.id = i.card_id`;
+/** An issue row as an API record. */
 export const toIssue = (r: any) => {
   const due = toDay(r.due_date);
   const openish = ['open', 'in_remediation', 'ready_for_retest'].includes(r.status);

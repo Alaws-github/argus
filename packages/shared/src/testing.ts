@@ -6,8 +6,10 @@ import { TestDraft } from './agent-drafts.js';
 // Testing, evidence, issues
 // ---------------------------------------------------------------------------
 export const TEST_STATUSES = ['not_started', 'in_progress', 'passed', 'failed', 'blocked'] as const;
+/** Where a control test is: not started, in progress, passed, failed or blocked. */
 export const TestStatus = z.enum(TEST_STATUSES);
 export type TestStatus = z.infer<typeof TestStatus>;
+/** Each test status in words. */
 export const TEST_STATUS_LABELS: Record<TestStatus, string> = {
   not_started: 'Not started',
   in_progress: 'In progress',
@@ -16,6 +18,7 @@ export const TEST_STATUS_LABELS: Record<TestStatus, string> = {
   blocked: 'Blocked',
 };
 
+/** A control test as a person adds or edits it. */
 export const TestInput = z.object({
   controlId: z.string().uuid(),
   kind: z.enum(['design', 'operating', 'automated', 'retest']).default('operating'),
@@ -26,6 +29,7 @@ export const TestInput = z.object({
   expected: z.string().max(1000).default(''),
 });
 
+/** A control test with its preparer, reviewer, result and any agent draft. */
 export interface ControlTest {
   id: string;
   key: string;
@@ -52,6 +56,7 @@ export interface ControlTest {
   draft: TestDraft | null;
 }
 
+/** An evidence item with its SHA-256, source and what it is attached to. */
 export interface Evidence {
   id: string;
   key: string;
@@ -72,13 +77,18 @@ export interface Evidence {
   verified: boolean | null;
 }
 
+/** Issue and incident severities, worst first. */
 export const SEVERITIES = ['critical', 'high', 'medium', 'low'] as const;
+/** One severity. */
 export const Severity = z.enum(SEVERITIES);
 export type Severity = z.infer<typeof Severity>;
 
+/** An issue's defect-style lifecycle, in order. */
 export const ISSUE_STATUSES = ['open', 'in_remediation', 'ready_for_retest', 'closed', 'risk_accepted'] as const;
+/** One issue status. */
 export const IssueStatus = z.enum(ISSUE_STATUSES);
 export type IssueStatus = z.infer<typeof IssueStatus>;
+/** Each issue status in words. */
 export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
   open: 'Open',
   in_remediation: 'In remediation',
@@ -87,6 +97,7 @@ export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
   risk_accepted: 'Risk accepted',
 };
 
+/** An issue as a person raises it. */
 export const IssueInput = z.object({
   title: z.string().trim().min(3).max(200),
   description: z.string().max(4000).default(''),
@@ -100,6 +111,7 @@ export const IssueInput = z.object({
   incidentId: z.string().uuid().nullable().default(null),
 });
 
+/** An issue with its owner, due date, links and lifecycle. */
 export interface Issue {
   id: string;
   key: string;

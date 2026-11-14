@@ -8,6 +8,15 @@ import { encrypt } from '../core/crypto.js';
 import { type Db } from '../core/db.js';
 import { PROVIDER_SELECT, apiKeyOf, discoverModels, getProviderRow, toProvider } from './providers.js';
 
+/**
+ * Registers these 6 routes on the API router (each path is under /api):
+ * - GET /providers
+ * - POST /providers/test
+ * - POST /providers
+ * - PATCH /providers/:id
+ * - POST /providers/:id/test
+ * - DELETE /providers/:id
+ */
 export function providerRoutes(r: Router, db: Db, actorOf: ActorOf, wrap: Wrap) {
   // --------------------------------------------------------------- providers
   const listProviders = async () =>

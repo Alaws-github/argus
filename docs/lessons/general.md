@@ -52,6 +52,10 @@ UI text, docs and comments use plain English and no em dashes. Menu items, page 
 Code follows `docs/CODING-STANDARDS.md`, which is taken from the guides published by each framework's maintainers (TypeScript, typescript-eslint, the Vue style guide, Express, PostgreSQL, Zod, Prettier). `npm run check` must pass with no ESLint errors before handing over, and new code adds no `any` warnings. A formatting or lint change must not change behaviour: run the suites and compare screenshots of every page before and after. **Why:** the owner wants code a developer can follow, and most of it was written by AI.
 **Enforced by:** test - `npm run check`, and the pre-commit hook (Husky and lint-staged)
 
+### document-every-export-and-generate-the-api-docs `design`
+Since v1.7.8 every exported function, constant, type and schema has a JSDoc comment (`/** ... */`) saying what it is for, and each file starts with a comment saying what the file is for. Each route function's JSDoc lists the routes it registers. The API reference (`docs/API.md`, `docs/api/openapi.json`) and a README in every feature folder are generated from the code by `npm run docs`: the route list from the real router, the permission from `permissionFor` in `auth.ts`, request fields from the Zod schemas, and each file's purpose from its header comment. Never edit those files by hand; change the code comment and run `npm run docs`. A new feature folder needs a one-line description in `scripts/docs/build-docs.mjs`, or the build fails. **Why:** the owner wants a developer to be able to find and understand anything the AI wrote, and docs written by hand drift from the code.
+**Enforced by:** check exports-are-documented, check route-docs-match-routes, and `npm run check:docs` (part of `npm run check`)
+
 ## Keeping things in step
 
 ### every-change-updates-its-records `correction`

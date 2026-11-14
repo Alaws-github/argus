@@ -3,6 +3,7 @@
 import type { Effort, ProviderType } from '@gh/shared';
 import { demoChatbot } from '../controls/library.js';
 
+/** One call that must answer through a named tool with a JSON schema. */
 export interface StructuredCall {
   type: ProviderType;
   baseUrl: string;
@@ -17,6 +18,7 @@ export interface StructuredCall {
   timeoutMs: number;
 }
 
+/** A structured call's answer and the tokens it used. */
 export interface StructuredResult {
   input: unknown;
   tokensIn: number;
@@ -57,6 +59,7 @@ const MAX_ATTEMPTS = Number(process.env.LLM_ATTEMPTS || 3);
 const BACKOFF_MS = Number(process.env.LLM_BACKOFF_MS || 1500);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** An error from a model provider, with its HTTP status. */
 export class ProviderError extends Error {
   constructor(
     public status: number,
@@ -310,6 +313,7 @@ async function callOnce(c: StructuredCall, max: number): Promise<StructuredResul
 export interface CheckedResult extends StructuredResult {
   repaired: string[];
 }
+/** A structured call with one repair attempt for format problems only (rule 13). */
 export async function callStructuredChecked(
   c: StructuredCall,
   check: (input: unknown) => string[],
@@ -361,6 +365,7 @@ export interface ToolSpec {
   description: string;
   schema: Record<string, unknown>;
 }
+/** A tool the model called in a step, with its arguments. */
 export interface ToolCall {
   id: string;
   name: string;
@@ -370,10 +375,12 @@ export interface ToolCall {
    * such as Gemini's thought signature (`extra_content.google.thought_signature`). */
   extra?: Record<string, unknown>;
 }
+/** One message in an agent loop's conversation: the person, the model or a tool result. */
 export type ChatMsg =
   | { role: 'user'; content: string }
   | { role: 'assistant'; content: string; calls: ToolCall[] }
   | { role: 'tool'; callId: string; name: string; content: string };
+/** One model step with tools. */
 export interface ChatStepCall {
   type: ProviderType;
   baseUrl: string;
@@ -386,6 +393,7 @@ export interface ChatStepCall {
   forceTool?: string | null;
   timeoutMs: number;
 }
+/** What a model step returned: its text, tool calls and tokens. */
 export interface ChatStepResult {
   text: string;
   calls: ToolCall[];
@@ -407,6 +415,7 @@ const safeArgs = (raw: unknown): { args: unknown; raw?: string } => {
   }
 };
 
+/** One model step with tools; a cut-off answer is retried once with twice the room. */
 export async function chatStep(c: ChatStepCall): Promise<ChatStepResult> {
   const max = MAX_TOKENS[c.effort];
   try {
@@ -616,6 +625,7 @@ export interface TextCall {
   timeoutMs: number;
 }
 
+/** A plain text call, used by evaluation suites to exercise the system under test. */
 export async function callText(c: TextCall): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
   const base = trimSlash(c.baseUrl);
   if (c.type === 'rules') {

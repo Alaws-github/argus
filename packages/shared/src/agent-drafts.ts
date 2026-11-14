@@ -27,6 +27,7 @@ export const EvidencePlan = z.object({
 });
 export type EvidencePlan = z.infer<typeof EvidencePlan>;
 
+/** What the Control Tester returns: a proposed result for each open test, never a conclusion (rule 1). */
 export const TestDrafts = z.object({
   results: z
     .array(
@@ -44,6 +45,7 @@ export const TestDrafts = z.object({
   summary: z.string().max(800),
 });
 export type TestDrafts = z.infer<typeof TestDrafts>;
+/** One test's draft result as stored on the test, with the passages it cites. */
 export type TestDraft = TestDrafts['results'][number] & {
   runId: string;
   model: string;
@@ -52,6 +54,7 @@ export type TestDraft = TestDrafts['results'][number] & {
   sourcePassages?: SourcePassage[];
 };
 
+/** What the Review assistant returns: challenges to the sign-off and whether it looks ready. */
 export const ReviewChallenges = z.object({
   challenges: z
     .array(
@@ -68,6 +71,7 @@ export const ReviewChallenges = z.object({
 });
 export type ReviewChallenges = z.infer<typeof ReviewChallenges>;
 
+/** What the Report Writer returns: the board summary, key figures, recommendations and decisions needed. */
 export const BoardSummary = z.object({
   headline: z.string().min(5).max(200),
   summary: z.string().min(20).max(2500),
@@ -77,6 +81,7 @@ export const BoardSummary = z.object({
 });
 export type BoardSummary = z.infer<typeof BoardSummary>;
 
+/** A use case's drafts, one per drafting stage (evidence, test, validate, report). */
 export interface CardDrafts {
   evidence?: EvidencePlan & DraftMeta;
   test?: Pick<TestDrafts, 'summary'> & {
@@ -86,6 +91,7 @@ export interface CardDrafts {
   validate?: ReviewChallenges & DraftMeta;
   report?: BoardSummary & DraftMeta & { approvedBy?: string; approvedAt?: string };
 }
+/** Who drafted what: the run, the model and when, stored with each draft. */
 export interface DraftMeta {
   runId: string;
   model: string;

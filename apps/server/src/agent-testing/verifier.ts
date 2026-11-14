@@ -24,6 +24,7 @@ import { getCard, getSettings, monthSpend } from '../settings/settings-store.js'
 import { logAudit } from '../audit/audit.js';
 
 const RULES = readPrompt('verifier.md');
+/** The Verifier's rules file version (rule 8). */
 export const VERIFIER_RULES_VERSION = createHash('sha256').update(RULES).digest('hex').slice(0, 12);
 
 // One thing the Verifier checks: an item of a draft, in words, and what it cites.
@@ -34,10 +35,13 @@ export interface Claim {
   sources: string[];
 }
 
+/** The stages whose drafts the Verifier checks. */
 export const VERIFIED_STAGES = ['classify', 'design'] as const;
 
+/** The claims to check in a card's draft at its current stage. */
 export const claimsFor = (card: Card) => claimsFromDraft(card.stage, card);
 
+/** The claims in a classification or design draft, with the passages each one cites. */
 export function claimsFromDraft(
   stage: string,
   card: Pick<Partial<Card>, 'classification' | 'design'>,
@@ -186,10 +190,12 @@ const norm = (s: string) =>
     .replace(/^[\s"'.…]+|[\s"'.…]+$/g, '')
     .trim();
 
+/** The provider and model the Verifier uses, or the offline rules. */
 export interface JudgeTarget {
   provider: ProviderRow;
   model: string;
 }
+/** The Verifier's verdicts on a set of claims, and what they cost. */
 export interface JudgeResult {
   items: ItemVerdict[];
   summary: string;
@@ -198,6 +204,10 @@ export interface JudgeResult {
   costUsd: number;
 }
 
+/**
+ * Checks each claim against its cited passages. A supported or partly verdict must quote a passage word
+ * for word, or it is downgraded (rule 14).
+ */
 export async function judge(
   claims: Claim[],
   passages: SourcePassage[],
@@ -317,6 +327,10 @@ export async function checkCap(q: Queryable, target: JudgeTarget | null) {
   }
 }
 
+/**
+ * Records billed spend that isn't an agent run (Verifier, golden, calibration), which the spend cap
+ * counts.
+ */
 export async function recordSpend(q: Queryable, source: string, model: string, usd: number) {
   if (usd > 0) await q.query(`INSERT INTO ai_spend (source, model, cost_usd) VALUES ($1,$2,$3)`, [source, model, usd]);
 }

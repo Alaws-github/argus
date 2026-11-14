@@ -1,7 +1,7 @@
 // Shared shapes for agents: what the engine hands an agent for one run
 // (the context) and what the agent hands back (its output and token usage).
 import type { AgentRole, AgentTool, Card, Effort } from '@gh/shared';
-import type { ProviderRow } from '../providers.js';
+import type { ProviderRow } from '../ai/providers.js';
 
 export type Log = (kind: 'step' | 'output' | 'error', text: string) => Promise<void>;
 

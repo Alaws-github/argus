@@ -215,44 +215,42 @@ On top of roles: nobody approves a use case they added, reviews a test they prep
 
 | Control | Where |
 | --- | --- |
-| Agents never approve; a named person does at each gate. "Approve or sign off" is shown as a tool no agent can have | `routes.ts` card actions, Settings > Agents |
+| Agents never approve; a named person does at each gate. "Approve or sign off" is shown as a tool no agent can have | `board/board-routes.ts` card actions, Settings > Agents |
 | The harness's rules for each role load from server files; an engagement's instructions are appended after them and can't replace them; the use case text is wrapped as data | `agents/prompts/`, `agents/risk-classifier.ts` |
 | Agent output must pass a schema before anyone sees it | `Classification` in `packages/shared` |
 | Every change and its audit row commit in one transaction; key, token, secret and password fields are redacted | `audit.ts` |
 | API keys encrypted at rest and never sent to the browser or to agents | `crypto.ts`, `providers.ts` |
 | Append-only run history with every step, model, provider, tokens and cost | `runs`, `run_events` tables |
 | Monthly spend cap with warning threshold and pause; per-run spend limit and timeout | `engine.ts`, Models page, Settings > Agents |
-| A provider in use by an agent can't be removed; an unbuilt agent can't be switched on | `routes-config.ts` |
+| A provider in use by an agent can't be removed; an unbuilt agent can't be switched on | `ai/provider-routes.ts`, `agents/agent-routes.ts` |
 | Runs left running by a crash are closed on startup | `engine.ts` |
-| Sign-in, five roles, segregation of duties on approvals, test reviews, issue closure and report sign-off | `auth.ts`, `routes-auth.ts` |
+| Sign-in, five roles, segregation of duties on approvals, test reviews, issue closure and report sign-off | `auth/auth.ts`, `auth/auth-routes.ts` |
 | Audit log is hash-chained (each entry stores the previous hash) and can be verified from the Audit page | `audit.ts` |
 | Every run is stamped with the sha256 of the agent's rules file, so a result can be tied to the exact rules that produced it | `runs.rules_version` |
 | Each agent has a kill switch that fails running work safely; testing it records the date | Settings > Agents, `POST /agents/:id/kill` |
-| Evidence is fingerprinted with SHA-256 on collection and can be re-verified; evaluation runs are filed as evidence automatically | `routes-grc.ts` |
+| Evidence is fingerprinted with SHA-256 on collection and can be re-verified; evaluation runs are filed as evidence automatically | `testing/evidence-routes.ts`, `evals/eval-runner.ts` |
 
 These follow decisions recorded in the Anser repo's ADRs 022, 024, 025 and 028 (see `../docs/adr/`).
 
 ## Layout
 
+Code is organised by feature: `apps/server/src/<feature>/`, `apps/web/src/features/<feature>/` and one file per domain in `packages/shared/src`. The full map is in `CLAUDE.md` under Layout; the rules the code follows are in `docs/CODING-STANDARDS.md`.
+
 ```
-packages/shared            Domain model: stages, tiers, providers, agents, schemas, labels (Zod)
+packages/shared/src        Domain model: Zod schemas, types and labels, one file per domain (import from '@gh/shared')
 apps/server/src
-  index.ts                 HTTP server, Socket.IO, startup
-  routes.ts                Engagements, cards, runs, risks, overview, audit
-  routes-config.ts         Settings, providers, agents, engagement settings
-  routes-auth.ts, auth.ts  Sign-in, sessions, people, roles, permission rules
-  routes-grc.ts            Library, SoA, controls, inventory, tests, evidence, issues, traceability, evals, assessment, report, kill switch
-  library.ts               Built-in control library, obligations, eval templates, offline demo chatbot
-  exit-criteria.ts         Gate exit checks per stage
-  engine.ts                Gate engine: picks up cards, runs agents, fallback, spend cap
-  llm.ts                   One structured-output call for Anthropic, OpenAI-compatible and Ollama
-  providers.ts             Provider storage, key resolution, model discovery
-  crypto.ts                AES-256-GCM key encryption
-  agents/                  Risk Classifier, Control Designer, their rules (prompts/), pricing
-  schema.sql, seed.ts      Tables and the Client Zero demo
-apps/web/src               Vue 3 + Vite + Pinia; GoldenEye design tokens in styles.css
+  index.ts                 HTTP server, Socket.IO, startup, middleware order
+  api-router.ts            Registers every feature's routes
+  core/                    Database, schema.sql, paths, crypto, storage, realtime, shared HTTP helpers
+  <feature>/               audit, auth, engagements, board, agents, ai, settings, assistant, knowledge, agent-testing,
+                           controls, testing, issues, inventory, evals, monitoring, reporting, risks, incidents,
+                           integrations; each with its logic and *-routes.ts files
+  setup/                   seed.ts (Client Zero demo) and reset.ts
+apps/web/src
+  features/<feature>/      Pages and components per feature (same names as the server)
+  components/, lib/        Shared building blocks and helpers
 data/                      PGlite database, secret.key and evidence/ files named by hash (gitignored)
-scripts/smoke.mjs          API smoke test
+scripts/                   Test suites, demo data, lesson checks
 ```
 
 ### API

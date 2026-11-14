@@ -11,9 +11,10 @@
 // organisations (providers, deployers, importers, distributors, model
 // providers); articles about authorities, penalties and the AI Office are left
 // out. HIPAA lists its Security Rule standards, the Privacy Rule duties that
-// touch AI, the Breach Notification Rule and the HHS rule on decision support.
-import type { FrameworkRefs } from './grc.js';
 
+import { FrameworkRefs } from './controls.js';
+
+// touch AI, the Breach Notification Rule and the HHS rule on decision support.
 export type FrameworkKey = keyof FrameworkRefs;
 export interface Requirement {
   id: string;

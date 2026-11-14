@@ -28,7 +28,7 @@ for (const f of walk('apps/server/src').filter((p) => p.endsWith('.ts'))) {
 
 // writes-go-through-storage: only storage.ts (evidence) and crypto.ts (the
 // secret key) may write files (lesson files-go-through-storage-ts).
-const ALLOWED = new Set(['apps/server/src/storage.ts', 'apps/server/src/crypto.ts']);
+const ALLOWED = new Set(['apps/server/src/core/storage.ts', 'apps/server/src/core/crypto.ts']);
 for (const f of walk('apps/server/src').filter((p) => p.endsWith('.ts'))) {
   const rel = relative(root, resolve(root, f)).replace(/\\/g, '/');
   if (ALLOWED.has(rel)) continue;
@@ -62,6 +62,16 @@ if (ci >= 0 && env >= 0 && env < ci)
 // default 'condense' mode would then join the words (lesson prettier-and-vue-whitespace).
 if (!/whitespace:\s*'preserve'/.test(read('apps/web/vite.config.ts')))
   fail('vue-whitespace-preserve', "apps/web/vite.config.ts must compile templates with whitespace: 'preserve'");
+
+// no-copied-core-helpers: httpError, Wrap and toIso live once in core/ (lesson one-home-for-shared-helpers).
+for (const f of walk('apps/server/src').filter((p) => p.endsWith('.ts') && !p.includes('/core/'))) {
+  read(f)
+    .split('\n')
+    .forEach((l, i) => {
+      if (/^(export )?(const (httpError|toIso|wrap)\b|type (Wrap|ActorOf)\b)/.test(l))
+        fail('no-copied-core-helpers', `${f}:${i + 1} redefines a helper from core/; import it instead`);
+    });
+}
 
 if (fails.length) {
   console.error(fails.join('\n'));

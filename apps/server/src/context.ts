@@ -3,7 +3,12 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { NextFunction, Request, Response } from 'express';
 
-export const requestContext = new AsyncLocalStorage<{ ip: string | null; engagementId?: string | null; realActor?: string | null; actingAs?: string | null }>();
+export const requestContext = new AsyncLocalStorage<{
+  ip: string | null;
+  engagementId?: string | null;
+  realActor?: string | null;
+  actingAs?: string | null;
+}>();
 
 export const clientIp = (req: Request) => (req.ip ? req.ip.replace(/^::ffff:/, '') : null);
 
@@ -17,6 +22,13 @@ const LOOPBACK = new Set(['127.0.0.1', '::1']);
 export function withRequestContext(req: Request, _res: Response, next: NextFunction) {
   let ip = clientIp(req);
   const fwd = req.headers['x-gh-client-ip'];
-  if (internalToken && req.headers['x-gh-internal'] === internalToken && ip && LOOPBACK.has(ip) && typeof fwd === 'string') ip = fwd || null;
+  if (
+    internalToken &&
+    req.headers['x-gh-internal'] === internalToken &&
+    ip &&
+    LOOPBACK.has(ip) &&
+    typeof fwd === 'string'
+  )
+    ip = fwd || null;
   requestContext.run({ ip }, next);
 }

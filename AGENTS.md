@@ -91,7 +91,7 @@ How ARGUS looks and feels matters as much as what it does. Check every UI change
 
 ## Testing
 
-Before handing over: `npm run typecheck`, the suites the change touches (each needs a fresh database: stop the app, `npm run db:reset`, start it), `npm run check:lessons`, and a browser pass at desktop widths (1920, 1440, 1366, 1280) and 390px, checking for console errors and horizontal scroll. The full list of suites is in `CLAUDE.md` under "Run it". Every behaviour change gets a check, including the thing that must be refused.
+Before handing over: `npm run check` (ESLint, Prettier and typecheck; see `docs/CODING-STANDARDS.md`), the suites the change touches (each needs a fresh database: stop the app, `npm run db:reset`, start it), `npm run check:lessons`, and a browser pass at desktop widths (1920, 1440, 1366, 1280) and 390px, checking for console errors and horizontal scroll. The full list of suites is in `CLAUDE.md` under "Run it". Every behaviour change gets a check, including the thing that must be refused.
 
 ---
 

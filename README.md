@@ -96,6 +96,7 @@ Setting `ANTHROPIC_API_KEY` in `.env` still works: the Anthropic provider uses i
 | `npm run db:reset` | **Stop the app first.** Deletes every account and record and reseeds Client Zero; the next visit asks you to create the first admin. Also recovers a damaged embedded database. Keeps `data/secret.key` |
 | `npm run build` then `npm start` | Builds the web app and serves it from the API on port 4300 |
 | `npm run typecheck` | Type-checks server and web |
+| `npm run check` | ESLint, Prettier check and typecheck together (`docs/CODING-STANDARDS.md`); `lint`, `lint:fix`, `format` and `format:check` run them one at a time |
 | `npm run demo` | On a **fresh** database with the app running: builds the demo engagement as five fictional people (password `correct-horse-9`, or set `DEMO_PASSWORD`). See docs/runbooks/load-the-demo-data.md |
 | `npm run smoke` | API smoke test (66 checks) against a running server on a **fresh** database. It creates test accounts (password `correct-horse-9`), so reset afterwards before real use |
 | `npm run test:grounding` | Grounding tests (31 checks): knowledge base, citations, item-by-item decisions, meaning search, temperature 0. Fresh database |

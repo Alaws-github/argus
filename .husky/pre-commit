@@ -1,0 +1,2 @@
+# Lints and formats the staged files before each commit (docs/CODING-STANDARDS.md).
+npx lint-staged

@@ -29,12 +29,16 @@ export function draftSummary(card: Card): string | null {
   const c = card;
   switch (c.stage) {
     case 'classify':
-      return c.classification ? `AI proposes ${c.classification.tier} risk · ${c.classification.risks.length} risks` : null;
+      return c.classification
+        ? `AI proposes ${c.classification.tier} risk · ${c.classification.risks.length} risks`
+        : null;
     case 'design':
       return c.design ? `AI proposes ${c.design.controls.length} controls` : null;
     case 'evidence': {
       const p = c.drafts?.evidence;
-      return p ? `AI request list · ${p.requests.filter((r) => r.status !== 'received').length} items still needed` : null;
+      return p
+        ? `AI request list · ${p.requests.filter((r) => r.status !== 'received').length} items still needed`
+        : null;
     }
     case 'test': {
       const t = c.drafts?.test;
@@ -42,7 +46,9 @@ export function draftSummary(card: Card): string | null {
     }
     case 'validate': {
       const v = c.drafts?.validate;
-      return v ? `AI raised ${v.challenges.length} challenges · ${v.challenges.filter((x) => x.severity === 'high').length} high` : null;
+      return v
+        ? `AI raised ${v.challenges.length} challenges · ${v.challenges.filter((x) => x.severity === 'high').length} high`
+        : null;
     }
     case 'report':
       return c.drafts?.report ? 'AI drafted the board summary' : null;

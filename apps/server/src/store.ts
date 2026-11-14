@@ -1,6 +1,18 @@
 // Row mappers and shared queries.
 import { AGENT_ROLES, DEFAULT_MAX_STEPS, NO_MODULES } from '@gh/shared';
-import type { AgentConfig, AgentQuestion, AgentRole, AuditEntry, Card, Engagement, Risk, Run, RunEvent, Stage, WorkspaceSettings } from '@gh/shared';
+import type {
+  AgentConfig,
+  AgentQuestion,
+  AgentRole,
+  AuditEntry,
+  Card,
+  Engagement,
+  Risk,
+  Run,
+  RunEvent,
+  Stage,
+  WorkspaceSettings,
+} from '@gh/shared';
 import type { Queryable } from './db.js';
 
 const iso = (v: any) => (v instanceof Date ? v.toISOString() : v ? String(v) : null);
@@ -85,8 +97,19 @@ export function toRun(r: any): Run {
 
 export function toQuestion(r: any): AgentQuestion {
   return {
-    id: r.id, cardId: r.card_id, runId: r.run_id, stage: r.stage, agent: r.agent, question: r.question, why: r.why, askedTo: r.asked_to,
-    status: r.status, answer: r.answer, answeredBy: r.answered_by, askedAt: iso(r.asked_at)!, answeredAt: iso(r.answered_at),
+    id: r.id,
+    cardId: r.card_id,
+    runId: r.run_id,
+    stage: r.stage,
+    agent: r.agent,
+    question: r.question,
+    why: r.why,
+    askedTo: r.asked_to,
+    status: r.status,
+    answer: r.answer,
+    answeredBy: r.answered_by,
+    askedAt: iso(r.asked_at)!,
+    answeredAt: iso(r.answered_at),
   };
 }
 
@@ -119,7 +142,15 @@ export function toRisk(r: any): Risk {
 }
 
 export function toAudit(r: any): AuditEntry {
-  return { id: Number(r.id), at: iso(r.at)!, actor: r.actor, action: r.action, entity: r.entity, detail: r.detail, realActor: r.real_actor ?? null };
+  return {
+    id: Number(r.id),
+    at: iso(r.at)!,
+    actor: r.actor,
+    action: r.action,
+    entity: r.entity,
+    detail: r.detail,
+    realActor: r.real_actor ?? null,
+  };
 }
 
 export async function getCard(q: Queryable, idOrKey: string): Promise<Card | null> {
@@ -219,7 +250,9 @@ export const AGENT_SELECT = `
 // Stages where a built, enabled agent will pick cards up.
 export async function agentStages(q: Queryable, engagementId: string): Promise<Stage[]> {
   const { rows } = await q.query(`SELECT role, stage FROM agents WHERE engagement_id = $1 AND enabled`, [engagementId]);
-  return rows.filter((r: any) => AGENT_ROLES[r.role as AgentRole]?.built && r.role !== 'use_case_planner').map((r: any) => r.stage);
+  return rows
+    .filter((r: any) => AGENT_ROLES[r.role as AgentRole]?.built && r.role !== 'use_case_planner')
+    .map((r: any) => r.stage);
 }
 
 export const RUN_SELECT = `SELECT r.*, c.key AS card_key FROM runs r JOIN cards c ON c.id = r.card_id`;

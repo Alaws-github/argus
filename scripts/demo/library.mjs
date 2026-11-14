@@ -32,10 +32,22 @@ const PORT = Number(process.env.PORT || 4300);
 const PARTS = ['pglite', 'evidence'];
 
 const [cmd, ...rest] = process.argv.slice(2);
-const slugOf = (f) => f.replace(/\.mjs$/, '').replace(/^\d+-/, '').split('-')[0];
-const scenarioFiles = () => readdirSync(resolve(here, 'engagements')).filter((f) => f.endsWith('.mjs') && !f.startsWith('_')).sort();
-const copies = () => (existsSync(DEMOS) ? readdirSync(DEMOS).filter((d) => existsSync(resolve(DEMOS, d, 'pglite'))) : []);
-const running = () => fetch(`http://localhost:${PORT}/api/health`, { signal: AbortSignal.timeout(1500) }).then(() => true, () => false);
+const slugOf = (f) =>
+  f
+    .replace(/\.mjs$/, '')
+    .replace(/^\d+-/, '')
+    .split('-')[0];
+const scenarioFiles = () =>
+  readdirSync(resolve(here, 'engagements'))
+    .filter((f) => f.endsWith('.mjs') && !f.startsWith('_'))
+    .sort();
+const copies = () =>
+  existsSync(DEMOS) ? readdirSync(DEMOS).filter((d) => existsSync(resolve(DEMOS, d, 'pglite'))) : [];
+const running = () =>
+  fetch(`http://localhost:${PORT}/api/health`, { signal: AbortSignal.timeout(1500) }).then(
+    () => true,
+    () => false,
+  );
 const loadedFile = resolve(DATA, 'loaded-demo.txt');
 const loaded = () => (existsSync(loadedFile) ? readFileSync(loadedFile, 'utf8').trim() : null);
 
@@ -58,15 +70,28 @@ function backupCurrent() {
   copyParts(DATA, to);
   console.log(`Saved the database you had to ${to.replace(root + '/', '').replace(root + '\\', '')}`);
 }
-const run = (args, opts = {}) => new Promise((ok, fail) => {
-  const p = spawn(process.platform === 'win32' ? 'npm.cmd' : 'npm', args, { cwd: root, stdio: opts.quiet ? 'ignore' : 'inherit', shell: process.platform === 'win32', ...opts });
-  if (opts.background) return ok(p);
-  p.on('exit', (code) => (code === 0 ? ok() : fail(new Error(`npm ${args.join(' ')} failed (${code})`))));
-});
+const run = (args, opts = {}) =>
+  new Promise((ok, fail) => {
+    const p = spawn(process.platform === 'win32' ? 'npm.cmd' : 'npm', args, {
+      cwd: root,
+      stdio: opts.quiet ? 'ignore' : 'inherit',
+      shell: process.platform === 'win32',
+      ...opts,
+    });
+    if (opts.background) return ok(p);
+    p.on('exit', (code) => (code === 0 ? ok() : fail(new Error(`npm ${args.join(' ')} failed (${code})`))));
+  });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function stop(p) {
-  if (process.platform === 'win32') spawn('taskkill', ['/pid', String(p.pid), '/T', '/F'], { stdio: 'ignore', shell: true });
-  else { try { process.kill(-p.pid, 'SIGTERM'); } catch { p.kill('SIGTERM'); } }
+  if (process.platform === 'win32')
+    spawn('taskkill', ['/pid', String(p.pid), '/T', '/F'], { stdio: 'ignore', shell: true });
+  else {
+    try {
+      process.kill(-p.pid, 'SIGTERM');
+    } catch {
+      p.kill('SIGTERM');
+    }
+  }
 }
 
 async function build(names) {
@@ -74,12 +99,17 @@ async function build(names) {
   backupCurrent();
   const targets = [
     { name: 'all', only: null, label: 'every client together' },
-    ...(await Promise.all(scenarioFiles().map(async (f) => {
-      const m = await import(pathToFileURL(resolve(here, 'engagements', f)).href);
-      return { name: slugOf(f), only: f.replace(/\.mjs$/, ''), label: `${m.engagement.client} alone` };
-    }))),
+    ...(await Promise.all(
+      scenarioFiles().map(async (f) => {
+        const m = await import(pathToFileURL(resolve(here, 'engagements', f)).href);
+        return { name: slugOf(f), only: f.replace(/\.mjs$/, ''), label: `${m.engagement.client} alone` };
+      }),
+    )),
   ].filter((t) => !names.length || names.includes(t.name));
-  if (!targets.length) { console.error(`No copy called ${names.join(', ')}. Copies: all, ${scenarioFiles().map(slugOf).join(', ')}`); process.exit(1); }
+  if (!targets.length) {
+    console.error(`No copy called ${names.join(', ')}. Copies: all, ${scenarioFiles().map(slugOf).join(', ')}`);
+    process.exit(1);
+  }
   for (const t of targets) {
     console.log(`\n=== Building "${t.name}" (${t.label})`);
     await run(['run', 'db:reset'], { quiet: true });
@@ -105,17 +135,30 @@ async function build(names) {
 }
 
 async function load(name) {
-  if (!name) { console.error('Say which copy: npm run demo:load -- all (see npm run demo:list)'); process.exit(1); }
-  if (!copies().includes(name)) { console.error(`No saved copy called "${name}". Run npm run demo:list, or build it with npm run demo:build -- ${name}`); process.exit(1); }
+  if (!name) {
+    console.error('Say which copy: npm run demo:load -- all (see npm run demo:list)');
+    process.exit(1);
+  }
+  if (!copies().includes(name)) {
+    console.error(
+      `No saved copy called "${name}". Run npm run demo:list, or build it with npm run demo:build -- ${name}`,
+    );
+    process.exit(1);
+  }
   await mustBeStopped();
   backupCurrent();
   copyParts(resolve(DEMOS, name), DATA);
   writeFileSync(loadedFile, name);
-  console.log(`Loaded "${name}". Start the app (npm run dev) and sign in as andrew@example.com (password correct-horse-9).`);
+  console.log(
+    `Loaded "${name}". Start the app (npm run dev) and sign in as andrew@example.com (password correct-horse-9).`,
+  );
 }
 
 async function save(name) {
-  if (!name || !/^[a-z0-9][a-z0-9-]{0,40}$/.test(name)) { console.error('Give the copy a short name in lower case, for example: npm run demo:save -- my-copy'); process.exit(1); }
+  if (!name || !/^[a-z0-9][a-z0-9-]{0,40}$/.test(name)) {
+    console.error('Give the copy a short name in lower case, for example: npm run demo:save -- my-copy');
+    process.exit(1);
+  }
   await mustBeStopped();
   copyParts(DATA, resolve(DEMOS, name));
   writeFileSync(resolve(DEMOS, name, 'about.txt'), `Saved from the app\nSaved ${new Date().toISOString()}\n`);
@@ -125,11 +168,19 @@ async function save(name) {
 
 function list() {
   const have = copies();
-  if (!have.length) { console.log('No saved copies yet. Stop the app and run npm run demo:build (a few minutes).'); return; }
+  if (!have.length) {
+    console.log('No saved copies yet. Stop the app and run npm run demo:build (a few minutes).');
+    return;
+  }
   const cur = loaded();
   for (const d of have) {
-    const about = existsSync(resolve(DEMOS, d, 'about.txt')) ? readFileSync(resolve(DEMOS, d, 'about.txt'), 'utf8').split('\n') : ['', ''];
-    const when = statSync(resolve(DEMOS, d, 'pglite')).mtime.toISOString().slice(0, 16).replace('T', ' ');
+    const about = existsSync(resolve(DEMOS, d, 'about.txt'))
+      ? readFileSync(resolve(DEMOS, d, 'about.txt'), 'utf8').split('\n')
+      : ['', ''];
+    const when = statSync(resolve(DEMOS, d, 'pglite'))
+      .mtime.toISOString()
+      .slice(0, 16)
+      .replace('T', ' ');
     console.log(`${d === cur ? '*' : ' '} ${d.padEnd(12)} ${about[0].padEnd(34)} built ${when}`);
   }
   console.log('\nnpm run demo:load -- <name>   (stop the app first)');

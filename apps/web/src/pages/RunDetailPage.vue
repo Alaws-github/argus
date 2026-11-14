@@ -36,9 +36,13 @@ onBeforeUnmount(() => {
   socket.off('run:event', onEvent);
   socket.off('run', onRun);
 });
-watch(() => route.params.id, () => void load());
+watch(
+  () => route.params.id,
+  () => void load(),
+);
 
-const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const time = (iso: string) =>
+  new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 </script>
 
 <template>
@@ -50,12 +54,20 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-di
         <div>
           <div class="row">
             <h1>R-{{ run.number }} · {{ run.agent }} on {{ run.cardKey }}</h1>
-            <span class="pill" :class="{ succeeded: 'green', failed: 'coral', running: 'blue pulse', waiting: 'amber' }[run.status]"><span class="dot" />{{ run.status === 'waiting' ? 'waiting for an answer' : run.status }}</span>
+            <span
+              class="pill"
+              :class="{ succeeded: 'green', failed: 'coral', running: 'blue pulse', waiting: 'amber' }[run.status]"
+              ><span class="dot" />{{ run.status === 'waiting' ? 'waiting for an answer' : run.status }}</span
+            >
           </div>
           <p class="small">
-            <span class="mono">{{ run.cardKey }}</span> · {{ STAGE_LABELS[run.stage] }} · <span class="mono">{{ run.model }}</span> ({{ run.runtime }}) ·
-            <template v-if="run.mode === 'agentic' && run.steps">agentic, {{ run.steps }} step{{ run.steps === 1 ? '' : 's' }} ·</template>
-            took {{ duration(run.startedAt, run.endedAt) || '…' }} · tokens {{ (run.tokensIn + run.tokensOut).toLocaleString() }} · cost {{ money(run.costUsd) }}
+            <span class="mono">{{ run.cardKey }}</span> · {{ STAGE_LABELS[run.stage] }} ·
+            <span class="mono">{{ run.model }}</span> ({{ run.runtime }}) ·
+            <template v-if="run.mode === 'agentic' && run.steps"
+              >agentic, {{ run.steps }} step{{ run.steps === 1 ? '' : 's' }} ·</template
+            >
+            took {{ duration(run.startedAt, run.endedAt) || '…' }} · tokens
+            {{ (run.tokensIn + run.tokensOut).toLocaleString() }} · cost {{ money(run.costUsd) }}
           </p>
         </div>
         <RouterLink class="btn" :to="{ path: '/', query: { card: run.cardKey } }">Open use case</RouterLink>

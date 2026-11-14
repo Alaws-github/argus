@@ -32,8 +32,15 @@ const trimSlash = (u: string) => u.replace(/\/+$/, '');
 
 // Drafting is set to temperature 0 so the same input gives the same draft.
 // Some newer models refuse a temperature setting; then we retry without it.
-async function postDeterministic(url: string, headers: Record<string, string>, body: Record<string, any>, timeoutMs: number, where: 'top' | 'options' = 'top') {
-  const withTemp = where === 'top' ? { ...body, temperature: 0 } : { ...body, options: { ...(body.options ?? {}), temperature: 0 } };
+async function postDeterministic(
+  url: string,
+  headers: Record<string, string>,
+  body: Record<string, any>,
+  timeoutMs: number,
+  where: 'top' | 'options' = 'top',
+) {
+  const withTemp =
+    where === 'top' ? { ...body, temperature: 0 } : { ...body, options: { ...(body.options ?? {}), temperature: 0 } };
   try {
     return await post(url, headers, withTemp, timeoutMs);
   } catch (e: any) {
@@ -51,7 +58,12 @@ const BACKOFF_MS = Number(process.env.LLM_BACKOFF_MS || 1500);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export class ProviderError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
 async function post(url: string, headers: Record<string, string>, body: unknown, timeoutMs: number): Promise<any> {
@@ -62,12 +74,21 @@ async function post(url: string, headers: Record<string, string>, body: unknown,
     if (left <= 0) break;
     let res: Response;
     try {
-      res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body), signal: AbortSignal.timeout(left) });
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...headers },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(left),
+      });
     } catch (e: any) {
       // Our own time limit ran out: don't retry. A dropped connection: retry.
-      if (e?.name === 'TimeoutError' || e?.name === 'AbortError') throw new Error(`The provider didn't answer within ${Math.round(timeoutMs / 1000)} seconds`);
+      if (e?.name === 'TimeoutError' || e?.name === 'AbortError')
+        throw new Error(`The provider didn't answer within ${Math.round(timeoutMs / 1000)} seconds`);
       lastErr = e;
-      if (attempt < MAX_ATTEMPTS) { await sleep(Math.min(BACKOFF_MS * 2 ** (attempt - 1), Math.max(0, deadline - Date.now() - 1000))); continue; }
+      if (attempt < MAX_ATTEMPTS) {
+        await sleep(Math.min(BACKOFF_MS * 2 ** (attempt - 1), Math.max(0, deadline - Date.now() - 1000)));
+        continue;
+      }
       throw new Error(`Couldn't reach the provider: ${e?.message ?? e}`);
     }
     const text = await res.text();
@@ -94,7 +115,10 @@ async function post(url: string, headers: Record<string, string>, body: unknown,
     await sleep(wait);
   }
   if (lastErr instanceof ProviderError && lastErr.status === 429) {
-    throw new ProviderError(429, `${lastErr.message}. The provider is rate-limiting this key; it was tried ${MAX_ATTEMPTS} times. Wait a minute, or add a fallback model for this agent.`);
+    throw new ProviderError(
+      429,
+      `${lastErr.message}. The provider is rate-limiting this key; it was tried ${MAX_ATTEMPTS} times. Wait a minute, or add a fallback model for this agent.`,
+    );
   }
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
@@ -102,7 +126,9 @@ async function post(url: string, headers: Record<string, string>, body: unknown,
 /** The model stopped because it ran out of output room, so its answer is incomplete. */
 export class TruncatedError extends Error {
   constructor(public maxTokens: number) {
-    super(`The model ran out of room before finishing its answer (output limit ${maxTokens} tokens). Raise the agent's effort, or pick a model that doesn't spend its budget on reasoning.`);
+    super(
+      `The model ran out of room before finishing its answer (output limit ${maxTokens} tokens). Raise the agent's effort, or pick a model that doesn't spend its budget on reasoning.`,
+    );
   }
 }
 
@@ -115,10 +141,18 @@ function parseJsonText(s: string): unknown {
 export class MalformedError extends Error {}
 const parseArgs = (raw: unknown) => {
   if (typeof raw !== 'string') return raw;
-  try { return JSON.parse(raw); } catch { throw new MalformedError("The model's answer wasn't valid JSON"); }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new MalformedError("The model's answer wasn't valid JSON");
+  }
 };
 const parseText = (raw: string) => {
-  try { return parseJsonText(raw); } catch { throw new MalformedError("The model's answer wasn't valid JSON"); }
+  try {
+    return parseJsonText(raw);
+  } catch {
+    throw new MalformedError("The model's answer wasn't valid JSON");
+  }
 };
 
 // One structured call. If the model runs out of output room it is asked once
@@ -203,26 +237,51 @@ async function callOnce(c: StructuredCall, max: number): Promise<StructuredResul
     ];
     let r: any;
     try {
-      r = await postDeterministic(url, headers, {
-        model: c.model,
-        max_tokens: max,
-        messages,
-        tools: [{ type: 'function', function: { name: c.toolName, description: c.toolDescription, parameters: c.schema } }],
-        tool_choice: { type: 'function', function: { name: c.toolName } },
-      }, c.timeoutMs);
+      r = await postDeterministic(
+        url,
+        headers,
+        {
+          model: c.model,
+          max_tokens: max,
+          messages,
+          tools: [
+            { type: 'function', function: { name: c.toolName, description: c.toolDescription, parameters: c.schema } },
+          ],
+          tool_choice: { type: 'function', function: { name: c.toolName } },
+        },
+        c.timeoutMs,
+      );
     } catch (e: any) {
       // Some services (Perplexity, some gateways) don't take tool calls. Ask for
       // JSON matching the schema instead; the answer is validated the same way.
       if (!/^400 /.test(e.message) || !/tool|function/i.test(e.message)) throw e;
-      const jsonMessages = [{ role: 'system', content: `${c.system}\n\nAnswer with one JSON object only, matching this schema:\n${JSON.stringify(c.schema)}` }, messages[1]];
+      const jsonMessages = [
+        {
+          role: 'system',
+          content: `${c.system}\n\nAnswer with one JSON object only, matching this schema:\n${JSON.stringify(c.schema)}`,
+        },
+        messages[1],
+      ];
       try {
-        r = await postDeterministic(url, headers, {
-          model: c.model, max_tokens: max, messages: jsonMessages,
-          response_format: { type: 'json_schema', json_schema: { name: c.toolName, schema: c.schema } },
-        }, c.timeoutMs);
+        r = await postDeterministic(
+          url,
+          headers,
+          {
+            model: c.model,
+            max_tokens: max,
+            messages: jsonMessages,
+            response_format: { type: 'json_schema', json_schema: { name: c.toolName, schema: c.schema } },
+          },
+          c.timeoutMs,
+        );
       } catch (e2: any) {
         if (!/^400 /.test(e2.message)) throw e2;
-        r = await postDeterministic(url, headers, { model: c.model, max_tokens: max, messages: jsonMessages }, c.timeoutMs);
+        r = await postDeterministic(
+          url,
+          headers,
+          { model: c.model, max_tokens: max, messages: jsonMessages },
+          c.timeoutMs,
+        );
       }
     }
     if (r.choices?.[0]?.finish_reason === 'length') throw new TruncatedError(max);
@@ -248,8 +307,13 @@ async function callOnce(c: StructuredCall, max: number): Promise<StructuredResul
 // own strict checks still run on whatever comes back, so a repair can never
 // let through something the rules refuse.
 // ---------------------------------------------------------------------------
-export interface CheckedResult extends StructuredResult { repaired: string[] }
-export async function callStructuredChecked(c: StructuredCall, check: (input: unknown) => string[]): Promise<CheckedResult> {
+export interface CheckedResult extends StructuredResult {
+  repaired: string[];
+}
+export async function callStructuredChecked(
+  c: StructuredCall,
+  check: (input: unknown) => string[],
+): Promise<CheckedResult> {
   let first: StructuredResult | null = null;
   let problems: string[];
   try {
@@ -263,7 +327,12 @@ export async function callStructuredChecked(c: StructuredCall, check: (input: un
   const shown = first ? JSON.stringify(first.input).slice(0, 12_000) : '(not valid JSON)';
   const second = await callStructured({
     ...c,
-    user: `${c.user}\n\n<previous_answer>${shown}</previous_answer>\n<problems>\n${problems.slice(0, 20).map((p) => `- ${p}`).join('\n')}\n</problems>\nYour previous answer had the problems listed. Return the whole answer again with them corrected. Change nothing else.`,
+    user: `${c.user}\n\n<previous_answer>${shown}</previous_answer>\n<problems>\n${problems
+      .slice(0, 20)
+      .map((p) => `- ${p}`)
+      .join(
+        '\n',
+      )}\n</problems>\nYour previous answer had the problems listed. Return the whole answer again with them corrected. Change nothing else.`,
   });
   return {
     ...second,
@@ -275,19 +344,28 @@ export async function callStructuredChecked(c: StructuredCall, check: (input: un
 }
 
 /** Zod issues as short lines a model can act on. */
-export const zodProblems = (schema: { safeParse: (x: unknown) => any }) => (input: unknown): string[] => {
-  const p = schema.safeParse(input);
-  return p.success ? [] : p.error.issues.map((i: any) => `${i.path.join('.') || 'answer'}: ${i.message}`);
-};
+export const zodProblems =
+  (schema: { safeParse: (x: unknown) => any }) =>
+  (input: unknown): string[] => {
+    const p = schema.safeParse(input);
+    return p.success ? [] : p.error.issues.map((i: any) => `${i.path.join('.') || 'answer'}: ${i.message}`);
+  };
 
 // ---------------------------------------------------------------------------
 // One turn of a tool-using conversation (v1.6 agent loop). The transcript is
 // provider-neutral; each provider's message shapes are built here. The model
 // may call any of the tools, or the caller may force one (forceTool).
 // ---------------------------------------------------------------------------
-export interface ToolSpec { name: string; description: string; schema: Record<string, unknown> }
+export interface ToolSpec {
+  name: string;
+  description: string;
+  schema: Record<string, unknown>;
+}
 export interface ToolCall {
-  id: string; name: string; args: unknown; raw?: string;
+  id: string;
+  name: string;
+  args: unknown;
+  raw?: string;
   /** Provider-specific fields on the call that must be sent back unchanged on the next step,
    * such as Gemini's thought signature (`extra_content.google.thought_signature`). */
   extra?: Record<string, unknown>;
@@ -297,10 +375,24 @@ export type ChatMsg =
   | { role: 'assistant'; content: string; calls: ToolCall[] }
   | { role: 'tool'; callId: string; name: string; content: string };
 export interface ChatStepCall {
-  type: ProviderType; baseUrl: string; apiKey: string | undefined; model: string; effort: Effort;
-  system: string; messages: ChatMsg[]; tools: ToolSpec[]; forceTool?: string | null; timeoutMs: number;
+  type: ProviderType;
+  baseUrl: string;
+  apiKey: string | undefined;
+  model: string;
+  effort: Effort;
+  system: string;
+  messages: ChatMsg[];
+  tools: ToolSpec[];
+  forceTool?: string | null;
+  timeoutMs: number;
 }
-export interface ChatStepResult { text: string; calls: ToolCall[]; tokensIn: number; tokensOut: number; tokensCached: number }
+export interface ChatStepResult {
+  text: string;
+  calls: ToolCall[];
+  tokensIn: number;
+  tokensOut: number;
+  tokensCached: number;
+}
 /** The provider refused tool use for this model; the caller falls back to a single call. */
 export class ToolsUnsupportedError extends Error {}
 
@@ -308,7 +400,11 @@ let callSeq = 0;
 const newId = () => `call_${Date.now().toString(36)}_${(callSeq++).toString(36)}`;
 const safeArgs = (raw: unknown): { args: unknown; raw?: string } => {
   if (typeof raw !== 'string') return { args: raw ?? {} };
-  try { return { args: JSON.parse(raw) }; } catch { return { args: null, raw }; }
+  try {
+    return { args: JSON.parse(raw) };
+  } catch {
+    return { args: null, raw };
+  }
 };
 
 export async function chatStep(c: ChatStepCall): Promise<ChatStepResult> {
@@ -328,28 +424,54 @@ async function chatOnce(c: ChatStepCall, max: number): Promise<ChatStepResult> {
     const messages: any[] = [];
     for (const m of c.messages) {
       if (m.role === 'user') messages.push({ role: 'user', content: m.content });
-      else if (m.role === 'assistant') messages.push({ role: 'assistant', content: [...(m.content ? [{ type: 'text', text: m.content }] : []), ...m.calls.map((t) => ({ type: 'tool_use', id: t.id, name: t.name, input: t.args ?? {} }))] });
+      else if (m.role === 'assistant')
+        messages.push({
+          role: 'assistant',
+          content: [
+            ...(m.content ? [{ type: 'text', text: m.content }] : []),
+            ...m.calls.map((t) => ({ type: 'tool_use', id: t.id, name: t.name, input: t.args ?? {} })),
+          ],
+        });
       else {
         const block = { type: 'tool_result', tool_use_id: m.callId, content: m.content };
         const last = messages[messages.length - 1];
-        if (last?.role === 'user' && Array.isArray(last.content) && last.content[0]?.type === 'tool_result') last.content.push(block);
+        if (last?.role === 'user' && Array.isArray(last.content) && last.content[0]?.type === 'tool_result')
+          last.content.push(block);
         else messages.push({ role: 'user', content: [block] });
       }
     }
-    const r = await postDeterministic(`${base}/v1/messages`, { 'x-api-key': c.apiKey, 'anthropic-version': '2023-06-01' }, {
-      model: c.model, max_tokens: max,
-      // The rules and tool list repeat on every turn: cache them.
-      system: [{ type: 'text', text: c.system, cache_control: { type: 'ephemeral' } }],
-      tools: c.tools.map((t, i) => ({ name: t.name, description: t.description, input_schema: t.schema, ...(i === c.tools.length - 1 ? { cache_control: { type: 'ephemeral' } } : {}) })),
-      tool_choice: c.forceTool ? { type: 'tool', name: c.forceTool } : { type: 'auto' },
-      messages,
-    }, c.timeoutMs);
+    const r = await postDeterministic(
+      `${base}/v1/messages`,
+      { 'x-api-key': c.apiKey, 'anthropic-version': '2023-06-01' },
+      {
+        model: c.model,
+        max_tokens: max,
+        // The rules and tool list repeat on every turn: cache them.
+        system: [{ type: 'text', text: c.system, cache_control: { type: 'ephemeral' } }],
+        tools: c.tools.map((t, i) => ({
+          name: t.name,
+          description: t.description,
+          input_schema: t.schema,
+          ...(i === c.tools.length - 1 ? { cache_control: { type: 'ephemeral' } } : {}),
+        })),
+        tool_choice: c.forceTool ? { type: 'tool', name: c.forceTool } : { type: 'auto' },
+        messages,
+      },
+      c.timeoutMs,
+    );
     if (r.stop_reason === 'max_tokens') throw new TruncatedError(max);
     const blocks = r.content ?? [];
     return {
-      text: blocks.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n'),
-      calls: blocks.filter((b: any) => b.type === 'tool_use').map((b: any) => ({ id: b.id, name: b.name, args: b.input })),
-      tokensIn: r.usage?.input_tokens ?? 0, tokensOut: r.usage?.output_tokens ?? 0, tokensCached: r.usage?.cache_read_input_tokens ?? 0,
+      text: blocks
+        .filter((b: any) => b.type === 'text')
+        .map((b: any) => b.text)
+        .join('\n'),
+      calls: blocks
+        .filter((b: any) => b.type === 'tool_use')
+        .map((b: any) => ({ id: b.id, name: b.name, args: b.input })),
+      tokensIn: r.usage?.input_tokens ?? 0,
+      tokensOut: r.usage?.output_tokens ?? 0,
+      tokensCached: r.usage?.cache_read_input_tokens ?? 0,
     };
   }
 
@@ -359,29 +481,74 @@ async function chatOnce(c: ChatStepCall, max: number): Promise<ChatStepResult> {
   const messages: any[] = [{ role: 'system', content: c.system }];
   for (const m of c.messages) {
     if (m.role === 'user') messages.push({ role: 'user', content: m.content });
-    else if (m.role === 'assistant') messages.push({ role: 'assistant', content: m.content || (ollama ? '' : null), tool_calls: m.calls.map((t) => (ollama ? { function: { name: t.name, arguments: t.args ?? {} } } : { ...(t.extra ?? {}), id: t.id, type: 'function', function: { name: t.name, arguments: t.raw ?? JSON.stringify(t.args ?? {}) } })) });
-    else messages.push(ollama ? { role: 'tool', content: m.content } : { role: 'tool', tool_call_id: m.callId, content: m.content });
+    else if (m.role === 'assistant')
+      messages.push({
+        role: 'assistant',
+        content: m.content || (ollama ? '' : null),
+        tool_calls: m.calls.map((t) =>
+          ollama
+            ? { function: { name: t.name, arguments: t.args ?? {} } }
+            : {
+                ...(t.extra ?? {}),
+                id: t.id,
+                type: 'function',
+                function: { name: t.name, arguments: t.raw ?? JSON.stringify(t.args ?? {}) },
+              },
+        ),
+      });
+    else
+      messages.push(
+        ollama ? { role: 'tool', content: m.content } : { role: 'tool', tool_call_id: m.callId, content: m.content },
+      );
   }
-  const tools = c.tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.schema } }));
+  const tools = c.tools.map((t) => ({
+    type: 'function',
+    function: { name: t.name, description: t.description, parameters: t.schema },
+  }));
   const url = ollama ? `${base}/api/chat` : `${base}/chat/completions`;
   const headers: Record<string, string> = c.apiKey ? { authorization: `Bearer ${c.apiKey}` } : {};
   let r: any;
   try {
     r = ollama
-      ? await postDeterministic(url, headers, { model: c.model, stream: false, options: { num_predict: max }, messages, tools }, c.timeoutMs, 'options')
-      : await postDeterministic(url, headers, { model: c.model, max_tokens: max, messages, tools, tool_choice: c.forceTool ? { type: 'function', function: { name: c.forceTool } } : 'auto' }, c.timeoutMs);
+      ? await postDeterministic(
+          url,
+          headers,
+          { model: c.model, stream: false, options: { num_predict: max }, messages, tools },
+          c.timeoutMs,
+          'options',
+        )
+      : await postDeterministic(
+          url,
+          headers,
+          {
+            model: c.model,
+            max_tokens: max,
+            messages,
+            tools,
+            tool_choice: c.forceTool ? { type: 'function', function: { name: c.forceTool } } : 'auto',
+          },
+          c.timeoutMs,
+        );
   } catch (e: any) {
     // A 400 about tools or function calls (including a missing Gemini thought signature) means
     // tool use doesn't work here: the loop falls back to a single call instead of failing.
-    if (/^400 /.test(e.message) && /tool|function|thought_signature/i.test(e.message)) throw new ToolsUnsupportedError(e.message);
+    if (/^400 /.test(e.message) && /tool|function|thought_signature/i.test(e.message))
+      throw new ToolsUnsupportedError(e.message);
     throw e;
   }
   if (ollama) {
     if (r.done_reason === 'length') throw new TruncatedError(max);
     const msg = r.message ?? {};
     return {
-      text: msg.content ?? '', calls: (msg.tool_calls ?? []).map((t: any) => ({ id: newId(), name: t.function?.name, ...safeArgs(t.function?.arguments) })),
-      tokensIn: r.prompt_eval_count ?? 0, tokensOut: r.eval_count ?? 0, tokensCached: 0,
+      text: msg.content ?? '',
+      calls: (msg.tool_calls ?? []).map((t: any) => ({
+        id: newId(),
+        name: t.function?.name,
+        ...safeArgs(t.function?.arguments),
+      })),
+      tokensIn: r.prompt_eval_count ?? 0,
+      tokensOut: r.eval_count ?? 0,
+      tokensCached: 0,
     };
   }
   const choice = r.choices?.[0] ?? {};
@@ -392,9 +559,16 @@ async function chatOnce(c: ChatStepCall, max: number): Promise<ChatStepResult> {
     calls: (msg.tool_calls ?? []).map((t: any) => {
       // Keep anything beyond the standard fields (Gemini puts its thought signature in extra_content).
       const { id, type, function: fn, index, ...extra } = t ?? {};
-      return { id: id ?? newId(), name: fn?.name, ...safeArgs(fn?.arguments), ...(Object.keys(extra).length ? { extra } : {}) };
+      return {
+        id: id ?? newId(),
+        name: fn?.name,
+        ...safeArgs(fn?.arguments),
+        ...(Object.keys(extra).length ? { extra } : {}),
+      };
     }),
-    tokensIn: r.usage?.prompt_tokens ?? 0, tokensOut: r.usage?.completion_tokens ?? 0, tokensCached: r.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+    tokensIn: r.usage?.prompt_tokens ?? 0,
+    tokensOut: r.usage?.completion_tokens ?? 0,
+    tokensCached: r.usage?.prompt_tokens_details?.cached_tokens ?? 0,
   };
 }
 
@@ -413,25 +587,51 @@ export interface TextCall {
 export async function callText(c: TextCall): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
   const base = trimSlash(c.baseUrl);
   if (c.type === 'rules') {
-    if (c.model !== 'demo-chatbot-v1') throw new Error(`${c.model} can't answer free text. Use demo-chatbot-v1 or a model provider.`);
+    if (c.model !== 'demo-chatbot-v1')
+      throw new Error(`${c.model} can't answer free text. Use demo-chatbot-v1 or a model provider.`);
     return { text: demoChatbot(c.user), tokensIn: 0, tokensOut: 0 };
   }
   if (c.type === 'anthropic') {
     if (!c.apiKey) throw new Error('This provider has no API key. Add one on Models & keys.');
-    const r = await post(`${base}/v1/messages`, { 'x-api-key': c.apiKey, 'anthropic-version': '2023-06-01' }, {
-      model: c.model, max_tokens: c.maxTokens, ...(c.system ? { system: c.system } : {}), messages: [{ role: 'user', content: c.user }],
-    }, c.timeoutMs);
-    const text = (r.content ?? []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n');
+    const r = await post(
+      `${base}/v1/messages`,
+      { 'x-api-key': c.apiKey, 'anthropic-version': '2023-06-01' },
+      {
+        model: c.model,
+        max_tokens: c.maxTokens,
+        ...(c.system ? { system: c.system } : {}),
+        messages: [{ role: 'user', content: c.user }],
+      },
+      c.timeoutMs,
+    );
+    const text = (r.content ?? [])
+      .filter((b: any) => b.type === 'text')
+      .map((b: any) => b.text)
+      .join('\n');
     return { text, tokensIn: r.usage?.input_tokens ?? 0, tokensOut: r.usage?.output_tokens ?? 0 };
   }
   const messages = [...(c.system ? [{ role: 'system', content: c.system }] : []), { role: 'user', content: c.user }];
   if (c.type === 'ollama') {
     if (!c.apiKey) throw new Error('This provider has no API key. Add one on Models & keys.');
-    const r = await post(`${base}/api/chat`, { authorization: `Bearer ${c.apiKey}` }, { model: c.model, stream: false, options: { num_predict: c.maxTokens }, messages }, c.timeoutMs);
+    const r = await post(
+      `${base}/api/chat`,
+      { authorization: `Bearer ${c.apiKey}` },
+      { model: c.model, stream: false, options: { num_predict: c.maxTokens }, messages },
+      c.timeoutMs,
+    );
     return { text: r.message?.content ?? '', tokensIn: r.prompt_eval_count ?? 0, tokensOut: r.eval_count ?? 0 };
   }
-  const r = await post(`${base}/chat/completions`, c.apiKey ? { authorization: `Bearer ${c.apiKey}` } : {}, { model: c.model, max_tokens: c.maxTokens, messages }, c.timeoutMs);
-  return { text: r.choices?.[0]?.message?.content ?? '', tokensIn: r.usage?.prompt_tokens ?? 0, tokensOut: r.usage?.completion_tokens ?? 0 };
+  const r = await post(
+    `${base}/chat/completions`,
+    c.apiKey ? { authorization: `Bearer ${c.apiKey}` } : {},
+    { model: c.model, max_tokens: c.maxTokens, messages },
+    c.timeoutMs,
+  );
+  return {
+    text: r.choices?.[0]?.message?.content ?? '',
+    tokensIn: r.usage?.prompt_tokens ?? 0,
+    tokensOut: r.usage?.completion_tokens ?? 0,
+  };
 }
 
 // v1.7: a provider error in words a person can act on, with the provider's own
@@ -441,12 +641,25 @@ export function friendlyError(e: unknown, where = 'Models & Keys'): string {
   const status = (e as any)?.status ?? Number((msg.match(/^(\d{3}) from the provider/) || [])[1]);
   const tail = (s: string) => `${s} (${msg.replace(/\s+/g, ' ').slice(0, 160)})`;
   if (/no API key/i.test(msg)) return `This provider has no API key. Add one on ${where}.`;
-  if (status === 401 || status === 403 || /invalid api key|unauthori[sz]ed|permission denied|API key not valid/i.test(msg)) return tail(`The provider refused the API key. Check or replace it on ${where}.`);
-  if (status === 404 || /model .*not found|does not exist|unknown model/i.test(msg)) return tail(`The provider doesn't know this model name. Pick another model on ${where} or in the agent's settings.`);
+  if (
+    status === 401 ||
+    status === 403 ||
+    /invalid api key|unauthori[sz]ed|permission denied|API key not valid/i.test(msg)
+  )
+    return tail(`The provider refused the API key. Check or replace it on ${where}.`);
+  if (status === 404 || /model .*not found|does not exist|unknown model/i.test(msg))
+    return tail(
+      `The provider doesn't know this model name. Pick another model on ${where} or in the agent's settings.`,
+    );
   if (status === 429) return tail('The provider is rate-limiting this key. Wait a minute, or add a fallback model.');
-  if (status === 402 || /quota|billing|insufficient.*(credit|fund)/i.test(msg)) return tail(`The provider says the account is out of credit or quota. Check billing with the provider, or switch model on ${where}.`);
-  if (/didn't answer within/i.test(msg)) return tail('The model took too long. Try again, pick a faster model, or raise the time limit.');
-  if (/Couldn't reach the provider|ENOTFOUND|ECONNREFUSED|fetch failed/i.test(msg)) return tail(`ARGUS couldn't reach the provider. Check its address on ${where} and that the service is running.`);
+  if (status === 402 || /quota|billing|insufficient.*(credit|fund)/i.test(msg))
+    return tail(
+      `The provider says the account is out of credit or quota. Check billing with the provider, or switch model on ${where}.`,
+    );
+  if (/didn't answer within/i.test(msg))
+    return tail('The model took too long. Try again, pick a faster model, or raise the time limit.');
+  if (/Couldn't reach the provider|ENOTFOUND|ECONNREFUSED|fetch failed/i.test(msg))
+    return tail(`ARGUS couldn't reach the provider. Check its address on ${where} and that the service is running.`);
   if (status && status >= 500) return tail('The provider had a problem on its side. Try again shortly.');
   return msg;
 }

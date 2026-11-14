@@ -1,7 +1,7 @@
 {
   "name": "governance-harness",
   "private": true,
-  "version": "1.7.4",
+  "version": "1.7.5",
   "description": "AI governance, risk and assurance harness: a gated board where agents draft and people decide.",
   "workspaces": [
     "packages/*",
@@ -37,13 +37,35 @@
     "test:rag": "node scripts/rag-test.mjs",
     "test:v17": "node scripts/v17-test.mjs",
     "test:v173": "node scripts/v173-test.mjs",
-    "test:v174": "node scripts/v174-test.mjs"
+    "test:v174": "node scripts/v174-test.mjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"apps/*/src/**/*.{ts,vue}\" \"apps/*/*.ts\" \"packages/*/src/**/*.ts\" \"scripts/**/*.{js,mjs,cjs}\" \"deploy/**/*.{ts,js,mjs}\" \"*.mjs\"",
+    "format:check": "prettier --check \"apps/*/src/**/*.{ts,vue}\" \"apps/*/*.ts\" \"packages/*/src/**/*.ts\" \"scripts/**/*.{js,mjs,cjs}\" \"deploy/**/*.{ts,js,mjs}\" \"*.mjs\"",
+    "check": "eslint . --quiet && npm run format:check && npm run typecheck",
+    "prepare": "husky || true"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "concurrently": "^9.1.2",
-    "marked": "^12.0.2"
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-vue": "^9.33.0",
+    "globals": "^15.15.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
+    "marked": "^12.0.2",
+    "prettier": "^3.10.1",
+    "typescript-eslint": "^8.72.2",
+    "vue-eslint-parser": "^9.4.3"
   },
   "engines": {
     "node": ">=20.12"
+  },
+  "lint-staged": {
+    "*.{ts,vue,js,mjs,cjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }

@@ -51,12 +51,36 @@ async function submit() {
       <h2>Quick add a use case</h2>
       <button type="button" class="btn ghost sm" aria-label="Close" @click="emit('close')">✕</button>
     </div>
-    <p class="muted small">It goes to Intake for someone else to take forward. Want help filling it in? <RouterLink :to="{ path: '/plan', query: { new: '1' } }" @click="emit('close')">Plan it with AI</RouterLink>.</p>
-    <label class="field"><span>Name</span><input v-model="form.title" class="input" placeholder="Loan pre-approval scoring" autofocus /></label>
-    <label class="field"><span>Business owner</span><input v-model="form.businessOwner" class="input" placeholder="Head of Retail Credit" /></label>
-    <label class="field"><span>What it does</span><textarea v-model="form.description" class="textarea" placeholder="What the AI does, who acts on its output, how often" /></label>
-    <label class="field"><span>Data it uses</span><textarea v-model="form.dataUsed" class="textarea" placeholder="Name every data source. Say if any of it identifies a person." /></label>
-    <label class="field"><span>People affected</span><input v-model="form.affectedPeople" class="input" placeholder="Who sees its output or is decided about" /></label>
+    <p class="muted small"
+      >It goes to Intake for someone else to take forward. Want help filling it in?
+      <RouterLink :to="{ path: '/plan', query: { new: '1' } }" @click="emit('close')">Plan it with AI</RouterLink>.</p
+    >
+    <label class="field"
+      ><span>Name</span><input v-model="form.title" class="input" placeholder="Loan pre-approval scoring" autofocus
+    /></label>
+    <label class="field"
+      ><span>Business owner</span><input v-model="form.businessOwner" class="input" placeholder="Head of Retail Credit"
+    /></label>
+    <label class="field"
+      ><span>What it does</span
+      ><textarea
+        v-model="form.description"
+        class="textarea"
+        placeholder="What the AI does, who acts on its output, how often"
+      />
+    </label>
+    <label class="field"
+      ><span>Data it uses</span
+      ><textarea
+        v-model="form.dataUsed"
+        class="textarea"
+        placeholder="Name every data source. Say if any of it identifies a person."
+      />
+    </label>
+    <label class="field"
+      ><span>People affected</span
+      ><input v-model="form.affectedPeople" class="input" placeholder="Who sees its output or is decided about"
+    /></label>
     <div class="grid" style="grid-template-columns: 1fr 1fr">
       <label class="field">
         <span>Autonomy</span>
@@ -67,14 +91,21 @@ async function submit() {
           <option value="autonomous">Fully autonomous</option>
         </select>
       </label>
-      <label class="field"><span>Vendor or model</span><input v-model="form.vendor" class="input" placeholder="In-house, or the vendor's name" /></label>
+      <label class="field"
+        ><span>Vendor or model</span
+        ><input v-model="form.vendor" class="input" placeholder="In-house, or the vendor's name"
+      /></label>
       <label class="field">
         <span>Kind of AI</span>
-        <select v-model="form.category" class="select"><option v-for="(l, k) in CATEGORY_LABELS" :key="k" :value="k">{{ l }}</option></select>
+        <select v-model="form.category" class="select"
+          ><option v-for="(l, k) in CATEGORY_LABELS" :key="k" :value="k">{{ l }}</option></select
+        >
       </label>
       <label class="field">
         <span>Priority</span>
-        <select v-model="form.priority" class="select"><option v-for="(l, k) in PRIORITY_LABELS" :key="k" :value="k">{{ l }}</option></select>
+        <select v-model="form.priority" class="select"
+          ><option v-for="(l, k) in PRIORITY_LABELS" :key="k" :value="k">{{ l }}</option></select
+        >
       </label>
     </div>
     <p v-if="error" class="error">{{ error }}</p>

@@ -6,8 +6,17 @@ import { logAudit } from './audit.js';
 import { indexUseCase } from './kb.js';
 import { toCard } from './store.js';
 
-export async function createCard(q: Queryable, engagementId: string, input: UseCaseInput, actor: string, detail: Record<string, unknown> = {}): Promise<Card> {
-  const { rows } = await q.query(`UPDATE engagements SET card_seq = card_seq + 1 WHERE id = $1 RETURNING prefix, card_seq`, [engagementId]);
+export async function createCard(
+  q: Queryable,
+  engagementId: string,
+  input: UseCaseInput,
+  actor: string,
+  detail: Record<string, unknown> = {},
+): Promise<Card> {
+  const { rows } = await q.query(
+    `UPDATE engagements SET card_seq = card_seq + 1 WHERE id = $1 RETURNING prefix, card_seq`,
+    [engagementId],
+  );
   if (!rows[0]) throw Object.assign(new Error('Engagement not found'), { status: 404 });
   const key = `${rows[0].prefix}-${rows[0].card_seq}`;
   const { rows: c } = await q.query(

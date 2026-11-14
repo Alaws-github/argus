@@ -9,7 +9,11 @@ export const EXIT_CRITERIA: Partial<Record<Stage, string[]>> = {
   classify: ['A classification has been produced'],
   design: ['Every risk scoring 12 or more is treated by at least one control (applies once controls exist)'],
   evidence: ['Every control for this use case has at least one evidence item'],
-  test: ['Every test for this use case has a result (passed or failed)', 'Every concluded test has been reviewed by someone other than its preparer', 'Every failed test has an issue raised for it'],
+  test: [
+    'Every test for this use case has a result (passed or failed)',
+    'Every concluded test has been reviewed by someone other than its preparer',
+    'Every failed test has an issue raised for it',
+  ],
   remediate: ['No critical or high issue for this use case is still open'],
   report: ['If its client workflow requires it, every tracked client step is done'],
 };
@@ -32,10 +36,13 @@ export async function exitCriteria(q: Queryable, card: Card): Promise<string[]> 
       let open = high.map((r: any) => r.title as string);
       if (card.design) {
         const d = card.decisions?.design ?? {};
-        const covered = new Set(card.design.controls.flatMap((c, i) => (d[`control:${i}`]?.decision === 'reject' ? [] : c.riskTitles)));
+        const covered = new Set(
+          card.design.controls.flatMap((c, i) => (d[`control:${i}`]?.decision === 'reject' ? [] : c.riskTitles)),
+        );
         open = open.filter((t) => !covered.has(t));
       }
-      if (open.length) unmet.push(`${open.length} high risk${open.length === 1 ? ' has' : 's have'} no control: ${open.join(', ')}`);
+      if (open.length)
+        unmet.push(`${open.length} high risk${open.length === 1 ? ' has' : 's have'} no control: ${open.join(', ')}`);
       break;
     }
     case 'evidence': {
@@ -61,8 +68,10 @@ export async function exitCriteria(q: Queryable, card: Card): Promise<string[]> 
       );
       if (!rows[0].total) unmet.push('there are no tests for this use case');
       if (rows[0].open) unmet.push(`${rows[0].open} test${rows[0].open === 1 ? ' has' : 's have'} no result`);
-      if (rows[0].untracked) unmet.push(`${rows[0].untracked} failed test${rows[0].untracked === 1 ? ' has' : 's have'} no issue raised`);
-      if (rows[0].unreviewed) unmet.push(`${rows[0].unreviewed} test${rows[0].unreviewed === 1 ? ' is' : 's are'} not reviewed`);
+      if (rows[0].untracked)
+        unmet.push(`${rows[0].untracked} failed test${rows[0].untracked === 1 ? ' has' : 's have'} no issue raised`);
+      if (rows[0].unreviewed)
+        unmet.push(`${rows[0].unreviewed} test${rows[0].unreviewed === 1 ? ' is' : 's are'} not reviewed`);
       break;
     }
     case 'remediate': {
@@ -78,7 +87,10 @@ export async function exitCriteria(q: Queryable, card: Card): Promise<string[]> 
     case 'report': {
       // v1.7.4: a client workflow can require its tracked steps before sign-off. A person still signs off.
       const open = await stepsBlockingSignOff(q, card.id);
-      if (open.length) unmet.push(`${open.length} client step${open.length === 1 ? ' is' : 's are'} not done yet: ${open.slice(0, 4).join(', ')}`);
+      if (open.length)
+        unmet.push(
+          `${open.length} client step${open.length === 1 ? ' is' : 's are'} not done yet: ${open.slice(0, 4).join(', ')}`,
+        );
       break;
     }
   }

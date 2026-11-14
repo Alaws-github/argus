@@ -19,7 +19,9 @@ async function engagementOf(payload: any): Promise<string | null> {
   if (payload.engagementId) return payload.engagementId;
   const cardId = payload.cardId ?? payload.card?.id;
   if (cardId) {
-    const { rows } = await db.query(`SELECT engagement_id FROM cards WHERE id::text = $1`, [cardId]).catch(() => ({ rows: [] as any[] }));
+    const { rows } = await db
+      .query(`SELECT engagement_id FROM cards WHERE id::text = $1`, [cardId])
+      .catch(() => ({ rows: [] as any[] }));
     return rows[0]?.engagement_id ?? null;
   }
   return null;
@@ -32,7 +34,9 @@ async function membersOf(engagementId: string): Promise<Set<string> | null> {
   const { rows } = await db!.query(`SELECT access FROM engagements WHERE id = $1`, [engagementId]);
   let members: Set<string> | null = null;
   if (rows[0]?.access === 'members') {
-    const { rows: m } = await db!.query(`SELECT user_id FROM engagement_members WHERE engagement_id = $1`, [engagementId]);
+    const { rows: m } = await db!.query(`SELECT user_id FROM engagement_members WHERE engagement_id = $1`, [
+      engagementId,
+    ]);
     members = new Set(m.map((r: any) => r.user_id));
   }
   cache.set(engagementId, { at: Date.now(), members });

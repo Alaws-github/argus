@@ -78,7 +78,9 @@ export async function migrate(db: Db) {
   const sql = readFileSync(resolve(here, 'schema.sql'), 'utf8');
   await db.exec(sql);
   try {
-    await db.exec(`CREATE EXTENSION IF NOT EXISTS vector; ALTER TABLE kb_chunks ADD COLUMN IF NOT EXISTS embedding vector;`);
+    await db.exec(
+      `CREATE EXTENSION IF NOT EXISTS vector; ALTER TABLE kb_chunks ADD COLUMN IF NOT EXISTS embedding vector;`,
+    );
     vectorAvailable = true;
   } catch (e: any) {
     console.warn(`[db] vector extension unavailable, so search is keyword only: ${e.message}`);

@@ -14,17 +14,36 @@ export function client() {
     for (let attempt = 1; ; attempt++) {
       let r;
       try {
-        r = await fetch(B + p, { method: m, headers: { 'content-type': 'application/json', cookie }, body: b ? JSON.stringify(b) : undefined });
+        r = await fetch(B + p, {
+          method: m,
+          headers: { 'content-type': 'application/json', cookie },
+          body: b ? JSON.stringify(b) : undefined,
+        });
       } catch (e) {
-        if (attempt < 6) { await sleep(3000 * attempt); continue; }
+        if (attempt < 6) {
+          await sleep(3000 * attempt);
+          continue;
+        }
         throw new Error(`${m} ${p}: can't reach ${B} (${e.cause?.code ?? e.message})`);
       }
-      if ([502, 503, 504].includes(r.status) && attempt < 6) { await sleep(3000 * attempt); continue; }
+      if ([502, 503, 504].includes(r.status) && attempt < 6) {
+        await sleep(3000 * attempt);
+        continue;
+      }
       const sc = r.headers.get('set-cookie');
       if (sc) cookie = sc.split(';')[0];
       const t = await r.text();
-      let j; try { j = JSON.parse(t); } catch { j = t; }
-      if (!r.ok) { const e = new Error(`${m} ${p} -> ${r.status} ${JSON.stringify(j)}`); e.status = r.status; throw e; }
+      let j;
+      try {
+        j = JSON.parse(t);
+      } catch {
+        j = t;
+      }
+      if (!r.ok) {
+        const e = new Error(`${m} ${p} -> ${r.status} ${JSON.stringify(j)}`);
+        e.status = r.status;
+        throw e;
+      }
       return j;
     }
   };
@@ -45,21 +64,36 @@ export function engagementCtx(E, people) {
   // Hosted servers are slower than a laptop, so wait up to two minutes for an agent.
   const waitFor = async (key, pred, label, ms = Number(process.env.DEMO_WAIT_MS || 120000)) => {
     const t0 = Date.now();
-    while (Date.now() - t0 < ms) { const d = await card(key); if (pred(d.card)) return d; await sleep(300); }
+    while (Date.now() - t0 < ms) {
+      const d = await card(key);
+      if (pred(d.card)) return d;
+      await sleep(300);
+    }
     const d = await card(key);
-    throw new Error(`Timed out waiting for ${key} (${label}): ${d.card.stage}/${d.card.status} ${d.card.statusNote ?? ''}`);
+    throw new Error(
+      `Timed out waiting for ${key} (${label}): ${d.card.stage}/${d.card.status} ${d.card.statusNote ?? ''}`,
+    );
   };
   const ctx = {
-    E, ...people, card, waitFor,
+    E,
+    ...people,
+    card,
+    waitFor,
 
     // Engagement details, modules and risk appetite.
     async configure({ modules, framework, appetite, about, access } = {}) {
-      await andrew('PATCH', `/engagements/${E}`, { ...(modules ? { modules } : {}), ...(framework ? { framework } : {}), ...(appetite ? { appetite } : {}), ...(about ? { about } : {}) });
+      await andrew('PATCH', `/engagements/${E}`, {
+        ...(modules ? { modules } : {}),
+        ...(framework ? { framework } : {}),
+        ...(appetite ? { appetite } : {}),
+        ...(about ? { about } : {}),
+      });
       if (access) await jordan('PUT', `/engagements/${E}/access`, { access });
     },
     // Turn on every built agent (the Planner, Risk Classifier and Control Designer are on already).
     async allAgentsOn() {
-      for (const a of await andrew('GET', `/engagements/${E}/agents`)) if (!a.enabled && a.built) await andrew('PATCH', `/agents/${a.id}`, { enabled: true });
+      for (const a of await andrew('GET', `/engagements/${E}/agents`))
+        if (!a.enabled && a.built) await andrew('PATCH', `/agents/${a.id}`, { enabled: true });
     },
     // A client document the AI agents may cite.
     async knowledge(title, paragraphs, by = sam) {
@@ -67,7 +101,13 @@ export function engagementCtx(E, people) {
     },
     // A use case typed straight in (quick add). Returns the card.
     async useCase(spec, by = sam) {
-      return by('POST', `/engagements/${E}/cards`, { autonomy: 'human_in_loop', vendor: '', category: 'other', priority: 'p2', ...spec });
+      return by('POST', `/engagements/${E}/cards`, {
+        autonomy: 'human_in_loop',
+        vendor: '',
+        category: 'other',
+        priority: 'p2',
+        ...spec,
+      });
     },
     // A use case raised with the Use Case Planner: each message is one turn.
     // With add: true the person then adds it to Intake (by typing anything the Planner left empty).
@@ -85,7 +125,10 @@ export function engagementCtx(E, people) {
       return waitFor(key, (x) => x.stage === 'classify' && x.status === 'needs_approval', 'classification');
     },
     // Decide the classification (optionally item by item first), then approve -> the control design draft.
-    async approveClassification(key, { decide, by = riley, note = 'Tier and risks agreed with the business owner' } = {}) {
+    async approveClassification(
+      key,
+      { decide, by = riley, note = 'Tier and risks agreed with the business owner' } = {},
+    ) {
       const { card: c } = await card(key);
       if (decide) await decide(c.id, c);
       await by('POST', `/cards/${c.id}/decisions`, { rest: 'accept' });

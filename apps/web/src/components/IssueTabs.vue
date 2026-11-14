@@ -7,6 +7,11 @@ const app = useApp();
 <template>
   <nav class="tabs">
     <RouterLink to="/issues" :class="{ active: $route.path === '/issues' }">Issues</RouterLink>
-    <RouterLink v-if="app.mod('incidents') || $route.path === '/incidents'" to="/incidents" :class="{ active: $route.path === '/incidents' }">Incidents</RouterLink>
+    <RouterLink
+      v-if="app.mod('incidents') || $route.path === '/incidents'"
+      to="/incidents"
+      :class="{ active: $route.path === '/incidents' }"
+      >Incidents</RouterLink
+    >
   </nav>
 </template>

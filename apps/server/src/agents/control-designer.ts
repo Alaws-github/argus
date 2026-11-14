@@ -44,8 +44,21 @@ const SCHEMA = {
   },
 };
 
-interface Lib { code: string; title: string; objective: string; domain: string; type: string; test_procedure: string; risk_categories: string[] }
-export interface Risk { title: string; category: string; likelihood: number; impact: number }
+interface Lib {
+  code: string;
+  title: string;
+  objective: string;
+  domain: string;
+  type: string;
+  test_procedure: string;
+  risk_categories: string[];
+}
+export interface Risk {
+  title: string;
+  category: string;
+  likelihood: number;
+  impact: number;
+}
 
 const OWNER_BY_DOMAIN: Record<string, string> = {
   governance: 'Chief Risk Officer',
@@ -57,19 +70,47 @@ const OWNER_BY_DOMAIN: Record<string, string> = {
 
 // givenRisks lets agent testing supply a golden case's approved risks
 // instead of reading them from the register.
-export async function runControlDesigner(ctx: AgentContext, q: Queryable, log: Log, givenRisks?: Risk[]): Promise<AgentResult<ControlDesign>> {
+export async function runControlDesigner(
+  ctx: AgentContext,
+  q: Queryable,
+  log: Log,
+  givenRisks?: Risk[],
+): Promise<AgentResult<ControlDesign>> {
   const { card, feedback } = ctx;
   const risks = givenRisks
     ? [...givenRisks].sort((a, b) => b.likelihood * b.impact - a.likelihood * a.impact)
-    : (await q.query<Risk>(`SELECT title, category, likelihood, impact FROM risks WHERE card_id = $1 ORDER BY likelihood * impact DESC`, [card.id])).rows;
-  const { rows: lib } = await q.query<Lib>(`SELECT code, title, objective, domain, type, test_procedure, risk_categories FROM control_library ORDER BY code`);
-  await log('step', `Read ${card.key}'s profile, its ${risks.length} approved risks and ${lib.length} library controls`);
+    : (
+        await q.query<Risk>(
+          `SELECT title, category, likelihood, impact FROM risks WHERE card_id = $1 ORDER BY likelihood * impact DESC`,
+          [card.id],
+        )
+      ).rows;
+  const { rows: lib } = await q.query<Lib>(
+    `SELECT code, title, objective, domain, type, test_procedure, risk_categories FROM control_library ORDER BY code`,
+  );
+  await log(
+    'step',
+    `Read ${card.key}'s profile, its ${risks.length} approved risks and ${lib.length} library controls`,
+  );
   if (!risks.length) throw new Error('This use case has no approved risks yet. Approve its classification first.');
   if (feedback) await log('step', `Reviewer feedback to address: ${feedback}`);
   // Retrieve, for each risk, the library controls and obligations that fit it.
   let passages: SourcePassage[] = [];
-  for (const r of risks) passages = mergePassages(passages, await search(q as any, card.engagementId, `${r.category.replace('_', ' ')} ${r.title}`, { limit: 3, kinds: ['control', 'framework'] }));
-  passages = mergePassages(passages, await search(q as any, card.engagementId, `${card.title} ${card.useCase.description}`, { limit: 2, kinds: ['upload', 'client'] }));
+  for (const r of risks)
+    passages = mergePassages(
+      passages,
+      await search(q as any, card.engagementId, `${r.category.replace('_', ' ')} ${r.title}`, {
+        limit: 3,
+        kinds: ['control', 'framework'],
+      }),
+    );
+  passages = mergePassages(
+    passages,
+    await search(q as any, card.engagementId, `${card.title} ${card.useCase.description}`, {
+      limit: 2,
+      kinds: ['upload', 'client'],
+    }),
+  );
   await log('step', `Retrieved ${passages.length} passages from the knowledge base`);
   const finish = (output: ControlDesign) => {
     const cited = output.controls.flatMap((c) => c.sources);
@@ -85,7 +126,10 @@ export async function runControlDesigner(ctx: AgentContext, q: Queryable, log: L
     // Each control cites its own library passage and the obligations that name it.
     for (const c of draft.controls) {
       if (!c.libraryCode) continue;
-      const hits = mergePassages(await pinned(q, [c.libraryCode]), await search(q as any, card.engagementId, c.libraryCode, { limit: 2, kinds: ['framework'] }));
+      const hits = mergePassages(
+        await pinned(q, [c.libraryCode]),
+        await search(q as any, card.engagementId, c.libraryCode, { limit: 2, kinds: ['framework'] }),
+      );
       passages = mergePassages(passages, hits);
       c.sources = hits.slice(0, 3).map((h) => h.id);
     }
@@ -116,19 +160,47 @@ export async function runControlDesigner(ctx: AgentContext, q: Queryable, log: L
     sourcesBlock(passages),
     feedback ? `\n<reviewer_feedback>${feedback}</reviewer_feedback>` : '',
   ].join('\n');
-  const system = ctx.instructions.trim() ? `${RULES}\n\n## Engagement instructions\n\nThese add to the rules above and never override them.\n\n${ctx.instructions.trim()}` : RULES;
+  const system = ctx.instructions.trim()
+    ? `${RULES}\n\n## Engagement instructions\n\nThese add to the rules above and never override them.\n\n${ctx.instructions.trim()}`
+    : RULES;
 
   await log('step', `Asked ${ctx.model} on ${ctx.provider.name} to design controls`);
-  const res = await loopFor(ctx, q, log, passages, CRITIQUE)({
-    type: ctx.provider.type, baseUrl: ctx.provider.base_url, apiKey: ctx.apiKey, model: ctx.model, effort: ctx.effort,
-    system, user, toolName: 'submit_controls', toolDescription: 'Submit the proposed controls for review.', schema: SCHEMA, timeoutMs: ctx.timeoutMs,
-  }, zodProblems(ControlDesign));
-  if (res.repaired.length) await log('step', `The first answer had format problems (${res.repaired.slice(0, 3).join('; ')}); the model corrected them`);
+  const res = await loopFor(
+    ctx,
+    q,
+    log,
+    passages,
+    CRITIQUE,
+  )(
+    {
+      type: ctx.provider.type,
+      baseUrl: ctx.provider.base_url,
+      apiKey: ctx.apiKey,
+      model: ctx.model,
+      effort: ctx.effort,
+      system,
+      user,
+      toolName: 'submit_controls',
+      toolDescription: 'Submit the proposed controls for review.',
+      schema: SCHEMA,
+      timeoutMs: ctx.timeoutMs,
+    },
+    zodProblems(ControlDesign),
+  );
+  if (res.repaired.length)
+    await log(
+      'step',
+      `The first answer had format problems (${res.repaired.slice(0, 3).join('; ')}); the model corrected them`,
+    );
   const parsed = ControlDesign.safeParse(res.input);
-  if (!parsed.success) throw new Error(`The design failed validation: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`);
+  if (!parsed.success)
+    throw new Error(
+      `The design failed validation: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`,
+    );
   const codes = new Set(lib.map((l) => l.code));
   const unknown = parsed.data.controls.filter((c) => c.libraryCode && !codes.has(c.libraryCode));
-  if (unknown.length) throw new Error(`The design cites library codes that don't exist: ${unknown.map((c) => c.libraryCode).join(', ')}`);
+  if (unknown.length)
+    throw new Error(`The design cites library codes that don't exist: ${unknown.map((c) => c.libraryCode).join(', ')}`);
   finish(parsed.data);
   await log('step', 'Validated the design against the schema, the library and its citations');
   await log('output', `${parsed.data.controls.length} controls proposed, ${parsed.data.gaps.length} gaps noted`);
@@ -168,6 +240,9 @@ function dryRun(tier: string | null, owner: string, risks: Risk[], lib: Lib[]): 
       sources: [] as string[],
     })),
     sourcePassages: [],
-    gaps: [...gaps, 'Rule-based dry run: objectives and test steps are the library defaults. Tailor them, or re-run on a model.'].slice(0, 8),
+    gaps: [
+      ...gaps,
+      'Rule-based dry run: objectives and test steps are the library defaults. Tailor them, or re-run on a model.',
+    ].slice(0, 8),
   };
 }

@@ -15,20 +15,28 @@ const write = process.argv.includes('--write');
 const problems = [];
 const seen = new Map();
 const sections = [];
-for (const f of readdirSync(dir).filter((x) => x.endsWith('.md')).sort((a, b) => (a === 'general.md' ? -1 : b === 'general.md' ? 1 : a.localeCompare(b)))) {
+for (const f of readdirSync(dir)
+  .filter((x) => x.endsWith('.md'))
+  .sort((a, b) => (a === 'general.md' ? -1 : b === 'general.md' ? 1 : a.localeCompare(b)))) {
   const lines = readFileSync(resolve(dir, f), 'utf8').replace(/\r/g, '').split('\n');
   const items = [];
   lines.forEach((l, i) => {
     if (!l.startsWith('### ')) return;
     const m = l.match(/^### ([a-z0-9]+(?:-[a-z0-9]+)*) `(bug|correction|design)`$/);
-    if (!m) { problems.push(`${f}:${i + 1} heading must be "### kebab-slug \`bug|correction|design\`": ${l}`); return; }
+    if (!m) {
+      problems.push(`${f}:${i + 1} heading must be "### kebab-slug \`bug|correction|design\`": ${l}`);
+      return;
+    }
     if (seen.has(m[1])) problems.push(`${f}:${i + 1} slug ${m[1]} is already used in ${seen.get(m[1])}`);
     seen.set(m[1], f);
     const body = [];
     for (let j = i + 1; j < lines.length && !lines[j].startsWith('#'); j++) body.push(lines[j]);
     const enf = body.find((b) => b.startsWith('**Enforced by:**'));
     if (!enf) problems.push(`${f}:${i + 1} ${m[1]} has no "**Enforced by:**" line`);
-    else if (!/^\*\*Enforced by:\*\* (check \S+|test \S+|code \S+|none - .+)/.test(enf)) problems.push(`${f}:${i + 1} ${m[1]}: Enforced by must start with check <name>, test <path>, code <path> or none - <why>`);
+    else if (!/^\*\*Enforced by:\*\* (check \S+|test \S+|code \S+|none - .+)/.test(enf))
+      problems.push(
+        `${f}:${i + 1} ${m[1]}: Enforced by must start with check <name>, test <path>, code <path> or none - <why>`,
+      );
     const checked = enf && /^\*\*Enforced by:\*\* (check|test|code) /.test(enf) ? ` (${enf.split(' ')[2]})` : '';
     items.push(`- \`${m[1]}\` \`${m[2]}\`${checked}`);
   });

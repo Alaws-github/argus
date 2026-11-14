@@ -9,15 +9,24 @@ import { OWNERS } from './archive.js';
 import { requestContext } from './context.js';
 
 // Engagement ids this person may see, or null for "all" (admins).
-export async function visibleIds(q: Queryable, user: { id: string; role: string } | undefined | null): Promise<string[] | null> {
+export async function visibleIds(
+  q: Queryable,
+  user: { id: string; role: string } | undefined | null,
+): Promise<string[] | null> {
   if (!user) return [];
   if (user.role === 'admin') return null;
   const { rows } = await q.query(
-    `SELECT id FROM engagements WHERE access <> 'members' OR id IN (SELECT engagement_id FROM engagement_members WHERE user_id = $1)`, [user.id]);
+    `SELECT id FROM engagements WHERE access <> 'members' OR id IN (SELECT engagement_id FROM engagement_members WHERE user_id = $1)`,
+    [user.id],
+  );
   return rows.map((r: any) => r.id);
 }
 
-export async function canSee(q: Queryable, user: { id: string; role: string } | undefined | null, engagementId: string) {
+export async function canSee(
+  q: Queryable,
+  user: { id: string; role: string } | undefined | null,
+  engagementId: string,
+) {
   const ids = await visibleIds(q, user);
   return ids === null || ids.includes(engagementId);
 }

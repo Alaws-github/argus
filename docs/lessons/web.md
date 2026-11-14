@@ -111,3 +111,8 @@ The `.notice` box lays its children out as a flex column, so a sentence with bol
 ### menus-that-depend-on-modules-must-be-computed `bug`
 The Settings menu was a plain list built once when the app loaded, before the engagement and its modules were known, so Client Workflows stayed hidden until a reload even after the module was switched on. Any menu or list that depends on `app.mod()` (or anything else that changes) must be a `computed`, like REGISTERS and AI_MENU.
 **Enforced by:** none - a browser check that switches the module and opens the Settings menu without reloading (UI only)
+
+### prettier-and-vue-whitespace `bug`
+Prettier may move the space between two tags in a Vue template onto a new line. Vue's default compiler mode (`condense`) removes whitespace that contains a line break, so formatting joined words on the page ("IncidentsRecord", "Lee Lead)It applies"). Prettier's `htmlWhitespaceSensitivity: strict` doesn't help, because it still treats a space and a line break as the same. The web app compiles templates with `whitespace: 'preserve'` (`apps/web/vite.config.ts`), which renders a line break between tags as one space, as HTML does. Found by comparing screenshots of every page before and after formatting. **Why:** a formatter must never change what the page shows.
+**Enforced by:** check vue-whitespace-preserve
+

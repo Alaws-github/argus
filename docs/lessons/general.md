@@ -48,6 +48,10 @@ The connected folder on the owner's machine refuses deletes. Extract archives wi
 UI text, docs and comments use plain English and no em dashes. Menu items, page titles, buttons, badges and the main options on cards use Title Case ("Use Cases", "Knowledge Base", "Needs Your Approval"). A lone "—" as an empty-value placeholder in a table cell is fine.
 **Enforced by:** none - review the text
 
+### follow-the-maintainers-guides `design`
+Code follows `docs/CODING-STANDARDS.md`, which is taken from the guides published by each framework's maintainers (TypeScript, typescript-eslint, the Vue style guide, Express, PostgreSQL, Zod, Prettier). `npm run check` must pass with no ESLint errors before handing over, and new code adds no `any` warnings. A formatting or lint change must not change behaviour: run the suites and compare screenshots of every page before and after. **Why:** the owner wants code a developer can follow, and most of it was written by AI.
+**Enforced by:** test - `npm run check`, and the pre-commit hook (Husky and lint-staged)
+
 ## Keeping things in step
 
 ### every-change-updates-its-records `correction`

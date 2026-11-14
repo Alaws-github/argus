@@ -32,16 +32,29 @@ export const tokenId = (token: string) => createHash('sha256').update(token).dig
 export function toUser(r: any): User {
   const iso = (v: any) => (v instanceof Date ? v.toISOString() : v ? String(v) : null);
   return {
-    id: r.id, email: r.email, name: r.name, role: r.role, disabled: r.disabled, createdAt: iso(r.created_at)!, lastSeenAt: iso(r.last_seen_at),
+    id: r.id,
+    email: r.email,
+    name: r.name,
+    role: r.role,
+    disabled: r.disabled,
+    createdAt: iso(r.created_at)!,
+    lastSeenAt: iso(r.last_seen_at),
     formerNames: r.former_names ?? [],
   };
 }
 
 export async function createSession(q: Queryable, userId: string, req: Request) {
   const token = randomBytes(32).toString('base64url');
-  await q.query(`INSERT INTO sessions (id, user_id, expires_at, ip, user_agent) VALUES ($1,$2, now() + ($3 || ' days')::interval, $4, $5)`, [
-    tokenId(token), userId, String(SESSION_DAYS), req.ip ? req.ip.replace(/^::ffff:/, '') : null, String(req.header('user-agent') ?? '').slice(0, 300),
-  ]);
+  await q.query(
+    `INSERT INTO sessions (id, user_id, expires_at, ip, user_agent) VALUES ($1,$2, now() + ($3 || ' days')::interval, $4, $5)`,
+    [
+      tokenId(token),
+      userId,
+      String(SESSION_DAYS),
+      req.ip ? req.ip.replace(/^::ffff:/, '') : null,
+      String(req.header('user-agent') ?? '').slice(0, 300),
+    ],
+  );
   return token;
 }
 
@@ -100,7 +113,15 @@ declare global {
   }
 }
 
-const PUBLIC = new Set(['/health', '/auth/state', '/auth/login', '/auth/setup', '/auth/sso', '/auth/sso/start', '/auth/sso/callback']);
+const PUBLIC = new Set([
+  '/health',
+  '/auth/state',
+  '/auth/login',
+  '/auth/setup',
+  '/auth/sso',
+  '/auth/sso/start',
+  '/auth/sso/callback',
+]);
 
 // Route-level permissions: the first matching rule decides. Anything not
 // listed needs 'read' for GET and 'prepare' otherwise.
@@ -157,9 +178,15 @@ export function authMiddleware(db: Db) {
       req.user = user;
       if (user.realUser) {
         const store = requestContext.getStore();
-        if (store) { store.realActor = user.realUser.name; store.actingAs = user.name; }
+        if (store) {
+          store.realActor = user.realUser.name;
+          store.actingAs = user.name;
+        }
       }
-      void db.query(`UPDATE users SET last_seen_at = now() WHERE id = $1 AND (last_seen_at IS NULL OR last_seen_at < now() - interval '1 minute')`, [user.id]);
+      void db.query(
+        `UPDATE users SET last_seen_at = now() WHERE id = $1 AND (last_seen_at IS NULL OR last_seen_at < now() - interval '1 minute')`,
+        [user.id],
+      );
       const rule = RULES.find(([m, re]) => (m === '*' || m === req.method) && re.test(req.path));
       const need: Permission = rule ? rule[2] : req.method === 'GET' ? 'read' : 'prepare';
       if (!can(user.role, need)) return res.status(403).json({ error: `Your role (${user.role}) can't do this` });
@@ -171,7 +198,8 @@ export function authMiddleware(db: Db) {
 }
 
 export function requirePerm(req: Request, p: Permission) {
-  if (!can(req.user?.role as Role, p)) throw Object.assign(new Error(`Your role (${req.user?.role}) can't do this`), { status: 403 });
+  if (!can(req.user?.role as Role, p))
+    throw Object.assign(new Error(`Your role (${req.user?.role}) can't do this`), { status: 403 });
 }
 
 // True when a recorded name is this person, under their current name or any

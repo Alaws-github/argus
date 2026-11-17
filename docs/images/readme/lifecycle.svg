@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" fill="none" role="img" aria-label="How a use case moves: agents draft, people decide, the audit trail records">
+<rect width="1280" height="520" rx="18" fill="#0b0d10"/><rect x=".5" y=".5" width="1279" height="519" rx="18" stroke="#232833"/>
+<text x="358.0" y="38" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#a3a9b3" text-anchor="middle" letter-spacing="1">INTAKE</text>
+<text x="554.0" y="38" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#a3a9b3" text-anchor="middle" letter-spacing="1">ASSESS RISK</text>
+<text x="750.0" y="38" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#a3a9b3" text-anchor="middle" letter-spacing="1">CONTROLS</text>
+<text x="946.0" y="38" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#a3a9b3" text-anchor="middle" letter-spacing="1">TEST</text>
+<text x="1142.0" y="38" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#a3a9b3" text-anchor="middle" letter-spacing="1">SIGN-OFF &amp; REPORT</text>
+<rect x="24" y="60" width="1232" height="130" rx="14" fill="#161b2b" opacity=".55"/>
+<text x="48" y="116" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#8b9dff" letter-spacing="2">AI AGENTS</text>
+<text x="48" y="146" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="17" fill="#c9cdd3">draft</text>
+<rect x="268.0" y="82" width="180.0" height="86" rx="10" fill="#12151a" stroke="#8b9dff" stroke-opacity=".5"/>
+<text x="358.0" y="120.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Use Case Planner</text>
+<text x="358.0" y="140.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">drafts the brief</text>
+<rect x="464.0" y="82" width="180.0" height="86" rx="10" fill="#12151a" stroke="#8b9dff" stroke-opacity=".5"/>
+<text x="554.0" y="120.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Risk Classifier drafts</text>
+<text x="554.0" y="140.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">tier and risks</text>
+<rect x="660.0" y="82" width="180.0" height="86" rx="10" fill="#12151a" stroke="#8b9dff" stroke-opacity=".5"/>
+<text x="750.0" y="120.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Control Designer picks</text>
+<text x="750.0" y="140.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">controls</text>
+<rect x="856.0" y="82" width="180.0" height="86" rx="10" fill="#12151a" stroke="#8b9dff" stroke-opacity=".5"/>
+<text x="946.0" y="120.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Evidence Collector and</text>
+<text x="946.0" y="140.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Control Tester draft</text>
+<rect x="1052.0" y="82" width="180.0" height="86" rx="10" fill="#12151a" stroke="#8b9dff" stroke-opacity=".5"/>
+<text x="1142.0" y="120.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Review assistant and</text>
+<text x="1142.0" y="140.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Report Writer draft</text>
+<rect x="24" y="210" width="1232" height="130" rx="14" fill="#142a1b" opacity=".55"/>
+<text x="48" y="266" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#3fb950" letter-spacing="2">PEOPLE</text>
+<text x="48" y="296" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="17" fill="#c9cdd3">decide</text>
+<rect x="268.0" y="232" width="180.0" height="86" rx="10" fill="#12151a" stroke="#3fb950" stroke-opacity=".5"/>
+<text x="358.0" y="280.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Add the use case</text>
+<rect x="464.0" y="232" width="180.0" height="86" rx="10" fill="#12151a" stroke="#3fb950" stroke-opacity=".5"/>
+<text x="554.0" y="270.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Decide each risk,</text>
+<text x="554.0" y="290.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">approve the gate</text>
+<rect x="660.0" y="232" width="180.0" height="86" rx="10" fill="#12151a" stroke="#3fb950" stroke-opacity=".5"/>
+<text x="750.0" y="280.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Approve the design</text>
+<rect x="856.0" y="232" width="180.0" height="86" rx="10" fill="#12151a" stroke="#3fb950" stroke-opacity=".5"/>
+<text x="946.0" y="270.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Conclude tests;</text>
+<text x="946.0" y="290.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">someone else reviews</text>
+<rect x="1052.0" y="232" width="180.0" height="86" rx="10" fill="#12151a" stroke="#3fb950" stroke-opacity=".5"/>
+<text x="1142.0" y="280.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Sign off the report</text>
+<rect x="24" y="360" width="1232" height="130" rx="14" fill="#24170f" opacity=".55"/>
+<text x="48" y="416" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#d0743c" letter-spacing="2">AUDIT TRAIL</text>
+<text x="48" y="446" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="17" fill="#c9cdd3">records</text>
+<rect x="268.0" y="382" width="180.0" height="86" rx="10" fill="#12151a" stroke="#d0743c" stroke-opacity=".5"/>
+<text x="358.0" y="430.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Who, what, when</text>
+<rect x="464.0" y="382" width="180.0" height="86" rx="10" fill="#12151a" stroke="#d0743c" stroke-opacity=".5"/>
+<text x="554.0" y="430.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Hash-chained</text>
+<rect x="660.0" y="382" width="180.0" height="86" rx="10" fill="#12151a" stroke="#d0743c" stroke-opacity=".5"/>
+<text x="750.0" y="430.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Same transaction</text>
+<rect x="856.0" y="382" width="180.0" height="86" rx="10" fill="#12151a" stroke="#d0743c" stroke-opacity=".5"/>
+<text x="946.0" y="430.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Rules version per run</text>
+<rect x="1052.0" y="382" width="180.0" height="86" rx="10" fill="#12151a" stroke="#d0743c" stroke-opacity=".5"/>
+<text x="1142.0" y="430.0" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif" font-size="15" fill="#e6e8eb" text-anchor="middle">Verifiable at any time</text>
+</svg>

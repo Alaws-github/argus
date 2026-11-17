@@ -2,6 +2,10 @@
 
 What changed in each release of ARGUS, newest first. The version shown under Sign Out comes from package.json. Start a new release with `npm run release -- X.Y.Z`.
 
+## Unreleased
+
+- **A new README.** A banner with the ARGUS mark and the five steps, badges, a screenshot gallery, a feature grid, a picture of how agents draft and people decide, a "what an agent can and can never do" table, numbers that can be checked, a sequence diagram of a stage run and a documentation guide. The developer reference (commands, test suites, endpoints, release history) is all still there, with the long tables folded so they open on a click. The banner and diagram are SVG files in `docs/images/readme/`.
+
 ## v1.7.8 (2026-11-14)
 
 The large screens split into smaller components. No change to what the app shows or does: every page, the card drawer on all 18 demo cards, the workflow builder and the assistant were compared with the old version, text and layout, and match.

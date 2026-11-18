@@ -145,6 +145,8 @@ The demo account is an administrator, so it can see and do everything, including
 1. Open the address in your browser. Always use the full **https://** address: the site doesn't keep you signed in over plain http.
 2. If nobody has used the site for a while, the first page can take up to a minute to appear while the server starts. Wait and refresh if you see an error.
 3. Type the email and password and click **Sign in**.
+
+Behind the form, a hundred eyes watch (ARGUS is named after the hundred-eyed watchman of Greek myth). They follow your pointer and blink now and then, look at the form while you type your email, and close while you type your password. It's only decoration: it stays still if your device is set to reduce motion, and on phones.
 4. You land on the **Use Cases** board of the engagement shown at the top left. ARGUS opens in dark mode; you can switch to light in the account menu (section 5.2).
 
 Sessions end after 12 hours without use, or 7 days in all. Then you sign in again.

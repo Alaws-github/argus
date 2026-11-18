@@ -8,5 +8,6 @@ Signing in, and single sign-on settings.
 
 - `SignIn.vue`: First run: create the first admin.
 - `SsoSettings.vue`: Single sign-on set-up (admins).
+- `WatchingEyes.vue`: The sign-in background: up to a hundred eye-spots, after Argus the hundred-eyed watchman and the copper eye-spots in the ARGUS mark.
 
 The server side is in [`apps/server/src/auth`](../../../../server/src/auth/README.md).

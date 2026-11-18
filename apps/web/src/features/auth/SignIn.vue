@@ -1,7 +1,8 @@
 <script setup lang="ts">
+// First run: create the first admin. After that: sign in. Behind the form, the watching eyes (WatchingEyes.vue).
 import ArgusLogo from '../../components/ArgusLogo.vue';
-// First run: create the first admin. After that: sign in.
-import { onMounted, ref } from 'vue';
+import WatchingEyes from './WatchingEyes.vue';
+import { computed, onMounted, ref } from 'vue';
 import { api } from '../../api';
 import { useApp } from '../../stores/app';
 
@@ -11,6 +12,12 @@ const email = ref('');
 const password = ref('');
 const busy = ref(false);
 const error = ref('');
+// Which field has focus, for the eyes: they look at the form while you type your name or email,
+// and close while you type your password.
+const focused = ref<'text' | 'password' | null>(null);
+const eyesMode = computed(() =>
+  focused.value === 'password' ? 'closed' : focused.value === 'text' ? 'form' : 'watch',
+);
 // Single sign-on, when an admin has set it up. Errors come back in the address.
 const sso = ref<{ enabled: boolean; label: string } | null>(null);
 onMounted(async () => {
@@ -44,7 +51,8 @@ async function submit() {
 
 <template>
   <main class="signin">
-    <form class="card signin-card" @submit.prevent="submit">
+    <WatchingEyes :mode="eyesMode" />
+    <form class="card signin-card" @submit.prevent="submit" @focusout="focused = null">
       <div class="row signin-brand"
         ><ArgusLogo :size="34" /><div
           ><strong>Sign in to ARGUS</strong
@@ -62,10 +70,12 @@ async function submit() {
         </p>
       </div>
       <label v-if="app.needsSetup" class="field"
-        ><span>Full name</span><input v-model="name" class="input" autocomplete="name" required minlength="2"
+        ><span>Full name</span
+        ><input v-model="name" class="input" autocomplete="name" required minlength="2" @focus="focused = 'text'"
       /></label>
       <label class="field"
-        ><span>Email</span><input v-model="email" class="input" type="email" autocomplete="username" required
+        ><span>Email</span
+        ><input v-model="email" class="input" type="email" autocomplete="username" required @focus="focused = 'text'"
       /></label>
       <label class="field">
         <span>Password</span>
@@ -76,6 +86,7 @@ async function submit() {
           :autocomplete="app.needsSetup ? 'new-password' : 'current-password'"
           required
           :minlength="app.needsSetup ? 10 : 1"
+          @focus="focused = 'password'"
         />
         <span v-if="app.needsSetup" class="hint">At least 10 characters.</span>
       </label>

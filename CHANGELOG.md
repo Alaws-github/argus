@@ -5,7 +5,7 @@ What changed in each release of ARGUS, newest first. The version shown under Sig
 ## Unreleased
 
 - **A new README.** A banner with the ARGUS mark and the five steps, badges, a screenshot gallery, a feature grid, a picture of how agents draft and people decide, a "what an agent can and can never do" table, numbers that can be checked, a sequence diagram of a stage run and a documentation guide. The developer reference (commands, test suites, endpoints, release history) is all still there, with the long tables folded so they open on a click. The banner and diagram are SVG files in `docs/images/readme/`.
-- **Watching eyes on the sign-in page.** Up to a hundred copper eye-spots, after Argus the hundred-eyed watchman and the eye-spots in the ARGUS mark. They follow the pointer and blink, look at the form while you type your email, and close in a wave while you type your password. Decoration only (`features/auth/WatchingEyes.vue`): hidden from screen readers, never takes a click, matches dark and light, a still picture with reduce motion or on touch screens, and stops drawing while the tab is hidden.
+- **A constellation behind the sign-in form.** Points stand for records (use cases, risks, controls, tests and evidence, each in its theme colour), drifting slowly and joined by thin lines like the traceability chain. Points near the pointer gather round it and the nearest few show their keys ("R-5", "C-12"). Decoration only (`features/auth/ControlConstellation.vue`): hidden from screen readers, never takes a click, matches dark and light, a still picture with reduce motion or on touch screens, and stops drawing while the tab is hidden.
 
 ## v1.7.8 (2026-11-14)
 

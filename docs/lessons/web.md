@@ -43,7 +43,7 @@ The dot before statuses that need a person (Needs Your Approval, You Triage, Run
 ## UI and UX
 
 ### decorative-motion-stays-out-of-the-way `design`
-Moving decoration, like the watching eyes behind the sign-in form (v1.7.8 follow-up), must never compete with the task. Keep it low contrast and out from under the form, mark it `aria-hidden` with `pointer-events: none`, draw a still picture when `prefers-reduced-motion` is set or the pointer is coarse (touch), stop the animation loop while `document.hidden`, take its colours from the theme tokens and redraw when the theme changes, and check it in dark and light at desktop and phone widths with no console errors. **Why:** the owner wanted a creative sign-in page, and a background that distracts, drains a laptop battery or ignores accessibility settings would undo that.
+Moving decoration, like the constellation behind the sign-in form (after v1.7.8; the owner tried and turned down watching eyes first), must never compete with the task. Keep it low contrast and out from under the form, mark it `aria-hidden` with `pointer-events: none`, pull points towards a ring round the pointer rather than onto it and keep labels from overlapping, draw a still picture when `prefers-reduced-motion` is set or the pointer is coarse (touch), stop the animation loop while `document.hidden`, take its colours from the theme tokens and redraw when the theme changes, and check it in dark and light at desktop and phone widths with no console errors. **Why:** the owner wanted a creative sign-in page, and a background that distracts, drains a laptop battery or ignores accessibility settings would undo that.
 **Enforced by:** none - browser check (AGENTS.md)
 
 ### ui-ux-is-a-first-class-requirement `correction`

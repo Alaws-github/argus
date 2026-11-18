@@ -1,6 +1,7 @@
 <script setup lang="ts">
+// First run: create the first admin. After that: sign in. Behind the form, the constellation of records (ControlConstellation.vue).
 import ArgusLogo from '../../components/ArgusLogo.vue';
-// First run: create the first admin. After that: sign in.
+import ControlConstellation from './ControlConstellation.vue';
 import { onMounted, ref } from 'vue';
 import { api } from '../../api';
 import { useApp } from '../../stores/app';
@@ -44,6 +45,7 @@ async function submit() {
 
 <template>
   <main class="signin">
+    <ControlConstellation />
     <form class="card signin-card" @submit.prevent="submit">
       <div class="row signin-brand"
         ><ArgusLogo :size="34" /><div

@@ -294,8 +294,8 @@ tbody tr:hover { background: var(--hover); }
 .hint-inline { margin-left: 6px; }
 
 /* v0.3: sign-in, menus, assurance pages */
-.signin { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
-.signin-card { width: min(400px, 100%); }
+.signin { min-height: 100vh; display: grid; place-items: center; padding: 16px; position: relative; overflow: hidden; }
+.signin-card { width: min(400px, 100%); position: relative; z-index: 1; }
 .menu-host { position: relative; display: inline-flex; }
 .nav-more { background: none; border: 0; color: var(--muted); padding: 6px 10px; border-radius: var(--radius); font: inherit; font-weight: 500; cursor: pointer; white-space: nowrap; }
 .nav-more:hover, .nav-more.router-link-active { color: var(--text); background: var(--hover); }

@@ -6,6 +6,7 @@ Signing in, and single sign-on settings.
 
 ## Files
 
+- `ControlConstellation.vue`: The sign-in background: a slowly drifting constellation of records (use cases, risks, controls, tests and evidence) joined by thin lines, like the traceability chain ARGUS keeps.
 - `SignIn.vue`: First run: create the first admin.
 - `SsoSettings.vue`: Single sign-on set-up (admins).
 

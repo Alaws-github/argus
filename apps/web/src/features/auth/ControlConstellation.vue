@@ -16,12 +16,20 @@ const KINDS = [
   { prefix: 'E', token: '--ok' },
 ] as const;
 
-/** One point: where it is, how it drifts, and how strongly its label shows right now. */
+/**
+ * One point. Each circles slowly round its own anchor, and the anchors are spread evenly over the window, so
+ * the points never bunch up. The pointer only nudges a point off its path (ox, oy), and it springs back.
+ */
 interface Point {
   x: number;
   y: number;
-  vx: number;
-  vy: number;
+  ax: number; // anchor
+  ay: number;
+  orbit: number; // radius of its slow circle round the anchor
+  angle: number;
+  spin: number; // radians per frame, either way round
+  ox: number; // the pointer's nudge
+  oy: number;
   r: number;
   kind: number;
   label: string;
@@ -39,12 +47,12 @@ let colors = { line: '#4a5699', text: '#a3a9b3', kinds: KINDS.map(() => '#8b9dff
 const still =
   window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.matchMedia('(pointer: coarse)').matches;
 
-const LINK = 130; // points closer than this are joined
-const REACH = 180; // the pointer pulls points within this distance
-const RING = 80; // the distance from the pointer that pulled points settle at
+const LINK = 120; // points closer than this are joined
+const REACH = 200; // the pointer pulls points within this distance
+const NUDGE = 34; // how far, at most, the pointer draws a point towards it
 const LABELS = 5; // keys shown on the points nearest the pointer
 const LABEL_GAP = 34; // keys closer together than this are skipped, so they never overlap
-const MAX_POINTS = 110;
+const MAX_POINTS = 170;
 
 /** Reads the theme's colours, so the constellation matches dark and light mode. */
 function readColors() {
@@ -57,24 +65,35 @@ function readColors() {
   };
 }
 
-/** Scatters the points across the window, numbering each kind's keys from 1 like real records. */
+/** Spreads the anchors evenly on a jittered grid over the window, numbering each kind's keys from 1 like real records. */
 function placePoints() {
-  const count = Math.min(MAX_POINTS, Math.round((width * height) / 14000));
+  const cell = Math.max(64, Math.sqrt((width * height) / MAX_POINTS));
   const next = KINDS.map(() => 1);
-  points = Array.from({ length: count }, () => {
-    const kind = Math.floor(Math.random() * KINDS.length);
-    const n = KINDS[kind].prefix === 'C' ? next[2]++ : next[kind]++;
-    return {
-      x: Math.random() * width,
-      y: Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.25,
-      vy: (Math.random() - 0.5) * 0.25,
-      r: 1.6 + Math.random() * 1.8,
-      kind,
-      label: `${KINDS[kind].prefix}-${n}`,
-      show: 0,
-    };
-  });
+  points = [];
+  for (let y = cell / 2; y < height + cell / 2; y += cell) {
+    for (let x = cell / 2; x < width + cell / 2; x += cell) {
+      if (Math.random() < 0.12) continue; // a few gaps, so it doesn't look like a grid
+      const kind = Math.floor(Math.random() * KINDS.length);
+      const n = KINDS[kind].prefix === 'C' ? next[2]++ : next[kind]++;
+      const ax = x + (Math.random() - 0.5) * cell * 0.8;
+      const ay = y + (Math.random() - 0.5) * cell * 0.8;
+      points.push({
+        x: ax,
+        y: ay,
+        ax,
+        ay,
+        orbit: 8 + Math.random() * cell * 0.3,
+        angle: Math.random() * Math.PI * 2,
+        spin: (Math.random() < 0.5 ? -1 : 1) * (0.0012 + Math.random() * 0.0025),
+        ox: 0,
+        oy: 0,
+        r: 1.6 + Math.random() * 1.8,
+        kind,
+        label: `${KINDS[kind].prefix}-${n}`,
+        show: 0,
+      });
+    }
+  }
 }
 
 /** Sizes the canvas to the window at the screen's pixel density, then places the points again. */
@@ -92,38 +111,28 @@ function resize() {
   if (still) draw();
 }
 
-/** Moves each point along its drift, bouncing off the edges, and pulls the ones near the pointer towards it. */
+/** Moves each point round its anchor, and nudges the ones near the pointer towards it (they spring back after). */
 function move() {
   for (const p of points) {
+    p.angle += p.spin;
+    const px = p.ax + Math.cos(p.angle) * p.orbit;
+    const py = p.ay + Math.sin(p.angle) * p.orbit;
+    let tx = 0;
+    let ty = 0;
     if (pointer) {
-      const dx = pointer.x - p.x;
-      const dy = pointer.y - p.y;
+      const dx = pointer.x - px;
+      const dy = pointer.y - py;
       const d = Math.hypot(dx, dy);
       if (d < REACH && d > 1) {
-        // Drawn towards a ring round the pointer, not onto it, so the points spread out instead of piling up.
-        const accel = (d - RING) * 0.00025;
-        p.vx += (dx / d) * accel;
-        p.vy += (dy / d) * accel;
+        const k = (1 - d / REACH) * NUDGE;
+        tx = (dx / d) * k;
+        ty = (dy / d) * k;
       }
     }
-    // Damp back towards a gentle drift so pulled points don't fly off.
-    const speed = Math.hypot(p.vx, p.vy);
-    if (speed > 0.6) {
-      p.vx *= 0.6 / speed;
-      p.vy *= 0.6 / speed;
-    }
-    p.vx *= 0.995;
-    p.vy *= 0.995;
-    if (speed < 0.05) {
-      p.vx += (Math.random() - 0.5) * 0.02;
-      p.vy += (Math.random() - 0.5) * 0.02;
-    }
-    p.x += p.vx;
-    p.y += p.vy;
-    if (p.x < 0 || p.x > width) p.vx *= -1;
-    if (p.y < 0 || p.y > height) p.vy *= -1;
-    p.x = Math.min(width, Math.max(0, p.x));
-    p.y = Math.min(height, Math.max(0, p.y));
+    p.ox += (tx - p.ox) * 0.08;
+    p.oy += (ty - p.oy) * 0.08;
+    p.x = px + p.ox;
+    p.y = py + p.oy;
   }
 }
 
